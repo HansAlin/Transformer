@@ -8,3 +8,6 @@ import torch
 from torch import nn, Tensor
 from torch.nn import TransformerEncoder, TransformerEncoderLayer
 from torch.utils.data import dataset
+
+x = torch.rand(10, 32, 512)
+print(x.shape)

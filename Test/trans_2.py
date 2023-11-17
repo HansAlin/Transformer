@@ -11,3 +11,6 @@ from torch.utils.data import dataset
 
 x = torch.rand(10, 32, 512)
 print(x.shape)
+import os
+print(os.getcwd())
+print(os.__file__)

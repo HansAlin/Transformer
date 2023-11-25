@@ -5,9 +5,14 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 import matplotlib.pyplot as plt
+import os
+myhost = os.uname()[1]
 
-
-
+print("Host name: ", myhost)
+if myhost == 'LAPTOP-9FBI5S57':
+    PATH = '/home/hansalin/Code/Transformer/'
+else:
+  PATH = '/home/halin/Master/Transformer/Test/test_data/test_data.npy'
 
 device = None
 # device = (
@@ -24,9 +29,11 @@ def prepare_data(**kwarg):
   for arg in kwarg:
     if arg == 'batch_size':
       batch_size = kwarg.get('batch_size')
+    if arg == 'PATH':
+      PATH = kwarg.get('PATH') + 'Test/test_data/test_data.npy'  
 
-
-  with open('/home/halin/Master/Transformer/Test/test_data/test_data.npy', 'rb') as f:
+    
+  with open(PATH, 'rb') as f:
 
     x_train = np.load(f)
     x_test = np.load(f)
@@ -50,7 +57,7 @@ def prepare_data(**kwarg):
 
   return train_loader, test_loader
 
-train_loader, test_loader = prepare_data(batch_size=64)
+train_loader, test_loader = prepare_data(batch_size=64, PATH=PATH)
 print()
 
 class PositionalEncoding(nn.Module):
@@ -100,7 +107,7 @@ optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 # TODO try to understand ReduceLROnPlateau
 scheduler = ReduceLROnPlateau(optimizer, 'min', factor=0.5, patience=3, verbose=True)
 
-epochs = 10
+epochs = 2
 early_stop_count = 0
 min_val_loss = float('inf')  # TODO ????
 val_losses = []
@@ -152,12 +159,13 @@ for epoch in range(epochs):
   train_losses.append(train_loss)
   val_losses.append(val_loss)
 
-plt.plot(range(epochs), train_losses)  
+train_length = range(len(train_losses))
+plt.plot(train_length, train_losses)  
+plt.savefig(PATH + 'Test/Models/test_loss_plot.png')
 plt.show() 
 
-PATH = '/home/halin/Autoencoder/Code/Test/TestModels/'
-with open(PATH + 'test.npy', 'wb') as f:
-  np.save(f, np.arange(epochs))
+with open(PATH + 'Test/Models/test_train_data.npy', 'wb') as f:
+  np.save(f, np.array(train_length))
   np.save(f, np.array(train_losses))
   np.save(f, np.array(val_losses))
   

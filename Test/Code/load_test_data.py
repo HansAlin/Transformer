@@ -1,6 +1,6 @@
 import numpy as np
 
-def load_label_data(data_path='/home/halin/Autoencoder/Data/', train_size=1000, save_path='/home/halin/Master/Transformer/Test/test_data/test_data.npy'):
+def load_test_data(data_path='/home/halin/Autoencoder/Data/', train_size=1000, save_path='/home/halin/Master/Transformer/Test/test_data/test_data.npy'):
   """
     This function loads data from ARIANNA group, downloaded localy
     Args:
@@ -38,7 +38,7 @@ def load_label_data(data_path='/home/halin/Autoencoder/Data/', train_size=1000, 
     np.save(f, y_train)
     np.save(f, y_test)
 
-load_label_data(train_size=1000)
+load_test_data(train_size=1000)
 
   
 

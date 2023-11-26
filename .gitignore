@@ -162,6 +162,7 @@ cython_debug/
 # Other files
 *.sh
 *.png
+*.json
 
 # Other folders
 MNIST/

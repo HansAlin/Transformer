@@ -21,24 +21,24 @@ def load_label_data(data_path='/home/halin/Autoencoder/Data/', train_size=1000, 
   y = np.ones(len(x))
   y[:len(noise)] = 0
 
-
-  shuffle = np.arange(x.shape[0], dtype=np.int)
+  test_size = int(np.floor(train_size*0.1/0.9))
+  shuffle = np.arange(x.shape[0], dtype=np.int64)
   np.random.shuffle(shuffle)
   x = x[shuffle]
   y = y[shuffle]
-  y = np.expand_dims(y, axis=-1)
+  #y = np.expand_dims(y, axis=-1)
   x_train = x[:(train_size)]
   y_train = y[:(train_size)]
-  x_test = x[train_size:(train_size + 100)]
-  y_test = y[train_size:(train_size + 100)]
+  x_test = x[train_size:(train_size + test_size)]
+  y_test = y[train_size:(train_size + test_size)]
 
-  with open('/home/halin/Master/Transformer/Test/test_data/test_data.npy', 'wb') as f:
+  with open(save_path, 'wb') as f:
     np.save(f, x_train)
     np.save(f, x_test)
     np.save(f, y_train)
     np.save(f, y_test)
 
-load_label_data()
+load_label_data(train_size=100000)
 
   
 

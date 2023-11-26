@@ -159,7 +159,7 @@ for epoch in range(epochs):
   train_losses.append(train_loss)
   val_losses.append(val_loss)
 
-train_length = range(len(train_losses))
+train_length = range(len(train_losses))s
 plt.plot(train_length, train_losses)  
 plt.savefig(PATH + 'Test/Models/test_loss_plot.png')
 plt.show() 

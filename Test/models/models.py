@@ -35,17 +35,25 @@ class TransformerModel(nn.Module):
     encoder_layer = nn.TransformerEncoderLayer(d_model=d_model, nhead=nhead)
     # TODO should it be a activation function here?
     self.transformer = nn.TransformerEncoder(encoder_layer=encoder_layer, num_layers=num_layers)
-    self.fcc = nn.Linear(d_model, 1)
-    print()
+    self.fcc = nn.Linear(d_model*input_dim, 1)
+    print(f"From model set up: {d_model*input_dim}")
 
 
   def forward(self, x):
+    # Input shape: torch.Size([batch_size, 100, 1])
     print(f"Input shape: {x.shape}")
     x = self.encoder(x)
+    # Shape: torch.Size([batch_size, 100, 128])
     x = self.pos_encoder(x)
+    # Shape: torch.Size([batch_size, 100, 128])
     x = self.transformer(x)
+    # Shape: torch.Size([batch_size, 100, 128])
     print(f"Shape: {x.shape}")
-    print(f"Shape: {x[:, -1, :].shape}")
-    x = self.fcc(x[:, -1, :])
+    x = x.reshape(x.shape[0], x.shape[1]*x.shape[2])
+    print(f"Shape after reshape: {x.shape}")
+    # Shape: torch.Size([batch_size, 128])
+    x = self.fcc(x)
+    # Shape: torch.Size([batch_size, 1])
     y_pred = torch.sigmoid(x)
+    # Output shape: torch.Size([batch_size, 1])
     return y_pred

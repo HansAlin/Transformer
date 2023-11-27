@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 import os
-
+import matplotlib.pyplot as plt
 
 def training(model,
           train_loader,
@@ -77,8 +77,34 @@ def save_data(trained_model, path='', model_number=999):
   if path == '':
     path = os.getcwd + f'/Test/ModelsResults/model_{model_number}/'
 
-  with open(PATH + 'Test/Models/test_train_data.npy', 'wb') as f:
-  np.save(f, np.array(train_length))
-  np.save(f, np.array(train_losses))
-  np.save(f, np.array(val_losses))
-  np.save(f, np.array(val_accs))  
+  # TODO have to save the model as well!!
+  torch.save(trained_model[0].state_dict(), path)
+
+  with open(path + 'training_values', 'wb') as f:
+    np.save(f, np.array(trained_model[1]))
+    np.save(f, np.array(trained_model[2]))
+    np.save(f, np.array(trained_model[3]))
+    np.save(f, np.array(trained_model[4]))  
+
+def plot_results(model_number, path=''):
+  if path == '':
+    path = os.getcwd + f'/Test/ModelsResults/model_{model_number}/'
+
+  with open(path + 'training_values.npy', 'rb') as f:
+    epochs = np.load(f)
+    train_loss = np.load(f)
+    val_loss = np.load(f)
+    val_acc = np.load(f)
+
+  # Loss plot 
+  loss_path = path + f'model_{model_number}_loss_plot.png'
+  plt.plot(epochs, train_loss, label='Training') 
+  plt.plot(epochs, val_loss, label='Validation')
+  plt.legend()
+  plt.savefig(loss_path)
+
+  # Accuracy plot
+  acc_path = path + f'model_{model_number}_acc_plot.png'
+  plt.plot(epochs, val_acc, label='Accuracy')
+  plt.legend()
+  plt.savefig(acc_path)  

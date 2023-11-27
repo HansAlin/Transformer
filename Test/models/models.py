@@ -20,6 +20,7 @@ class PositionalEncoding(nn.Module):
     # add dimensions and transpose TODO understand the dimensions
     pe = pe.unsqueeze(0).transpose(0,1)
     # This I don't understand
+    # should be for that the values should be included in the model but not be trainable
     self.register_buffer('pe', pe)
 
   def forward(self, x):

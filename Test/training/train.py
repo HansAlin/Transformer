@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 import os
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 
 def training(model,
           train_loader,

@@ -31,7 +31,8 @@ def training(model,
       if device != None:
         x_batch, y_batch = x_batch.to(device), y_batch.to(device)
       optimizer.zero_grad()
-      outputs = model(x_batch)
+      # Only for umar_jamil.py
+      outputs = model.encode(x_batch)
       loss = criterion(outputs, y_batch)
       train_loss.append(loss.item()) 
       loss.backward()

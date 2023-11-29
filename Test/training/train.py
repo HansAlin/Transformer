@@ -32,7 +32,8 @@ def training(model,
         x_batch, y_batch = x_batch.to(device), y_batch.to(device)
       optimizer.zero_grad()
       # Only for umar_jamil.py
-      outputs = model.encode(x_batch)
+      src_mask = torch.ones(100,1)
+      outputs = model.encode(x_batch, src_mask)
       loss = criterion(outputs, y_batch)
       train_loss.append(loss.item()) 
       loss.backward()
@@ -50,7 +51,7 @@ def training(model,
         x_batch, y_batch = batch
         if device != None:
           x_batch, y_batch = x_batch.to(device), y_batch.to(device)
-        outputs = model(x_batch)
+        outputs = model.encode(x_batch)
         loss = criterion(outputs, y_batch)
         val_loss.append(loss.item())   
 

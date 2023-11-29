@@ -20,10 +20,12 @@ class TimeInputEmbeddings(nn.Module):
     super().__init__()
     self.d_model = d_model
     self.embed_dim = embed_dim
-    self.embedding = nn.Embedding(embed_dim, d_model)
+    # self.embedding = nn.Linear(d_model,embed_dim)
 
   def forward(self, x):
-    x = self.embedding(x) * math.sqrt(self.d_model)
+    # x = self.embedding(x)
+    # x = x *  math.sqrt(self.d_model)
+    
     return x  
 
 class PositionalEncoding(nn.Module):
@@ -72,13 +74,17 @@ class LayerNormalization(nn.Module):
     self.eps = eps
     self.alpha = nn.Parameter(torch.ones(1))
     self.bias = nn.Parameter(torch.zeros(0))
+    self.norm = nn.LayerNorm((32,100,512))
 
   def forward(self, x):
     # keepdim=True will keep the mean and std dimension
     # same as the input tensor.
-    mean = x.mean(-1, keepdim=True)
-    std = x.std(-1, keepdim=True)
-    return self.alpha * (x - mean) / (std + self.eps) + self.bias
+    # TODO dont understand why my costum norm does not work
+    # mean = x.mean(-1, keepdim=True)
+    # std = x.std(-1, keepdim=True)
+    # self.alpha * (x - mean) / (std + self.eps) + self.bias
+    x = self.norm(x)
+    return x
 
 class FeedForwardBlock(nn.Module):
 
@@ -218,7 +224,7 @@ class EncoderBlock(nn.Module):
     self.residual_2 = ResidualConnection(dropout)
 
   def forward(self, x, src_mask):
-    x = self.residual_1(x, lambda x: self.attention_block(x, x, x, src_mask))
+    x = self.residual_1(x, lambda x: self.self_attention_block(x, x, x, src_mask))
     # Is this the same as:
     # y = self.attention_block(x, x, x, src_mask)
     # x = self.residual_1(x, y) ?
@@ -313,7 +319,7 @@ class Transformer(nn.Module):
   
 class EncoderTransformer(nn.Module):
   def __init__(self, encoder: Encoder, 
-               src_embed: InputEmbeddings, 
+               src_embed: TimeInputEmbeddings, 
                src_pos: PositionalEncoding,
                final_block: FinalBinaryBlock) -> None:
     super().__init__()
@@ -390,7 +396,7 @@ def build_encoder_transformer(embed_size: int,
                       dropout: float = 0.1,
                       d_ff: int = 2048) -> EncoderTransformer:
   # Create the input embeddings
-  src_embed = InputEmbeddings(d_model, embed_size)
+  src_embed = TimeInputEmbeddings(d_model, embed_size)
  
   # Create the positional encodings
   src_pos = PositionalEncoding(d_model=d_model, dropout=dropout, seq_len=seq_len)

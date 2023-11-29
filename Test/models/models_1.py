@@ -342,11 +342,10 @@ class EncoderTransformer(nn.Module):
     # (b,seq_len,1)
     src = self.src_pos(src)
     
-    if src.shape == 'torch.Size([32, 100, 512])':
-      print(src.shape)
+   
     # (b,1) !!!!! TODO does not seem right
     src = self.encoder(src, src_mask)
-    print(src.shape)
+
     src = self.final_block(src)
     return src
 

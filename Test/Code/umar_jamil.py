@@ -23,12 +23,6 @@ import os
 myhost = os.uname()[1]
 
 print("Host name: ", myhost)
-if myhost == 'LAPTOP-9FBI5S57':
-    PATH = '/home/hansalin/Code/Transformer'
-    import matplotlib.pyplot as plt
-    sys.path.append('/home/hansalin/Code/Transformer/Test/')
-else:
-  PATH = '/home/halin/Master/Transformer'
 
 import dataHandler.datahandler as dh
 import models.models_1 as md
@@ -45,7 +39,7 @@ device = (
 print(f"Using device: {device}")
 
 
-x_train, x_test, y_train, y_test = dh.get_test_data()
+x_train, x_test, y_train, y_test = dh.get_test_data(path='/home/halin/Master/Transformer/Test/data/test_data.npy')
 train_loader, test_loader = dh.prepare_data(x_train, x_test, y_train, y_test, 32)
 
 model = md.build_encoder_transformer(embed_size=64,
@@ -53,18 +47,12 @@ model = md.build_encoder_transformer(embed_size=64,
                                       d_model=64,
                                       N=1,
                                       h=1,
-                                      dropout=0.1).to(device)
+                                      dropout=0.1)
 print(model)
-criterion = nn.BCELoss().to(device)
-optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
-trained_model = tr.training(model, 
-                            train_loader, 
-                            test_loader, 
-                            device, 
-                            optimizer, 
-                            criterion,
-                            epochs=10)
+config = {}
+trained_model = tr.training(model, config)
+                            
 tr.save_data(trained_model=trained_model)
 
 tr.plot_results(999)

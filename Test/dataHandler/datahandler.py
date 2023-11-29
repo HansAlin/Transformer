@@ -57,11 +57,12 @@ def get_test_data(path=''):
   """
   if path == '':
     path = os.getcwd()
+    path = path + '/Test/data/test_data.npy' 
 
-  PATH = path + '/Test/data/test_data.npy'  
+   
 
     
-  with open(PATH, 'rb') as f:
+  with open(path, 'rb') as f:
     x_train = np.load(f)
     x_test = np.load(f)
     y_train = np.load(f)

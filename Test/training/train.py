@@ -3,21 +3,13 @@ import torch
 import os
 import matplotlib.pyplot as plt
 
-def training(model,
-          train_loader,
-          test_loader,
-          device,
-          optimizer,
-          criterion,
-          
-          epochs = 100,
-          early_stop_count = 0,
-          min_val_loss = float('inf'),
-        ):
-  val_losses = []
-  train_losses = []
-  val_accs = []
-
+def training(model, config):
+  device = torch.device("cuda" if torch.cuda.is_available() else "cpu")           
+  print(f"Using device: {device}")
+  model = model.to(device)
+  criterion = nn.BCELoss().to(device)
+  optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+  print(test)
   for epoch in range(epochs):
     # set the model in training mode
     model.train()

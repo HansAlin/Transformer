@@ -1,12 +1,12 @@
 from os.path import dirname, abspath, join
 import sys
-import numpy as np
-from sklearn.preprocessing import StandardScaler
+#import numpy as np
+#from sklearn.preprocessing import StandardScaler
 import torch 
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-
+import matplotlib.pyplot as plt
 from os.path import dirname, abspath, join
 import sys
 
@@ -30,7 +30,7 @@ if myhost == 'LAPTOP-9FBI5S57':
 else:
   PATH = '/home/halin/Master/Transformer'
 
-import dataHandler.handler as dh
+import dataHandler.datahandler as dh
 import models.models_1 as md
 import training.train as tr
 
@@ -50,11 +50,11 @@ train_loader, test_loader = dh.prepare_data(x_train, x_test, y_train, y_test, 32
 
 model = md.build_encoder_transformer(embed_size=64,
                                       seq_len=100,
-                                      d_model=512,
-                                      N=6,
-                                      h=8,
+                                      d_model=64,
+                                      N=1,
+                                      h=1,
                                       dropout=0.1).to(device)
-
+print(model)
 criterion = nn.BCELoss().to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
@@ -64,5 +64,7 @@ trained_model = tr.training(model,
                             device, 
                             optimizer, 
                             criterion,
-                            epochs=2)
-tr.save_data()
+                            epochs=10)
+tr.save_data(trained_model=trained_model)
+
+tr.plot_results(999)

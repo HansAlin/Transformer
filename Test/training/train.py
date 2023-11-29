@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 import os
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
 def training(model,
           train_loader,
@@ -32,7 +32,7 @@ def training(model,
         x_batch, y_batch = x_batch.to(device), y_batch.to(device)
       optimizer.zero_grad()
       # Only for umar_jamil.py
-      src_mask = torch.ones(100,1)
+      src_mask = torch.ones(100,1).to(device)
       outputs = model.encode(x_batch, src_mask)
       loss = criterion(outputs, y_batch)
       train_loss.append(loss.item()) 
@@ -51,7 +51,7 @@ def training(model,
         x_batch, y_batch = batch
         if device != None:
           x_batch, y_batch = x_batch.to(device), y_batch.to(device)
-        outputs = model.encode(x_batch)
+        outputs = model.encode(x_batch,src_mask)
         loss = criterion(outputs, y_batch)
         val_loss.append(loss.item())   
 
@@ -77,12 +77,18 @@ def training(model,
 
 def save_data(trained_model, path='', model_number=999):
   if path == '':
-    path = os.getcwd + f'/Test/ModelsResults/model_{model_number}/'
+    path = os.getcwd() 
+    path += f'/Test/ModelsResults/model_{model_number}/' 
+
+    isExist = os.path.exists(path)
+    if not isExist:
+      os.makedirs(path)
+      print("The new directory is created!")
 
   # TODO have to save the model as well!!
-  torch.save(trained_model[0].state_dict(), path)
+  torch.save(trained_model[0].state_dict(), path + f'model_{model_number}.pth')
 
-  with open(path + 'training_values', 'wb') as f:
+  with open(path + 'training_values.npy', 'wb') as f:
     np.save(f, np.array(trained_model[1]))
     np.save(f, np.array(trained_model[2]))
     np.save(f, np.array(trained_model[3]))
@@ -90,7 +96,7 @@ def save_data(trained_model, path='', model_number=999):
 
 def plot_results(model_number, path=''):
   if path == '':
-    path = os.getcwd + f'/Test/ModelsResults/model_{model_number}/'
+    path = os.getcwd() + f'/Test/ModelsResults/model_{model_number}/'
 
   with open(path + 'training_values.npy', 'rb') as f:
     epochs = np.load(f)

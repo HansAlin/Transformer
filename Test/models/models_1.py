@@ -2,17 +2,54 @@ import torch
 import torch.nn as nn
 import math
 
+
+
+class LayerNormalization(nn.Module):
+  def __init__(self, eps: float = 1e-6) -> None:
+    super().__init__()
+    self.eps = eps
+    self.alpha = nn.Parameter(torch.ones(1))
+    self.bias = nn.Parameter(torch.zeros(0))
+  
+
+  def forward(self, x):
+    # keepdim=True will keep the mean and std dimension
+    # same as the input tensor.
+    # TODO dont understand why my costum norm does not work
+    # x: (b, seq_len, d_model)
+    # mean = x.mean(dim = -1, keepdim=True)
+    # std = x.std(dim = -1, keepdim=True)
+    # x = self.alpha * (x - mean) / (std + self.eps) + self.bias
+
+    # (B, seq_len, d_model)
+    return x
+
+class FeedForwardBlock(nn.Module):
+
+  def __init__(self, d_model: int, d_ff: int, dropout: float = 0.1):
+    # d_ff is the hidden layer size
+    super().__init__()
+    self.linear_1 = nn.Linear(d_model, d_ff) # W1 and bias
+    self.dropout = nn.Dropout(dropout)
+    self.linear_2 = nn.Linear(d_ff, d_model) # W2 and bias
+
+  def forward(self, x):
+    # (batch_size, seq_len, d_model) --> (batch_size, seq_len, d_ff) --> (batch_size, seq_len, d_model)
+    return self.linear_2(self.dropout(torch.relu(self.linear_1(x))))
+
+
 class InputEmbeddings(nn.Module):
 
   def __init__(self, d_model: int, vocab_size: int) -> None:
-    super().__init__()
-    self.d_model = d_model
-    self.vocab_size = vocab_size
-    self.embedding = nn.Embedding(vocab_size,d_model)
+      super().__init__()
+      self.d_model = d_model
+      self.vocab_size = vocab_size
+      self.embedding = nn.Embedding(vocab_size, d_model)
 
   def forward(self, x):
-      x = self.embedding(x) * math.sqrt(self.d_model)
-      return x
+      # (batch, seq_len) --> (batch, seq_len, d_model)
+      # Multiply by sqrt(d_model) to scale the embeddings according to the paper
+      return self.embedding(x) * math.sqrt(self.d_model)
 
 class TimeInputEmbeddings(nn.Module):
 
@@ -25,7 +62,7 @@ class TimeInputEmbeddings(nn.Module):
   def forward(self, x):
     # x = self.embedding(x)
     # x = x *  math.sqrt(self.d_model)
-    
+    # (B, seq_len, 1)
     return x  
 
 class PositionalEncoding(nn.Module):
@@ -65,43 +102,11 @@ class PositionalEncoding(nn.Module):
     # for sentences previous word embedding layer is used.
     # x.shape[1] is the sequence length
     x = x + (self.pe[:, :x.shape[1], :]).requires_grad_(False)
+    # (b, seq_len, d_model)
     return self.dropout(x)
 
 
-class LayerNormalization(nn.Module):
-  def __init__(self, eps: float = 1e-6) -> None:
-    super().__init__()
-    self.eps = eps
-    self.alpha = nn.Parameter(torch.ones(1))
-    self.bias = nn.Parameter(torch.zeros(0))
-    self.norm = nn.LayerNorm((32,100,512))
 
-  def forward(self, x):
-    # keepdim=True will keep the mean and std dimension
-    # same as the input tensor.
-    # TODO dont understand why my costum norm does not work
-    # mean = x.mean(-1, keepdim=True)
-    # std = x.std(-1, keepdim=True)
-    # self.alpha * (x - mean) / (std + self.eps) + self.bias
-    x = self.norm(x)
-    return x
-
-class FeedForwardBlock(nn.Module):
-
-  def __init__(self, d_model: int, d_ff: int, dropout: float = 0.1):
-    # d_ff is the hidden layer size
-    super().__init__()
-    self.linear_1 = nn.Linear(d_model, d_ff) # W1 and bias
-    self.dropout = nn.Dropout(dropout)
-    self.linear_2 = nn.Linear(d_ff, d_model) # W2 and bias
-
-  def forward(self, x):
-    # (batch_size, seq_len, d_model) --> (batch_size, seq_len, d_ff) --> (batch_size, seq_len, d_model)
-    x = self.linear_1(x)
-    x = torch.relu(x)
-    x = self.dropout(x)
-    x = self.linear_2(x)
-    return x
 
 class FinalBinaryBlock(nn.Module):
   def __init__(self, d_model: int, seq_len: int, dropout: float = 0.1):
@@ -116,8 +121,9 @@ class FinalBinaryBlock(nn.Module):
     x = self.linear1(x).squeeze()
     x = torch.relu(x)
     x = self.dropout(x)
-    x = self.linear2(x).transpose(1,0) 
+    x = self.linear2(x) #.transpose(1,0) 
     x = self.sigmoid(x)
+    # (b,1) !!
     return x
 
 class MultiHeadAttentionBlock(nn.Module):
@@ -210,6 +216,7 @@ class ResidualConnection(nn.Module):
     out = self.norm(x)
     out = sublayer(out)
     out = self.dropout(out)
+    # (b , seq_len, d_model)
     return x + out
   
 class EncoderBlock(nn.Module):
@@ -330,9 +337,16 @@ class EncoderTransformer(nn.Module):
 
 
   def encode(self, src, src_mask):
+    # (b, seq_len, 1)
     src = self.src_embed(src)
+    # (b,seq_len,1)
     src = self.src_pos(src)
+    
+    if src.shape == 'torch.Size([32, 100, 512])':
+      print(src.shape)
+    # (b,1) !!!!! TODO does not seem right
     src = self.encoder(src, src_mask)
+    print(src.shape)
     src = self.final_block(src)
     return src
 
@@ -416,7 +430,10 @@ def build_encoder_transformer(embed_size: int,
   final_block = FinalBinaryBlock(d_model=d_model, seq_len=seq_len, dropout=dropout)
 
   # Create the transformer
-  encoder_transformer = EncoderTransformer(encoder,  src_embed, src_pos, final_block)
+  encoder_transformer = EncoderTransformer(encoder=encoder,
+                                           src_embed=src_embed,
+                                           src_pos= src_pos, 
+                                           final_block=final_block)
 
   # Initialize the parameters
   for p in encoder_transformer.parameters():

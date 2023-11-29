@@ -1,9 +1,9 @@
-from sklearn.preprocessing import StandardScaler
+
 import numpy as np
 import torch 
 from torch.utils.data import DataLoader, TensorDataset
 import os
-
+import pandas as pd
 
 
 def load_test_data(data_path='/home/halin/Autoencoder/Data/', 
@@ -58,7 +58,7 @@ def get_test_data(path=''):
   if path == '':
     path = os.getcwd()
 
-  PATH = path + '/Test/Data/test_data.npy'  
+  PATH = path + '/Test/data/test_data.npy'  
 
     
   with open(PATH, 'rb') as f:
@@ -81,14 +81,14 @@ def prepare_data(x_train, x_test, y_train, y_test, batch_size):
   """
   print(f"Train size = {len(x_train)}")
   print(f"Test size: {len(x_test)}")
-  scaler = StandardScaler()
-  x_train = scaler.fit_transform(x_train)
-  x_test = scaler.fit_transform(x_test)
+
   # to torch
-  x_train = torch.tensor(x_train, dtype=torch.float32).view(-1, len(x_train[0]), 1)
-  x_test = torch.tensor(x_test, dtype=torch.float32).view(-1, len(x_test[0]), 1)
-  y_train = torch.tensor(y_train, dtype=torch.float32).view(-1, 1)
-  y_test = torch.tensor(y_test, dtype=torch.float32).view(-1,  1)
+  x_train = standardScaler(torch.tensor(x_train, dtype=torch.float32).view(-1, len(x_train[0]), 1))
+  x_test =  standardScaler(torch.tensor(x_test, dtype=torch.float32).view(-1, len(x_test[0]), 1))
+  y_train = standardScaler(torch.tensor(y_train, dtype=torch.float32).view(-1, 1))
+  y_test =  standardScaler(torch.tensor(y_test, dtype=torch.float32).view(-1,  1))
+
+
 
   train_dataset = TensorDataset(x_train, y_train)
   train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
@@ -97,3 +97,10 @@ def prepare_data(x_train, x_test, y_train, y_test, batch_size):
   test_loader = DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=True)
   
   return train_loader, test_loader
+
+def standardScaler(x):
+  mean = x.mean(0, keepdim=True)
+  std = x.std(0, unbiased=False, keepdim=True)
+  x -= mean
+  x /= std
+  return x

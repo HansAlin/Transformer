@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader, TensorDataset
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 # Costum libries
-import dataHandler.handler as dh
+import Test.dataHandler.datahandler as dh
 import models.models as md
 import training.train as tr
 
@@ -34,7 +34,7 @@ print(f"Using device: {device}")
 x_train, x_test, y_train, y_test = dh.get_test_data()
 train_loader, test_loader = dh.prepare_data(x_train, x_test, y_train, y_test, 32)
 
-model = md.TransformerModel(d_model=64,nhead=8)  
+model = md.EncoderTransformerModel(d_model=64,nhead=8)  
 model = model.to(device)
 
 # Print model's state_dict

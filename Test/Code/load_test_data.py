@@ -1,6 +1,7 @@
 import numpy as np
+import torch
 
-def load_test_data(data_path='/home/halin/Autoencoder/Data/', train_size=1000, save_path='/home/halin/Master/Transformer/Test/test_data/test_data.npy'):
+def load_test_data(data_path='/home/halin/Autoencoder/Data/', train_size=1000, save_path='/home/halin/Master/Transformer/Test/data/test_data.npy'):
   """
     This function loads data from ARIANNA group, downloaded localy
     Args:

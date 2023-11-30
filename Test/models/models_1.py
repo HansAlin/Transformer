@@ -5,11 +5,11 @@ import math
 
 
 class LayerNormalization(nn.Module):
-  def __init__(self, eps: float = 1e-6) -> None:
+  def __init__(self, eps: float = 10**-6) -> None:
     super().__init__()
     self.eps = eps
     self.alpha = nn.Parameter(torch.ones(1))
-    self.bias = nn.Parameter(torch.zeros(0))
+    self.bias = nn.Parameter(torch.zeros(1))
   
 
   def forward(self, x):
@@ -17,9 +17,9 @@ class LayerNormalization(nn.Module):
     # same as the input tensor.
     # TODO dont understand why my costum norm does not work
     # x: (b, seq_len, d_model)
-    # mean = x.mean(dim = -1, keepdim=True)
-    # std = x.std(dim = -1, keepdim=True)
-    # x = self.alpha * (x - mean) / (std + self.eps) + self.bias
+    mean = x.mean(dim = -1, keepdim=True)
+    std = x.std(dim = -1, keepdim=True)
+    x = self.alpha * (x - mean) / (std + self.eps) + self.bias
 
     # (B, seq_len, d_model)
     return x
@@ -146,18 +146,20 @@ class MultiHeadAttentionBlock(nn.Module):
 
 
 
-    self.dropout = nn.Dropout(dropout)
+    # self.dropout = nn.Dropout(dropout)
 
-    # Create the query, key, value matrices
-    self.query = nn.Linear(d_model, d_model)
-    self.key = nn.Linear(d_model, d_model)
-    self.value = nn.Linear(d_model, d_model)
+    # # Create the query, key, value matrices
+    # self.query = nn.Linear(d_model, d_model)
+    # self.key = nn.Linear(d_model, d_model)
+    # self.value = nn.Linear(d_model, d_model)
 
-    # Create the output layer
-    self.output = nn.Linear(d_model, d_model)  
+    # # Create the output layer
+    # self.output = nn.Linear(d_model, d_model)  
 
   @staticmethod # Be able to call this method without instantiating the class
   def attention(query, key, value, mask, dropout : nn.Dropout):
+    # mask is used for sentences and to ignore the padding
+    # that is used to fill out a sentence to the max length
     d_k = query.shape[-1] # Get the last dimension of the query matrix
 
     # Compute the scaled dot product attention
@@ -182,6 +184,7 @@ class MultiHeadAttentionBlock(nn.Module):
 
 
   def forward(self, q, k, v, mask):
+    # secretly q,k,v are all the same
     query =self.W_q(q) # (batch_size, seq_len, d_model) --> (batch_size, seq_len, d_model)
     key = self.W_k(k) # (batch_size, seq_len, d_model) --> (batch_size, seq_len, d_model)
     value = self.W_v(v) # (batch_size, seq_len, d_model) --> (batch_size, seq_len, d_model)
@@ -217,11 +220,12 @@ class ResidualConnection(nn.Module):
   def forward(self, x, sublayer):
     # There are other ways to add the residual connection
     # For example, you can add it sublayer(x) and then apply the normalization
-    out = self.norm(x)
-    out = sublayer(out)
-    out = self.dropout(out)
-    # (b , seq_len, d_model)
-    return x + out
+    # but this is the way Jamil did it.
+    # out = self.norm(x)
+    # out = sublayer(out)
+    # out = self.dropout(out)
+    # # (b , seq_len, d_model)
+    return x + self.dropout(sublayer(self.norm(x)))
   
 class EncoderBlock(nn.Module):
   def __init__(self, 
@@ -231,17 +235,21 @@ class EncoderBlock(nn.Module):
     super().__init__()
     self.self_attention_block = self_attention_block
     self.feed_forward_block =  feed_forward_block
-    self.residual_1 = ResidualConnection(dropout)
-    self.residual_2 = ResidualConnection(dropout)
+    self.residual_connections = nn.ModuleList([ResidualConnection(dropout) for _ in range(2)])
+
+    # self.residual_1 = ResidualConnection(dropout)
+    # self.residual_2 = ResidualConnection(dropout)
 
   def forward(self, x, src_mask):
-    x = self.residual_1(x, lambda x: self.self_attention_block(x, x, x, src_mask))
+    # x = self.residual_1(x, lambda x: self.self_attention_block(x, x, x, src_mask))
     # Is this the same as:
     # y = self.attention_block(x, x, x, src_mask)
     # x = self.residual_1(x, y) ?
+    # x = self.residual_2(x, self.feed_forward_block)
 
-    x = self.residual_2(x, self.feed_forward_block)
-    # I don't understand the differnece between the two residual connections
+    #  TODO I don't understand the differnece between the two residual connections
+    x = self.residual_connections[0](x, lambda x: self.self_attention_block(x, x, x, src_mask))
+    x = self.residual_connections[1](x, self.feed_forward_block)
     return x  
   
 class Encoder(nn.Module):
@@ -341,7 +349,7 @@ class EncoderTransformer(nn.Module):
 
 
   def encode(self, src, src_mask):
-    # (b, seq_len, 1)
+    # (b, seq_len, d_model)
     src = self.src_embed(src)
     # (b,seq_len,1)
     src = self.src_pos(src)
@@ -413,7 +421,7 @@ def build_encoder_transformer(embed_size: int,
                       dropout: float = 0.1,
                       d_ff: int = 2048) -> EncoderTransformer:
   # Create the input embeddings
-  src_embed = TimeInputEmbeddings(d_model, embed_size)
+  src_embed = TimeInputEmbeddings(d_model=d_model, embed_dim=embed_size)
  
   # Create the positional encodings
   src_pos = PositionalEncoding(d_model=d_model, dropout=dropout, seq_len=seq_len)

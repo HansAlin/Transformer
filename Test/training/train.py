@@ -7,23 +7,17 @@ from dataHandler.datahandler import get_test_data, prepare_data
 from config.config import getweights_file_path
 import tqdm as tqdm
 from torch.utils.tensorboard import SummaryWriter
-from torchvision import models
 
-from torchview import draw_graph
 
 def training(model, config):
 
   device = torch.device("cuda" if torch.cuda.is_available() else "cpu")           
   print(f"Using device: {device}")
   model = model.to(device)
+  print(model)
   criterion = nn.BCELoss().to(device)
   optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-  print("test")
 
-  inputs = torch.randn(100,1)
-  model_graph = draw_graph(model, input_data=inputs)
-
-  model_graph.visual_graph
 
   x_train, x_test, y_train, y_test = get_test_data(path='/home/halin/Master/Transformer/Test/data/test_data.npy')
   train_loader, test_loader = prepare_data(x_train, x_test, y_train, y_test, config['batch_size'])
@@ -101,7 +95,7 @@ def training(model, config):
     val_losses.append(val_loss)
     val_accs.append(val_acc)
 
-    print(f"Epoch {epoch + 1}/{config['num_epochs']}, Training Loss: {train_loss:.4f}, Validation Loss: {val_loss:.4f}, Val acc: {acc:.4f}")
+    print(f"Epoch {epoch + 1}/{config['num_epochs']}, Training Loss: {train_loss:.4f}, Validation Loss: {val_loss:.4f}, Val acc: {acc:.6f}")
   train_length = range(1,len(train_losses) + 1)
   return (model, train_length, train_losses, val_losses, val_accs)
 

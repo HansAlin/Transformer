@@ -39,7 +39,7 @@ def load_test_data(data_path='/home/halin/Autoencoder/Data/', train_size=1000, s
     np.save(f, y_train)
     np.save(f, y_test)
 
-load_test_data(train_size=1000)
+load_test_data(train_size=100000)
 
   
 

@@ -111,19 +111,22 @@ class PositionalEncoding(nn.Module):
 class FinalBinaryBlock(nn.Module):
   def __init__(self, d_model: int, seq_len: int, dropout: float = 0.1):
     super().__init__()
-    self.linear1 = nn.Linear(d_model, 1)
+    self.linear_1 = nn.Linear(d_model, 1)
     self.sigmoid = nn.Sigmoid()
     self.dropout = nn.Dropout(dropout)
-    self.linear2 = nn.Linear(seq_len, 1)
+    self.linear_2 = nn.Linear(seq_len, 1)
+
 
   def forward(self, x):
     #(Batch, seq_len, d_model) --> ()
-    x = self.linear1(x).squeeze()
-    x = torch.relu(x)
+    x = self.linear_1(x)
+    x = x.squeeze()
+    # x = torch.relu(x)
     x = self.dropout(x)
-    x = self.linear2(x) #.transpose(1,0) 
+    x = self.linear_2(x) #.transpose(1,0) 
     x = self.sigmoid(x)
-    # (b,1) !!
+    # x = self.linear_2(self.dropout(self.sigmoid(self.linear_1(x))))
+  
     return x
 
 class MultiHeadAttentionBlock(nn.Module):
@@ -174,7 +177,8 @@ class MultiHeadAttentionBlock(nn.Module):
 
     # (batch_size, h, seq_len, seq_len) @ (batch_size, h, seq_len, d_k) --> 
     # (batch_size, h, seq_len, d_k)
-    return (attention_scores @ value), attention_scores
+    x = (attention_scores @ value)
+    return x, attention_scores
 
 
   def forward(self, q, k, v, mask):

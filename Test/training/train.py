@@ -7,6 +7,8 @@ from dataHandler.datahandler import get_test_data, prepare_data
 from config.config import getweights_file_path
 import tqdm as tqdm
 from torch.utils.tensorboard import SummaryWriter
+from torchvision import models
+from torchsummary import summary
 
 def training(model, config):
 
@@ -26,22 +28,31 @@ def training(model, config):
   initial_epoch = 0
   global_step = 0
 
+  val_losses = []
+  train_losses = []
+  val_accs = []
 
   for epoch in range(initial_epoch, config['num_epochs']):
     # set the model in training mode
     model.train()
 
+    vgg = model.vgg16()
+    summary(vgg, (1, 100))
+    train_loss = []
+    val_loss = []
+    val_acc = []
     # Training
     for batch in train_loader:
       x_batch, y_batch = batch
       x_batch, y_batch = x_batch.to(device), y_batch.to(device)
       
       # Only for umar_jamil.py
-      src_mask = torch.ones(100,1).to(device)
-      outputs = model.encode(x_batch, src_mask)
+      
+      outputs = model.encode(x_batch, src_mask=None)
       loss = criterion(outputs, y_batch)
 
       # Log the loss
+      train_loss.append(loss.item())
       writer.add_scalar("Train loss", loss.item())  
 
       # Backpropagation
@@ -51,6 +62,7 @@ def training(model, config):
       optimizer.step()
       optimizer.zero_grad()
 
+    
     
     writer.flush()
     # validation
@@ -62,17 +74,31 @@ def training(model, config):
       for batch in test_loader:
         x_batch, y_batch = batch
         x_batch, y_batch = x_batch.to(device), y_batch.to(device)
-        outputs = model.encode(x_batch,src_mask)
+        outputs = model.encode(x_batch,src_mask=None)
         loss = criterion(outputs, y_batch)
 
+        # TODO put in function
+        pred = outputs.round()
+        acc = pred.eq(y_batch).sum() / float(y_batch.shape[0])
+        acc = acc.cpu()
+        
+
         # Log the loss
-        writer.add_scalar("Train loss", loss.item())  
+        writer.add_scalar("Val loss", loss.item())  
+        val_loss.append(loss.item())
+        val_acc.append(acc)
 
+    train_loss = np.mean(train_loss)
+    val_loss = np.mean(val_loss)    
+    val_acc = np.mean(val_acc)
 
+    train_losses.append(train_loss)
+    val_losses.append(val_loss)
+    val_accs.append(val_acc)
 
-  #   print(f"Epoch {epoch + 1}/{epochs}, Training Loss: {train_loss}, Validation Loss: {val_loss:.4f}, Val acc: {acc:.2f}")
-  # train_length = range(1,len(train_losses) + 1)
-  # return (model, train_length, train_losses, val_losses, val_accs)
+    print(f"Epoch {epoch + 1}/{config['num_epochs']}, Training Loss: {train_loss:.4f}, Validation Loss: {val_loss:.4f}, Val acc: {acc:.4f}")
+  train_length = range(1,len(train_losses) + 1)
+  return (model, train_length, train_losses, val_losses, val_accs)
 
 def save_data(trained_model, path='', model_number=999):
   if path == '':

@@ -8,7 +8,8 @@ from config.config import getweights_file_path
 import tqdm as tqdm
 from torch.utils.tensorboard import SummaryWriter
 from torchvision import models
-from torchsummary import summary
+
+from torchview import draw_graph
 
 def training(model, config):
 
@@ -18,6 +19,11 @@ def training(model, config):
   criterion = nn.BCELoss().to(device)
   optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
   print("test")
+
+  inputs = torch.randn(100,1)
+  model_graph = draw_graph(model, input_data=inputs)
+
+  model_graph.visual_graph
 
   x_train, x_test, y_train, y_test = get_test_data(path='/home/halin/Master/Transformer/Test/data/test_data.npy')
   train_loader, test_loader = prepare_data(x_train, x_test, y_train, y_test, config['batch_size'])
@@ -36,8 +42,7 @@ def training(model, config):
     # set the model in training mode
     model.train()
 
-    vgg = model.vgg16()
-    summary(vgg, (1, 100))
+    
     train_loss = []
     val_loss = []
     val_acc = []

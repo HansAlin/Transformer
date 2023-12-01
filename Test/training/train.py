@@ -16,7 +16,7 @@ def training(model, config):
   model = model.to(device)
   # print(f"Number of paramters: {model.get_n_parms(model)}")
   criterion = nn.BCELoss().to(device)
-  optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
+  optimizer = torch.optim.Adam(model.parameters(), lr=0.00001)
 
 
   x_train, x_test, y_train, y_test = get_test_data(path='/home/halin/Master/Transformer/Test/data/test_data.npy')
@@ -33,7 +33,7 @@ def training(model, config):
   val_accs = []
 
   for epoch in range(initial_epoch, config['num_epochs']):
-    print(f"Epoch {epoch + 1}/{config['num_epochs']}, Batch: ", end=" ")
+    #print(f"Epoch {epoch + 1}/{config['num_epochs']}, Batch: ", end="             ")
     # set the model in training mode
     model.train()
 
@@ -42,8 +42,10 @@ def training(model, config):
     val_loss = []
     val_acc = []
     # Training
+    batch_num = 1
+    num_of_bathes = len(train_loader.dataset)
     for batch in train_loader:
-      
+      #print(f"{batch_num}/{num_of_bathes}")
       x_batch, y_batch = batch
       x_batch, y_batch = x_batch.to(device), y_batch.to(device)
       
@@ -52,10 +54,6 @@ def training(model, config):
       outputs = model.encode(x_batch, src_mask=None)
       loss = criterion(outputs, y_batch)
 
-      # Log the loss
-      train_loss.append(loss.item())
-      writer.add_scalar("Train loss", loss.item())  
-
       # Backpropagation
       loss.backward()
 
@@ -63,6 +61,7 @@ def training(model, config):
       optimizer.step()
       optimizer.zero_grad()
 
+      train_loss.append(loss.item())
     
     
     writer.flush()
@@ -81,13 +80,13 @@ def training(model, config):
         # TODO put in function
         pred = outputs.round()
         acc = pred.eq(y_batch).sum() / float(y_batch.shape[0])
-        acc = acc.cpu()
+        
         
 
         # Log the loss
-        writer.add_scalar("Val loss", loss.item())  
+        # writer.add_scalar("Val loss", loss.item())  
         val_loss.append(loss.item())
-        val_acc.append(acc)
+        val_acc.append(acc.item())
 
     train_loss = np.mean(train_loss)
     val_loss = np.mean(val_loss)    
@@ -97,7 +96,7 @@ def training(model, config):
     val_losses.append(val_loss)
     val_accs.append(val_acc)
 
-    print(f"Epoch {epoch + 1}/{config['num_epochs']}, Training Loss: {train_loss:.4f}, Validation Loss: {val_loss:.4f}, Val acc: {acc:.6f}")
+    print(f"Epoch {epoch + 1}/{config['num_epochs']}, Training Loss: {train_loss:.4f}, Validation Loss: {val_loss:.4f}, Val acc: {val_acc:.6f}")
   train_length = range(1,len(train_losses) + 1)
   return (model, train_length, train_losses, val_losses, val_accs)
 

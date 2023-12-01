@@ -38,10 +38,11 @@ model = md.build_encoder_transformer(embed_size=64,
                                       dropout=0.1)
 
 
-config = {'num_epochs': 5,
+config = {'num_epochs': 25,
           'batch_size': 32,
           'model_name': "model_",
           "experiment_name": f"/home/halin/Master/Transformer/Test/ModelsResults/model_{999}/runs"
+          
           }
 trained_model = tr.training(model, config)
                             

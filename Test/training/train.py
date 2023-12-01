@@ -16,7 +16,7 @@ def training(model, config):
   model = model.to(device)
   # print(f"Number of paramters: {model.get_n_parms(model)}")
   criterion = nn.BCELoss().to(device)
-  optimizer = torch.optim.Adam(model.parameters(), lr=0.00001)
+  optimizer = torch.optim.Adam(model.parameters(), lr=config['learning_rate'])
 
 
   x_train, x_test, y_train, y_test = get_test_data(path='/home/halin/Master/Transformer/Test/data/test_data.npy')

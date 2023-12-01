@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 import os
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
 def training(model,
           train_loader,
@@ -14,6 +14,7 @@ def training(model,
           early_stop_count = 0,
           min_val_loss = float('inf'),
         ):
+  model = model.to(device)
   val_losses = []
   train_losses = []
   val_accs = []
@@ -28,8 +29,8 @@ def training(model,
     # Training
     for batch in train_loader:
       x_batch, y_batch = batch
-      if device != None:
-        x_batch, y_batch = x_batch.to(device), y_batch.to(device)
+      
+      x_batch, y_batch = x_batch.to(device), y_batch.to(device)
       optimizer.zero_grad()
       # Only for umar_jamil.py
       outputs = model.encode(x_batch)
@@ -48,9 +49,9 @@ def training(model,
       
       for batch in test_loader:
         x_batch, y_batch = batch
-        if device != None:
-          x_batch, y_batch = x_batch.to(device), y_batch.to(device)
-        outputs = model(x_batch)
+        
+        x_batch, y_batch = x_batch.to(device), y_batch.to(device)
+        outputs = model.encode(x_batch)
         loss = criterion(outputs, y_batch)
         val_loss.append(loss.item())   
 
@@ -70,26 +71,27 @@ def training(model,
     
     # scheduler.step(val_loss)
 
-    print(f"Epoch {epoch + 1}/{epochs}, Training Loss: {train_loss}, Validation Loss: {val_loss:.4f}, Val acc: {acc:.2f}")
+    print(f"Epoch {epoch + 1}/{epochs}, Training Loss: {train_loss:.4f}, Validation Loss: {val_loss:.4f}, Val acc: {acc:.8f}")
   train_length = range(1,len(train_losses) + 1)
   return (model, train_length, train_losses, val_losses, val_accs)
 
 def save_data(trained_model, path='', model_number=999):
   if path == '':
-    path = os.getcwd + f'/Test/ModelsResults/model_{model_number}/'
+    path = os.getcwd() + f'/Test/ModelsResults/model_{model_number}'
 
-  # TODO have to save the model as well!!
-  torch.save(trained_model[0].state_dict(), path)
-
-  with open(path + 'training_values', 'wb') as f:
+  
+  with open(path + '/training_values.npy', 'wb') as f:
     np.save(f, np.array(trained_model[1]))
     np.save(f, np.array(trained_model[2]))
     np.save(f, np.array(trained_model[3]))
-    np.save(f, np.array(trained_model[4]))  
+    np.save(f, np.array(trained_model[4])) 
+  # TODO have to save the model as well!!
+  torch.save(trained_model[0].state_dict(), path + f'/model_{model_number}.pth')
+ 
 
 def plot_results(model_number, path=''):
   if path == '':
-    path = os.getcwd + f'/Test/ModelsResults/model_{model_number}/'
+    path = os.getcwd() + f'/Test/ModelsResults/model_{model_number}/'
 
   with open(path + 'training_values.npy', 'rb') as f:
     epochs = np.load(f)
@@ -103,7 +105,7 @@ def plot_results(model_number, path=''):
   plt.plot(epochs, val_loss, label='Validation')
   plt.legend()
   plt.savefig(loss_path)
-
+  plt.cla()
   # Accuracy plot
   acc_path = path + f'model_{model_number}_acc_plot.png'
   plt.plot(epochs, val_acc, label='Accuracy')

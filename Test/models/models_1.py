@@ -11,6 +11,7 @@ class InputEmbeddings(nn.Module):
     self.embedding = nn.Embedding(vocab_size,d_model)
 
   def forward(self, x):
+      # (b, seq_len, 1)
       x = self.embedding(x) * math.sqrt(self.d_model)
       return x
 
@@ -20,10 +21,13 @@ class TimeInputEmbeddings(nn.Module):
     super().__init__()
     self.d_model = d_model
     self.embed_dim = embed_dim
-    self.embedding = nn.Embedding(embed_dim, d_model)
+    self.embedding = nn.Linear(1, d_model)
 
   def forward(self, x):
-    x = self.embedding(x) * math.sqrt(self.d_model)
+    # (b, seq_len,1)
+    x = self.embedding(x) # --> (b, seq_len, d_model)
+
+    x = x * math.sqrt(self.d_model)
     return x  
 
 class PositionalEncoding(nn.Module):
@@ -67,18 +71,24 @@ class PositionalEncoding(nn.Module):
 
 
 class LayerNormalization(nn.Module):
-  def __init__(self, eps: float = 1e-6) -> None:
+  def __init__(self, eps: float = 10**-6) -> None:
     super().__init__()
     self.eps = eps
     self.alpha = nn.Parameter(torch.ones(1))
-    self.bias = nn.Parameter(torch.zeros(0))
+    self.bias = nn.Parameter(torch.zeros(1))
+  
 
   def forward(self, x):
     # keepdim=True will keep the mean and std dimension
     # same as the input tensor.
-    mean = x.mean(-1, keepdim=True)
-    std = x.std(-1, keepdim=True)
-    return self.alpha * (x - mean) / (std + self.eps) + self.bias
+    # TODO dont understand why my costum norm does not work
+    # x: (b, seq_len, d_model)
+    mean = x.mean(dim = -1, keepdim=True)
+    std = x.std(dim = -1, keepdim=True)
+    x = self.alpha * (x - mean) / (std + self.eps) + self.bias
+
+    # (B, seq_len, d_model)
+    return x
 
 class FeedForwardBlock(nn.Module):
 
@@ -100,18 +110,21 @@ class FeedForwardBlock(nn.Module):
 class FinalBinaryBlock(nn.Module):
   def __init__(self, d_model: int, seq_len: int, dropout: float = 0.1):
     super().__init__()
-    self.linear1 = nn.Linear(d_model, 1)
+    # TODO clean up this
     self.sigmoid = nn.Sigmoid()
-    self.dropout = nn.Dropout(dropout)
-    self.linear2 = nn.Linear(seq_len, 1)
+    self.linear_1 = nn.Linear(d_model,1)
+    self.linear_2 = nn.Linear(seq_len,1)
+    self.dim = 1
 
   def forward(self, x):
     #(Batch, seq_len, d_model) --> ()
-    x = self.linear1(x).squeeze()
-    x = torch.relu(x)
-    x = self.dropout(x)
-    x = self.linear2(x).transpose(1,0) 
+    x = self.linear_1(x)
+    x = x.squeeze()
+    x = self.linear_2(x)
+    
+
     x = self.sigmoid(x)
+    
     return x
 
 class MultiHeadAttentionBlock(nn.Module):
@@ -218,7 +231,7 @@ class EncoderBlock(nn.Module):
     self.residual_2 = ResidualConnection(dropout)
 
   def forward(self, x, src_mask):
-    x = self.residual_1(x, lambda x: self.attention_block(x, x, x, src_mask))
+    x = self.residual_1(x, lambda x: self.self_attention_block(x, x, x, src_mask))
     # Is this the same as:
     # y = self.attention_block(x, x, x, src_mask)
     # x = self.residual_1(x, y) ?
@@ -313,7 +326,7 @@ class Transformer(nn.Module):
   
 class EncoderTransformer(nn.Module):
   def __init__(self, encoder: Encoder, 
-               src_embed: InputEmbeddings, 
+               src_embed: TimeInputEmbeddings, 
                src_pos: PositionalEncoding,
                final_block: FinalBinaryBlock) -> None:
     super().__init__()
@@ -323,7 +336,7 @@ class EncoderTransformer(nn.Module):
     self.final_block = final_block
 
 
-  def encode(self, src, src_mask):
+  def encode(self, src, src_mask=None):
     src = self.src_embed(src)
     src = self.src_pos(src)
     src = self.encoder(src, src_mask)
@@ -390,7 +403,7 @@ def build_encoder_transformer(embed_size: int,
                       dropout: float = 0.1,
                       d_ff: int = 2048) -> EncoderTransformer:
   # Create the input embeddings
-  src_embed = InputEmbeddings(d_model, embed_size)
+  src_embed = TimeInputEmbeddings(d_model, embed_size)
  
   # Create the positional encodings
   src_pos = PositionalEncoding(d_model=d_model, dropout=dropout, seq_len=seq_len)

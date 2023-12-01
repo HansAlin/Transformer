@@ -1,6 +1,7 @@
+from os.path import dirname, abspath, join
 import sys
 import numpy as np
-from sklearn.preprocessing import StandardScaler
+# from sklearn.preprocessing import StandardScaler
 import torch 
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
@@ -13,6 +14,9 @@ print(path)
 
 import os
 myhost = os.uname()[1]
+THIS_DIR = dirname(__file__)
+CODE_DIR = abspath(join(THIS_DIR, '..', ''))
+sys.path.append(CODE_DIR)
 
 print("Host name: ", myhost)
 if myhost == 'LAPTOP-9FBI5S57':
@@ -56,5 +60,8 @@ trained_model = tr.training(model,
                             device, 
                             optimizer, 
                             criterion,
-                            epochs=2)
-tr.save_data()
+                            epochs=100)
+tr.save_data(trained_model=trained_model, 
+             model_number=999,
+            )
+tr.plot_results(999)

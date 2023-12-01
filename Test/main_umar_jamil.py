@@ -41,20 +41,17 @@ config = {'model_name': "base_encoder",
             'N': 8,
             'h': 4,
             'dropout': 0.1,
-            'num_epochs': 25,
+            'num_epochs': 10,
             'batch_size': 32,
             "experiment_name": f"/home/halin/Master/Transformer/Test/ModelsResults/model_{model_num}/runs",
             "learning_rate": 1e-3,
             "num_parms":0,
             "data_path":'',
-            "train_loss":[],
-            "val_loss":[],
-            "val_acc":[],
-            "epochs":[],
+            "current_epoch":0,
             "model_path":'',
 
           }
-tr.training(config)
+tr.training(config, test=False)
 
 
 tr.plot_results(999)

@@ -4,7 +4,7 @@ import torch
 from torch.utils.data import DataLoader, TensorDataset
 import os
 import pandas as pd
-import json
+import pickle
 
 
 def load_test_data(data_path='/home/halin/Autoencoder/Data/', 
@@ -48,7 +48,7 @@ def load_test_data(data_path='/home/halin/Autoencoder/Data/',
     np.save(f, y_train)
     np.save(f, y_test)
 
-def get_test_data(path=''):
+def get_data(path='', test=True):
   """ This method loads test data from folder
     Arg:
       path: wher data is saved
@@ -57,10 +57,15 @@ def get_test_data(path=''):
 
   """
   print("Loading data...")
+  
   if path == '':
     path = os.getcwd()
-    path = path + '/Test/data/test_data.npy' 
+    path = path + '/Test/data/' 
 
+  if test:
+    path = path + 'test_data.npy'
+  else:
+    path = path + 'data.npy'  
    
 
     
@@ -111,20 +116,27 @@ def standardScaler(x):
   x /= std
   return x
 
-def save_model_data(trained_model, config):
+def save_model(trained_model, config, df):
 
   path = config['model_path']
 
-  # TODO have to save the model as well!!
   saved_model_path = path + f'/saved_model'
-  isExist = os.path.exists(path)
+  isExist = os.path.exists(saved_model_path)
   if not isExist:
-    os.makedirs(path)
+    os.makedirs(saved_model_path)
     print("The new directory is created!")    
-  torch.save(trained_model[0].state_dict(), saved_model_path + f'/model_{config["model_num"]}_epoch_{config["epochs"][-1]}.pth')
+  torch.save(trained_model.state_dict(), saved_model_path + f'/model_{config["model_num"]}.pth')
 
-  with open(path + 'config.txt', 'w') as f: 
-     f.write(json.dumps(config))
+
+def save_data(config, df):
+
+  path = config['model_path']
+
+  with open(path + 'config.txt', "wb") as fp:
+    pickle.dump(config, fp)
+
+  df.to_pickle(path + 'dataframe.pkl')
+  
 
 def create_model_folder(model_number, path=''):
   if path == '':

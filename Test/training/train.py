@@ -3,17 +3,18 @@ import torch
 import torch.nn as nn
 import os
 import matplotlib.pyplot as plt
-from dataHandler.datahandler import get_test_data, prepare_data
+from dataHandler.datahandler import get_data, prepare_data
 from config.config import getweights_file_path
 import tqdm as tqdm
 from torch.utils.tensorboard import SummaryWriter
-
+import pandas as pd
 from models.models_1 import build_encoder_transformer, get_n_params
-from dataHandler.datahandler import save_model_data
+from dataHandler.datahandler import save_data, save_model, create_model_folder
 
 
-def training(config):
-
+def training(config, test=True):
+  df = pd.DataFrame([], 
+                           columns= ['Train_loss', 'Val_loss', 'Val_acc', 'Epochs'])
   device = torch.device("cuda" if torch.cuda.is_available() else "cpu")           
   print(f"Using device: {device}")
   if config['model_name'] == "base_encoder":
@@ -28,29 +29,32 @@ def training(config):
     return None
   model.to(device)
   config['num_parms'] = get_n_params(model)
+  config['model_path'] = create_model_folder(config['model_num'])
   print(f"Number of paramters: {config['num_parms']}") 
+  writer = SummaryWriter(config['model_path']+'/trainingdata')
   
   
-
+  
   # print(f"Number of paramters: {model.get_n_parms(model)}")
   criterion = nn.BCELoss().to(device)
   optimizer = torch.optim.Adam(model.parameters(), lr=config['learning_rate'])
 
+  x_train, x_test, y_train, y_test = get_data(test=test)
 
-  x_train, x_test, y_train, y_test = get_test_data(path=config['data_path'])
   train_loader, test_loader = prepare_data(x_train, x_test, y_train, y_test, config['batch_size'])
 
   # TODO can I use this
-  #writer = SummaryWriter(config['experiment_name'])
-
+  
+  # writer.add_graph(model.encode, torch.tensor([32, 100, 1]))
   initial_epoch = 0
   global_step = 0
 
   val_losses = []
   train_losses = []
   val_accs = []
-
+  best_accuracy = 0
   for epoch in range(initial_epoch, config['num_epochs']):
+    config['current_epoch'] = epoch
     #print(f"Epoch {epoch + 1}/{config['num_epochs']}, Batch: ", end="             ")
     # set the model in training mode
     model.train()
@@ -109,17 +113,27 @@ def training(config):
     train_loss = np.mean(train_loss)
     val_loss = np.mean(val_loss)    
     val_acc = np.mean(val_acc)
+    temp_df = pd.DataFrame([[train_loss, val_loss, val_acc, epoch]], 
+                           columns= ['Train_loss', 'Val_loss', 'Val_acc', 'Epochs'])
 
-    config['train_loss'].append(train_loss)
-    config['val_loss'].append(val_loss)
-    config['val_acc'].append(val_acc)
+    df = pd.concat([df, temp_df], ignore_index=True)
+
+    if val_acc > best_accuracy:
+      save_model(model, config, df)
+      best_accuracy = val_acc
+    save_data(config, df)
+    writer.add_scalar('Training Loss' , train_loss, epoch)
+    writer.add_scalar('Validation Loss' , val_acc, epoch)
+    writer.add_scalar('Accuracy', val_acc, epoch)
+
+    writer.flush()
 
     print(f"Epoch {epoch + 1}/{config['num_epochs']}, Training Loss: {train_loss:.4f}, Validation Loss: {val_loss:.4f}, Val acc: {val_acc:.6f}")
-  config['epochs'] = range(1,len(train_losses) + 1)
-
+  #config['epochs'] = range(1,len(train_losses) + 1)
+  writer.close()
   # TODO save model
-  save_model_data(trained_model=model,
-                  config=config)
+  # save_model_data(trained_model=model,
+  #                 config=config)
   # TODO save config
   # TODO save training values
  
@@ -129,21 +143,28 @@ def plot_results(model_number, path=''):
   if path == '':
     path = os.getcwd() + f'/Test/ModelsResults/model_{model_number}/'
 
-  with open(path + 'training_values.npy', 'rb') as f:
-    epochs = np.load(f)
-    train_loss = np.load(f)
-    val_loss = np.load(f)
-    val_acc = np.load(f)
+  df = pd.read_pickle(path + 'dataframe.pkl')
 
   # Loss plot 
-  loss_path = path + f'model_{model_number}_loss_plot.png'
-  plt.plot(epochs, train_loss, label='Training') 
-  plt.plot(epochs, val_loss, label='Validation')
+  plot_path = path + f'plot/' 
+  isExist = os.path.exists(plot_path)
+  if not isExist:
+    os.makedirs(plot_path)
+    print("The new directory is created!")
+  loss_path = plot_path + f'model_{model_number}_loss_plot.png'  
+  df.plot(x='Epochs', y=['Train_loss','Val_loss'], kind='line', figsize=(7,7))
+  
+  plt.title("Loss")
   plt.legend()
   plt.savefig(loss_path)
-
+  plt.cla()
+  plt.clf()
   # Accuracy plot
-  acc_path = path + f'model_{model_number}_acc_plot.png'
-  plt.plot(epochs, val_acc, label='Accuracy')
+  acc_path = plot_path + f'model_{model_number}_acc_plot.png'
+  df.plot('Epochs', 'Val_acc', label='Accuracy')
+  plt.title("Accuracy")
+  plt.ylim([0,1])
   plt.legend()
-  plt.savefig(acc_path)  
+  plt.savefig(acc_path)
+  plt.cla()
+  plt.clf()

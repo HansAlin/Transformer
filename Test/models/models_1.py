@@ -10,6 +10,8 @@ class LayerNormalization(nn.Module):
     self.eps = eps
     self.alpha = nn.Parameter(torch.ones(1))
     self.bias = nn.Parameter(torch.zeros(1))
+    # TODO might send in features instaed of just set size
+    # to 1
   
 
   def forward(self, x):
@@ -364,15 +366,7 @@ class EncoderTransformer(nn.Module):
     src = self.final_block(src)
     return src
   
-  @staticmethod
-  def get_n_params(model):
-    pp = 0
-    for p in list(model.paramters()):
-      nn = 1
-      for s in list(p.size()):
-        nn = nn*s
-      pp += nn
-    return pp    
+
 
 
 
@@ -468,3 +462,12 @@ def build_encoder_transformer(embed_size: int,
 
   return encoder_transformer    
 
+ 
+def get_n_params(model):
+  pp = 0
+  for p in list(model.parameters()):
+    nn = 1
+    for s in list(p.size()):
+      nn = nn*s
+    pp += nn
+  return pp    

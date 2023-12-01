@@ -4,6 +4,7 @@ import torch
 from torch.utils.data import DataLoader, TensorDataset
 import os
 import pandas as pd
+import json
 
 
 def load_test_data(data_path='/home/halin/Autoencoder/Data/', 
@@ -55,6 +56,7 @@ def get_test_data(path=''):
       x_train, x_test, y_train, y_test
 
   """
+  print("Loading data...")
   if path == '':
     path = os.getcwd()
     path = path + '/Test/data/test_data.npy' 
@@ -102,8 +104,36 @@ def prepare_data(x_train, x_test, y_train, y_test, batch_size):
   return train_loader, test_loader
 
 def standardScaler(x):
+
   mean = x.mean(0, keepdim=True)
   std = x.std(0, unbiased=False, keepdim=True)
   x -= mean
   x /= std
   return x
+
+def save_model_data(trained_model, config):
+
+  path = config['model_path']
+
+  # TODO have to save the model as well!!
+  saved_model_path = path + f'/saved_model'
+  isExist = os.path.exists(path)
+  if not isExist:
+    os.makedirs(path)
+    print("The new directory is created!")    
+  torch.save(trained_model[0].state_dict(), saved_model_path + f'/model_{config["model_num"]}_epoch_{config["epochs"][-1]}.pth')
+
+  with open(path + 'config.txt', 'w') as f: 
+     f.write(json.dumps(config))
+
+def create_model_folder(model_number, path=''):
+  if path == '':
+    path = os.getcwd() 
+    path += f'/Test/ModelsResults/model_{model_number}/' 
+
+    isExist = os.path.exists(path)
+    if not isExist:
+      os.makedirs(path)
+      print("The new directory is created!")
+        
+    return path 

@@ -8,22 +8,40 @@ from config.config import getweights_file_path
 import tqdm as tqdm
 from torch.utils.tensorboard import SummaryWriter
 
+from models.models_1 import build_encoder_transformer, get_n_params
+from dataHandler.datahandler import save_model_data
 
-def training(model, config):
+
+def training(config):
 
   device = torch.device("cuda" if torch.cuda.is_available() else "cpu")           
   print(f"Using device: {device}")
-  model = model.to(device)
+  if config['model_name'] == "base_encoder":
+    model = build_encoder_transformer(embed_size=config['embed_size'], 
+                                      seq_len=config['seq_len'], 
+                                      d_model=config['d_model'], 
+                                      N=config['N'], 
+                                      h=config['h'], 
+                                      dropout=config['dropout'])
+  else:
+    print("No model found")
+    return None
+  model.to(device)
+  config['num_parms'] = get_n_params(model)
+  print(f"Number of paramters: {config['num_parms']}") 
+  
+  
+
   # print(f"Number of paramters: {model.get_n_parms(model)}")
   criterion = nn.BCELoss().to(device)
   optimizer = torch.optim.Adam(model.parameters(), lr=config['learning_rate'])
 
 
-  x_train, x_test, y_train, y_test = get_test_data(path='/home/halin/Master/Transformer/Test/data/test_data.npy')
+  x_train, x_test, y_train, y_test = get_test_data(path=config['data_path'])
   train_loader, test_loader = prepare_data(x_train, x_test, y_train, y_test, config['batch_size'])
 
-
-  writer = SummaryWriter(config['experiment_name'])
+  # TODO can I use this
+  #writer = SummaryWriter(config['experiment_name'])
 
   initial_epoch = 0
   global_step = 0
@@ -64,7 +82,7 @@ def training(model, config):
       train_loss.append(loss.item())
     
     
-    writer.flush()
+    # writer.flush()
     # validation
     # set model in evaluation mode
     # This part should not be part of the model thats the reason for .no_grad()
@@ -92,32 +110,20 @@ def training(model, config):
     val_loss = np.mean(val_loss)    
     val_acc = np.mean(val_acc)
 
-    train_losses.append(train_loss)
-    val_losses.append(val_loss)
-    val_accs.append(val_acc)
+    config['train_loss'].append(train_loss)
+    config['val_loss'].append(val_loss)
+    config['val_acc'].append(val_acc)
 
     print(f"Epoch {epoch + 1}/{config['num_epochs']}, Training Loss: {train_loss:.4f}, Validation Loss: {val_loss:.4f}, Val acc: {val_acc:.6f}")
-  train_length = range(1,len(train_losses) + 1)
-  return (model, train_length, train_losses, val_losses, val_accs)
+  config['epochs'] = range(1,len(train_losses) + 1)
 
-def save_data(trained_model, path='', model_number=999):
-  if path == '':
-    path = os.getcwd() 
-    path += f'/Test/ModelsResults/model_{model_number}/' 
+  # TODO save model
+  save_model_data(trained_model=model,
+                  config=config)
+  # TODO save config
+  # TODO save training values
+ 
 
-    isExist = os.path.exists(path)
-    if not isExist:
-      os.makedirs(path)
-      print("The new directory is created!")
-
-  # TODO have to save the model as well!!
-  torch.save(trained_model[0].state_dict(), path + f'model_{model_number}.pth')
-
-  with open(path + 'training_values.npy', 'wb') as f:
-    np.save(f, np.array(trained_model[1]))
-    np.save(f, np.array(trained_model[2]))
-    np.save(f, np.array(trained_model[3]))
-    np.save(f, np.array(trained_model[4]))  
 
 def plot_results(model_number, path=''):
   if path == '':

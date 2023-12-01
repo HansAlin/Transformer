@@ -30,23 +30,31 @@ import training.train as tr
 
 
 
-model = md.build_encoder_transformer(embed_size=64,
-                                      seq_len=100,
-                                      d_model=512,
-                                      N=8,
-                                      h=4,
-                                      dropout=0.1)
 
-
-config = {'num_epochs': 25,
-          'batch_size': 32,
-          'model_name': "model_",
-          "experiment_name": f"/home/halin/Master/Transformer/Test/ModelsResults/model_{999}/runs",
-          "learning_rate": 1e-3
+model_num = 999
+config = {'model_name': "base_encoder",
+            'model':None,
+            'model_num': model_num,
+            'embed_size': 64,
+            'seq_len': 100,
+            'd_model': 512,
+            'N': 8,
+            'h': 4,
+            'dropout': 0.1,
+            'num_epochs': 25,
+            'batch_size': 32,
+            "experiment_name": f"/home/halin/Master/Transformer/Test/ModelsResults/model_{model_num}/runs",
+            "learning_rate": 1e-3,
+            "num_parms":0,
+            "data_path":'',
+            "train_loss":[],
+            "val_loss":[],
+            "val_acc":[],
+            "epochs":[],
+            "model_path":'',
 
           }
-trained_model = tr.training(model, config)
-                            
-tr.save_data(trained_model=trained_model)
+tr.training(config)
+
 
 tr.plot_results(999)

@@ -82,12 +82,14 @@ def prepare_data(x_train, x_test, y_train, y_test, batch_size):
   """
   print(f"Train size = {len(x_train)}")
   print(f"Test size: {len(x_test)}")
+  print(f"Max x value: {np.max(x_train)}")
+  print(f"Min x value: {np.min(x_train)}")
 
   # to torch
   x_train = standardScaler(torch.tensor(x_train, dtype=torch.float32).view(-1, len(x_train[0]), 1))
   x_test =  standardScaler(torch.tensor(x_test, dtype=torch.float32).view(-1, len(x_test[0]), 1))
-  y_train = standardScaler(torch.tensor(y_train, dtype=torch.float32).view(-1, 1))
-  y_test =  standardScaler(torch.tensor(y_test, dtype=torch.float32).view(-1,  1))
+  y_train = torch.tensor(y_train, dtype=torch.float32).view(-1, 1)
+  y_test =  torch.tensor(y_test, dtype=torch.float32).view(-1,  1)
 
 
 

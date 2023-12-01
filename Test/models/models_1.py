@@ -57,11 +57,13 @@ class TimeInputEmbeddings(nn.Module):
     super().__init__()
     self.d_model = d_model
     self.embed_dim = embed_dim
-    # self.embedding = nn.Linear(d_model,embed_dim)
+    self.embedding = nn.Linear(1, d_model)
+    
 
   def forward(self, x):
-    # x = self.embedding(x)
-    # x = x *  math.sqrt(self.d_model)
+
+    x = self.embedding(x)
+    x = x *  math.sqrt(self.d_model)
     # (B, seq_len, 1)
     return x  
 
@@ -126,7 +128,8 @@ class FinalBinaryBlock(nn.Module):
     x = self.linear_2(x) #.transpose(1,0) 
     x = self.sigmoid(x)
     # x = self.linear_2(self.dropout(self.sigmoid(self.linear_1(x))))
-  
+    mean = x.mean()
+    std = x.std()
     return x
 
 class MultiHeadAttentionBlock(nn.Module):
@@ -360,6 +363,18 @@ class EncoderTransformer(nn.Module):
 
     src = self.final_block(src)
     return src
+  
+  @staticmethod
+  def get_n_params(model):
+    pp = 0
+    for p in list(model.paramters()):
+      nn = 1
+      for s in list(p.size()):
+        nn = nn*s
+      pp += nn
+    return pp    
+
+
 
   
 def build_transformer(src_vocab_size: int, 

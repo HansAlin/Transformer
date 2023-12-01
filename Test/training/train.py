@@ -14,9 +14,9 @@ def training(model, config):
   device = torch.device("cuda" if torch.cuda.is_available() else "cpu")           
   print(f"Using device: {device}")
   model = model.to(device)
-  print(model)
+  # print(f"Number of paramters: {model.get_n_parms(model)}")
   criterion = nn.BCELoss().to(device)
-  optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+  optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
 
 
   x_train, x_test, y_train, y_test = get_test_data(path='/home/halin/Master/Transformer/Test/data/test_data.npy')
@@ -33,6 +33,7 @@ def training(model, config):
   val_accs = []
 
   for epoch in range(initial_epoch, config['num_epochs']):
+    print(f"Epoch {epoch + 1}/{config['num_epochs']}, Batch: ", end=" ")
     # set the model in training mode
     model.train()
 
@@ -42,6 +43,7 @@ def training(model, config):
     val_acc = []
     # Training
     for batch in train_loader:
+      
       x_batch, y_batch = batch
       x_batch, y_batch = x_batch.to(device), y_batch.to(device)
       

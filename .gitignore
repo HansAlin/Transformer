@@ -163,8 +163,11 @@ cython_debug/
 *.sh
 *.png
 *.json
+*.pth
 
 # Other folders
-MNIST/
-data/
+Test/MNIST/
+Test/data/
+Test/ModelsResults 
+
 

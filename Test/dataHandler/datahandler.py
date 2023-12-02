@@ -61,11 +61,10 @@ def get_data(path='', test=True):
   if path == '':
     path = os.getcwd()
     path = path + '/Test/data/' 
-
-  if test:
-    path = path + 'test_data.npy'
-  else:
-    path = path + 'data.npy'  
+    if test:
+      path = path + 'test_data.npy'
+    else:
+      path = path + 'data.npy'  
    
 
     

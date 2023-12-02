@@ -123,7 +123,7 @@ def training(config, test=True):
       best_accuracy = val_acc
     save_data(config, df)
     writer.add_scalar('Training Loss' , train_loss, epoch)
-    writer.add_scalar('Validation Loss' , val_acc, epoch)
+    writer.add_scalar('Validation Loss' , val_loss, epoch)
     writer.add_scalar('Accuracy', val_acc, epoch)
 
     writer.flush()

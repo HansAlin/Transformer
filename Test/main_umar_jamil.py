@@ -9,7 +9,6 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 import matplotlib.pyplot as plt
 from os.path import dirname, abspath, join
 import sys
-
 # Find code directory relative to our directory
 THIS_DIR = dirname(__file__)
 CODE_DIR = abspath(join(THIS_DIR, '..', ''))
@@ -55,6 +54,7 @@ config = {'model_name': "base_encoder",
             "data_path":'',
             "current_epoch":0,
             "model_path":'',
+            "test_acc":0,
 
           }
 tr.training(config, test=False)

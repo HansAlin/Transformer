@@ -29,9 +29,15 @@ import models.models_1 as md
 import training.train as tr
 
 
+# TODO Implement some kind of early stopping
+# TODO Implement train, val, test set
+# TODO some kind of adabtive lerarning rate
+# TODO implement unity test?
+# TODO read Visualiz... and  Checklist....
+# TODO Prepare slides
 
 
-model_num = 999
+model_num = 998
 config = {'model_name': "base_encoder",
             'model':None,
             'model_num': model_num,
@@ -41,20 +47,17 @@ config = {'model_name': "base_encoder",
             'N': 8,
             'h': 4,
             'dropout': 0.1,
-            'num_epochs': 25,
+            'num_epochs': 50,
             'batch_size': 32,
-            "experiment_name": f"/home/halin/Master/Transformer/Test/ModelsResults/model_{model_num}/runs",
-            "learning_rate": 1e-3,
+            #"experiment_name": f"/home/halin/Master/Transformer/Test/ModelsResults/model_{model_num}/runs",
+            "learning_rate": 1e-4,
             "num_parms":0,
             "data_path":'',
-            "train_loss":[],
-            "val_loss":[],
-            "val_acc":[],
-            "epochs":[],
+            "current_epoch":0,
             "model_path":'',
 
           }
-tr.training(config)
+tr.training(config, test=False)
 
 
-tr.plot_results(999)
+tr.plot_results(model_num)

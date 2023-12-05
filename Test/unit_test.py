@@ -1,10 +1,13 @@
+import os
 import unittest
 from models.models_1 import TimeInputEmbeddings, LayerNormalization
 from dataHandler.datahandler import get_data, prepare_data
 import torch
 
 
-data_path = '/home/halin/Master/Transformer/Test/data/mini_test_data.npy'
+path = os.getcwd()
+
+data_path = path + '/Test/data/mini_test_data.npy'
 x_train, x_test, y_train, y_test = get_data(path=data_path, test=True)
 
 train_loader, test_loader = prepare_data(x_train, x_test, y_train, y_test, 32)

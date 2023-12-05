@@ -11,7 +11,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 import pandas as pd
 
 
-from models.models_1 import build_encoder_transformer, get_n_params
+from models.models_1 import build_encoder_transformer, get_n_params, set_max_split_size_mb 
 from dataHandler.datahandler import save_data, save_model, create_model_folder
 
 
@@ -30,7 +30,9 @@ def training(config, test=True):
   else:
     print("No model found")
     return None
+  
   model.to(device)
+
   config['num_parms'] = get_n_params(model)
   config['model_path'] = create_model_folder(config['model_num'])
   print(f"Number of paramters: {config['num_parms']}") 

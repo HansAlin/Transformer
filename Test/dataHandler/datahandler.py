@@ -48,7 +48,7 @@ def load_test_data(data_path='/home/halin/Autoencoder/Data/',
     np.save(f, y_train)
     np.save(f, y_test)
 
-def get_data(path='', test=True):
+def get_data(path=''):
   """ This method loads test data from folder
     Arg:
       path: wher data is saved
@@ -61,10 +61,9 @@ def get_data(path='', test=True):
   if path == '':
     path = os.getcwd()
     path = path + '/Test/data/' 
-    if test:
-      path = path + 'mini_test_data.npy'
-    else:
-      path = path + 'data.npy'  
+    path = path + 'data.npy'  
+
+      
    
 
     

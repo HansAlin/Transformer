@@ -15,7 +15,7 @@ from models.models_1 import build_encoder_transformer, get_n_params, set_max_spl
 from dataHandler.datahandler import save_data, save_model, create_model_folder
 
 
-def training(config, test=True):
+def training(config, data_path):
   df = pd.DataFrame([], 
                            columns= ['Train_loss', 'Val_loss', 'Val_acc', 'Epochs'])
   device = torch.device("cuda" if torch.cuda.is_available() else "cpu")           
@@ -32,24 +32,28 @@ def training(config, test=True):
     return None
   
   model.to(device)
-
+  
   config['num_parms'] = get_n_params(model)
   config['model_path'] = create_model_folder(config['model_num'])
   print(f"Number of paramters: {config['num_parms']}") 
   writer = SummaryWriter(config['model_path']+'/trainingdata')
-  
+  writer.add_graph(model, images)
+  writer.close()
+
+  os.system('tensorboard --logdir=' + config['model_path']+'/trainingdata' )
+
   
   
   print(f"Number of paramters: {config['num_parms']}")
   criterion = nn.BCELoss().to(device)
   optimizer = torch.optim.Adam(model.parameters(), lr=config['learning_rate'])
-  sceduler = ReduceLROnPlateau(optimizer=optimizer,
-                               mode='min',
+  scheduler = ReduceLROnPlateau(optimizer=optimizer,
+                               mode='max',
                                factor=config['decreas_factor'],
                                patience=5,
                                verbose=True)
   
-  x_train, x_test, y_train, y_test = get_data(test=test)
+  x_train, x_test, y_train, y_test = get_data(path=data_path)
 
   train_loader, test_loader = prepare_data(x_train, x_test, y_train, y_test, config['batch_size'])
 
@@ -76,6 +80,8 @@ def training(config, test=True):
     # Training
     batch_num = 1
     num_of_bathes = len(train_loader.dataset)
+    min_val_loss = float('inf')
+
     for batch in train_loader:
       #print(f"{batch_num}/{num_of_bathes}")
       x_batch, y_batch = batch
@@ -123,7 +129,8 @@ def training(config, test=True):
     val_loss = np.mean(val_loss)    
     val_acc = np.mean(val_acc)
 
-
+    scheduler.step(metrics=val_acc)
+    print(f"Learning rate: {optimizer.state_dict()['param_groups'][0]['lr']}")
 
     #############################################
     # Data saving
@@ -131,6 +138,7 @@ def training(config, test=True):
     temp_df = pd.DataFrame([[train_loss, val_loss, val_acc, epoch]], 
                            columns= ['Train_loss', 'Val_loss', 'Val_acc', 'Epochs'])
     df = pd.concat([df, temp_df], ignore_index=True)
+    # TODO maybe use best_val_loss instead of best_accuracy
     if val_acc > best_accuracy:
       save_model(model, config, df)
       best_accuracy = val_acc
@@ -155,7 +163,7 @@ def training(config, test=True):
     else:
       early_stop_count += 1
 
-    if early_stop_count >= 5:
+    if early_stop_count >= config['early_stop']:
       print("Early stopping!")
       break
 

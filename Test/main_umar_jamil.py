@@ -27,7 +27,7 @@ import dataHandler.datahandler as dh
 import models.models_1 as md
 import training.train as tr
 
-
+# TODO implement 
 # TODO Implement some kind of early stopping
 # TODO Implement train, val, test set use pytorch randomsplit()
 # TODO implement last test
@@ -54,23 +54,24 @@ config = {'model_name': "base_encoder",
             'model_num': model_num,
             'embed_size': 64,
             'seq_len': 100,
-            'd_model': 64,
+            'd_model': 128,
             'N': 2,
             'h': 2,
             'dropout': 0.1,
-            'num_epochs': 10,
-            'batch_size': 32,
+            'num_epochs': 50,
+            'batch_size': 16,
             #"experiment_name": f"/home/halin/Master/Transformer/Test/ModelsResults/model_{model_num}/runs",
-            "learning_rate": 1e-4,
-            "decreas_factor": 0.2,
+            "learning_rate": 1e-3,
+            "decreas_factor": 0.5,
             "num_parms":0,
             "data_path":'',
             "current_epoch":0,
             "model_path":'',
             "test_acc":0,
+            "early_stop":3
 
           }
-tr.training(config, test=True)
+tr.training(config, data_path='/home/hansalin/Code/Transformer/Test/data/test_data.npy')
 
 
 tr.plot_results(model_num)

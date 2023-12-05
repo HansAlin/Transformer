@@ -7,7 +7,10 @@ from dataHandler.datahandler import get_data, prepare_data
 from config.config import getweights_file_path
 import tqdm as tqdm
 from torch.utils.tensorboard import SummaryWriter
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 import pandas as pd
+
+
 from models.models_1 import build_encoder_transformer, get_n_params
 from dataHandler.datahandler import save_data, save_model, create_model_folder
 
@@ -35,10 +38,15 @@ def training(config, test=True):
   
   
   
-  # print(f"Number of paramters: {model.get_n_parms(model)}")
+  print(f"Number of paramters: {config['num_parms']}")
   criterion = nn.BCELoss().to(device)
   optimizer = torch.optim.Adam(model.parameters(), lr=config['learning_rate'])
-
+  sceduler = ReduceLROnPlateau(optimizer=optimizer,
+                               mode='min',
+                               factor=config['decreas_factor'],
+                               patience=5,
+                               verbose=True)
+  
   x_train, x_test, y_train, y_test = get_data(test=test)
 
   train_loader, test_loader = prepare_data(x_train, x_test, y_train, y_test, config['batch_size'])
@@ -70,8 +78,7 @@ def training(config, test=True):
       #print(f"{batch_num}/{num_of_bathes}")
       x_batch, y_batch = batch
       x_batch, y_batch = x_batch.to(device), y_batch.to(device)
-      
-      # Only for umar_jamil.py
+     
       
       outputs = model.encode(x_batch, src_mask=None)
       loss = criterion(outputs, y_batch)
@@ -113,22 +120,44 @@ def training(config, test=True):
     train_loss = np.mean(train_loss)
     val_loss = np.mean(val_loss)    
     val_acc = np.mean(val_acc)
+
+
+
+    #############################################
+    # Data saving
+    #############################################
     temp_df = pd.DataFrame([[train_loss, val_loss, val_acc, epoch]], 
                            columns= ['Train_loss', 'Val_loss', 'Val_acc', 'Epochs'])
-
     df = pd.concat([df, temp_df], ignore_index=True)
-
     if val_acc > best_accuracy:
       save_model(model, config, df)
       best_accuracy = val_acc
     save_data(config, df)
+
+    ############################################
+    #  Tensorboard
+    ############################################
     writer.add_scalar('Training Loss' , train_loss, epoch)
     writer.add_scalar('Validation Loss' , val_loss, epoch)
     writer.add_scalar('Accuracy', val_acc, epoch)
-
     writer.flush()
 
     print(f"Epoch {epoch + 1}/{config['num_epochs']}, Training Loss: {train_loss:.4f}, Validation Loss: {val_loss:.4f}, Val acc: {val_acc:.6f}")
+
+    #############################################
+    # Early stopping
+    #############################################
+    if val_loss < min_val_loss:
+      min_val_loss = val_loss
+      early_stop_count = 0
+    else:
+      early_stop_count += 1
+
+    if early_stop_count >= 5:
+      print("Early stopping!")
+      break
+
+
   #config['epochs'] = range(1,len(train_losses) + 1)
   writer.close()
   # TODO save model

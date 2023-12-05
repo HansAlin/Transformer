@@ -62,7 +62,7 @@ def get_data(path='', test=True):
     path = os.getcwd()
     path = path + '/Test/data/' 
     if test:
-      path = path + 'test_data.npy'
+      path = path + 'mini_test_data.npy'
     else:
       path = path + 'data.npy'  
    

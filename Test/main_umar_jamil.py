@@ -27,6 +27,7 @@ import dataHandler.datahandler as dh
 import models.models_1 as md
 import training.train as tr
 
+torch.cuda.empty_cache()
 
 # TODO Implement some kind of early stopping
 # TODO Implement train, val, test set use pytorch randomsplit()
@@ -40,6 +41,10 @@ import training.train as tr
 # TODO Verify that the validation is correctly implemented according to batch size 
 # TODO implement the some thing better for the last block loch at the time series
 # TODO change the size in the posstional encoder
+# Hyper paramters:
+#     learning rate 
+#         ¤  learning rate functions  
+#           ¤ facor 
 
 
 
@@ -50,14 +55,15 @@ config = {'model_name': "base_encoder",
             'model_num': model_num,
             'embed_size': 64,
             'seq_len': 100,
-            'd_model': 512,
-            'N': 8,
-            'h': 4,
+            'd_model': 64,
+            'N': 2,
+            'h': 2,
             'dropout': 0.1,
             'num_epochs': 50,
             'batch_size': 32,
             #"experiment_name": f"/home/halin/Master/Transformer/Test/ModelsResults/model_{model_num}/runs",
             "learning_rate": 1e-4,
+            "decreas_factor": 0.2,
             "num_parms":0,
             "data_path":'',
             "current_epoch":0,

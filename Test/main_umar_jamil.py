@@ -27,7 +27,6 @@ import dataHandler.datahandler as dh
 import models.models_1 as md
 import training.train as tr
 
-torch.cuda.empty_cache()
 
 # TODO Implement some kind of early stopping
 # TODO Implement train, val, test set use pytorch randomsplit()

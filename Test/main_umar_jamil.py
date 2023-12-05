@@ -38,6 +38,10 @@ import training.train as tr
 # TODO use Pathlib?
 # TODO save the optimaizer also
 # TODO Verify that the validation is correctly implemented according to batch size 
+# TODO implement the some thing better for the last block loch at the time series
+# TODO change the size in the posstional encoder
+
+
 
 
 model_num = 997

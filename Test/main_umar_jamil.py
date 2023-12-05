@@ -29,14 +29,18 @@ import training.train as tr
 
 
 # TODO Implement some kind of early stopping
-# TODO Implement train, val, test set
+# TODO Implement train, val, test set use pytorch randomsplit()
+# TODO implement last test
 # TODO some kind of adabtive lerarning rate
 # TODO implement unity test?
 # TODO read Visualiz... and  Checklist....
 # TODO Prepare slides
+# TODO use Pathlib?
+# TODO save the optimaizer also
+# TODO Verify that the validation is correctly implemented according to batch size 
 
 
-model_num = 998
+model_num = 997
 config = {'model_name': "base_encoder",
             'model':None,
             'model_num': model_num,
@@ -57,7 +61,7 @@ config = {'model_name': "base_encoder",
             "test_acc":0,
 
           }
-tr.training(config, test=False)
+tr.training(config, test=True)
 
 
 tr.plot_results(model_num)

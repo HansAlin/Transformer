@@ -19,8 +19,8 @@ class LayerNormalization(nn.Module):
     # same as the input tensor.
     # TODO dont understand why my costum norm does not work
     # x: (b, seq_len, d_model)
-    mean = x.mean(dim = -1, keepdim=True)
-    std = x.std(dim = -1, keepdim=True)
+    mean = x.mean(dim = -1, keepdim=True) # (b, seq_len, 1)
+    std = x.std(dim = -1, keepdim=True) # (b, seq_len, 1)
     x = self.alpha * (x - mean) / (std + self.eps) + self.bias
 
     # (B, seq_len, d_model)
@@ -63,10 +63,10 @@ class TimeInputEmbeddings(nn.Module):
     
 
   def forward(self, x):
-
+    # (B, seq_len, 1)
     x = self.embedding(x)
     x = x *  math.sqrt(self.d_model)
-    # (B, seq_len, 1)
+    # --> (B, seq_len, d_model)
     return x  
 
 class PositionalEncoding(nn.Module):

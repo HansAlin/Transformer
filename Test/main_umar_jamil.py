@@ -27,7 +27,7 @@ import dataHandler.datahandler as dh
 import models.models_1 as md
 import training.train as tr
 
-# TODO implement 
+# TODO implement loading and saving of model
 # TODO Implement some kind of early stopping
 # TODO Implement train, val, test set use pytorch randomsplit()
 # TODO implement last test
@@ -43,7 +43,8 @@ import training.train as tr
 # Hyper paramters:
 #     learning rate 
 #         ¤  learning rate functions  
-#           ¤ facor 
+#          ¤  facor 
+#          ¤  based on val_loss or val_acc ???  
 
 
 
@@ -58,7 +59,7 @@ config = {'model_name': "base_encoder",
             'N': 2,
             'h': 2,
             'dropout': 0.1,
-            'num_epochs': 50,
+            'num_epochs': 5,
             'batch_size': 16,
             #"experiment_name": f"/home/halin/Master/Transformer/Test/ModelsResults/model_{model_num}/runs",
             "learning_rate": 1e-3,
@@ -71,7 +72,7 @@ config = {'model_name': "base_encoder",
             "early_stop":3
 
           }
-tr.training(config, data_path='/home/hansalin/Code/Transformer/Test/data/test_data.npy')
+tr.training(config, data_path='/home/halin/Master/Transformer/Test/data/mini_test_data.npy')
 
 
 tr.plot_results(model_num)

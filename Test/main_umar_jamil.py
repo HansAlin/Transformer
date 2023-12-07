@@ -58,7 +58,7 @@ config = {'model_name': "base_encoder",
             'N': 2,
             'h': 2,
             'dropout': 0.1,
-            'num_epochs': 50,
+            'num_epochs': 10,
             'batch_size': 16,
             #"experiment_name": f"/home/halin/Master/Transformer/Test/ModelsResults/model_{model_num}/runs",
             "learning_rate": 1e-3,
@@ -68,7 +68,8 @@ config = {'model_name': "base_encoder",
             "current_epoch":0,
             "model_path":'',
             "test_acc":0,
-            "early_stop":3
+            "early_stop":3,
+            "omega": 0.01,
 
           }
 tr.training(config, data_path='/home/hansalin/Code/Transformer/Test/data/test_data.npy')

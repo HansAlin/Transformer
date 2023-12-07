@@ -263,7 +263,7 @@ class Encoder(nn.Module):
     self.layers = layers
     self.norm = LayerNormalization()
 
-  def forward(self, x, mask):
+  def forward(self, x, mask=None):
     for layer in self.layers:
       x = layer(x, mask)
 
@@ -328,7 +328,7 @@ class Transformer(nn.Module):
     self.tgt_pos = tgt_pos
     self.projection_layer = projeciton_layer
 
-  def encode(self, src, src_mask):
+  def encode(self, src, src_mask=None):
     src = self.src_embed(src)
     src = self.src_pos(src)
     return self.encoder(src, src_mask)
@@ -353,7 +353,7 @@ class EncoderTransformer(nn.Module):
     self.final_block = final_block
 
 
-  def encode(self, src, src_mask):
+  def encode(self, src, src_mask=None):
     # (b, seq_len, d_model)
     src = self.src_embed(src)
     # (b,seq_len,1)

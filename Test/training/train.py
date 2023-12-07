@@ -9,7 +9,7 @@ import tqdm as tqdm
 from torch.utils.tensorboard import SummaryWriter
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 import pandas as pd
-
+import sys
 
 from models.models_1 import build_encoder_transformer, get_n_params, set_max_split_size_mb 
 from dataHandler.datahandler import save_data, save_model, create_model_folder
@@ -31,16 +31,14 @@ def training(config, data_path):
     print("No model found")
     return None
   
-  model.to(device)
   
   config['num_parms'] = get_n_params(model)
   config['model_path'] = create_model_folder(config['model_num'])
   print(f"Number of paramters: {config['num_parms']}") 
   writer = SummaryWriter(config['model_path']+'/trainingdata')
-  writer.add_graph(model, images)
-  writer.close()
+  
 
-  os.system('tensorboard --logdir=' + config['model_path']+'/trainingdata' )
+  #os.system('tensorboard --logdir=' + config['model_path']+'/trainingdata' )
 
   
   
@@ -57,9 +55,34 @@ def training(config, data_path):
 
   train_loader, test_loader = prepare_data(x_train, x_test, y_train, y_test, config['batch_size'])
 
-  # TODO can I use this
+  #########################################################################
+  #  Visulizing graphs doesn't work satisfactory                          #
+  #########################################################################
+  # writer.add_graph(model=model.encoder, input_to_model=torch.ones(32,100,1))
+  # writer.close()
+  # sys.exit()
+
+  # print(model)
+
+  # Access the weights of each layer
+  for name, param in model.named_parameters():
+    if 'weight' in name:
+      print(f'Layer: {name}, Shape: {param.shape}')
+      print(param)
+
+  weight = model.encoder.layers[0].self_attention_block.W_0.weight.data.numpy().flatten()
+  print(weight)
+  #writer.add_image("weight_image",weight )
+  # plt.figure(figsize=(10, 6))
+  # x = plt.imshow(weight, cmap='coolwarm', interpolation='nearest')
+  # plt.title(f'Layer:  - Weights')
+  # plt.colorbar()
+  # plt.savefig('/home/halin/Master/Transformer/Test/ModelsResults/model_997/plot/weight.png')
+
+  writer.add_histogram('weights', weight)
+  writer.close()
+  model.to(device)
   
-  # writer.add_graph(model.encode, torch.tensor([32, 100, 1]))
   initial_epoch = 0
   global_step = 0
 
@@ -89,6 +112,7 @@ def training(config, data_path):
      
       
       outputs = model.encode(x_batch, src_mask=None)
+
       loss = criterion(outputs, y_batch)
 
       # Backpropagation

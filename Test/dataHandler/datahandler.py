@@ -5,6 +5,7 @@ from torch.utils.data import DataLoader, TensorDataset
 import os
 import pandas as pd
 import pickle
+import sys
 
 
 def load_test_data(data_path='/home/halin/Autoencoder/Data/', 
@@ -133,6 +134,11 @@ def save_data(config, df):
   with open(path + 'config.txt', "wb") as fp:
     pickle.dump(config, fp)
 
+  # A easier to read part
+  with open(path + 'text_config.txt', 'w') as data:
+    for key, value in config.items():
+      data.write('%s: %s\n' % (key, value))
+
   df.to_pickle(path + 'dataframe.pkl')
   
 
@@ -145,5 +151,9 @@ def create_model_folder(model_number, path=''):
     if not isExist:
       os.makedirs(path)
       print("The new directory is created!")
+    else:
+      reply = input("Folder already exist, proceed y/n ?")
+    if reply.lower() != 'y':
+      sys.exit()    
         
     return path 

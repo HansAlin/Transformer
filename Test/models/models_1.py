@@ -71,11 +71,12 @@ class TimeInputEmbeddings(nn.Module):
 
 class PositionalEncoding(nn.Module):
    
-  def __init__(self, d_model: int, dropout: float, seq_len: int) -> None:
+  def __init__(self, d_model: int, dropout: float, seq_len: int, omega: float) -> None:
     super().__init__()
     self.d_model = d_model
     self.dropout = nn.Dropout(p=dropout)
     self.seq_len = seq_len
+    self.omega = omega
     
     # Create a matrix of shape (seq_len, d_model) 
     # In this case the sequence length is 100 and the model dimension is 512
@@ -86,7 +87,7 @@ class PositionalEncoding(nn.Module):
     # Create a vector of shape (seq_len, 1)
     position = torch.arange(0, seq_len, dtype=torch.float).unsqueeze(1)
     # The exponential form is used here for stabilty purposes
-    div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))  # 1/10000^(2i/d_model)
+    div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(omega) / d_model))  # 1/10000^(2i/d_model)
     # Apply the sin to even indices in the array; 2i
     pe[:, 0::2] = torch.sin(position * div_term)
     pe[:, 1::2] = torch.cos(position * div_term)
@@ -356,8 +357,10 @@ class EncoderTransformer(nn.Module):
   def encode(self, src, src_mask=None):
     # (b, seq_len, d_model)
     src = self.src_embed(src)
-    # (b,seq_len,1)
-    src = self.src_pos(src)
+
+    if self.src_pos != None:
+      # (b,seq_len,1)
+      src = self.src_pos(src)
     
    
     # (b,1) !!!!! TODO does not seem right
@@ -422,18 +425,24 @@ def build_transformer(src_vocab_size: int,
 
   return transformer    
 
-def build_encoder_transformer(embed_size: int, 
-                      seq_len: int,
-                      d_model: int = 512,
-                      N: int = 6,
-                      h: int = 8, 
-                      dropout: float = 0.1,
-                      d_ff: int = 2048) -> EncoderTransformer:
+def build_encoder_transformer(config,
+                              embed_size: int, 
+                              seq_len: int,
+                              d_model: int = 512,
+                              N: int = 6,
+                              h: int = 8, 
+                              dropout: float = 0.1,
+                              d_ff: int = 2048,
+                              omega: float = 10000) -> EncoderTransformer:
   # Create the input embeddings
   src_embed = TimeInputEmbeddings(d_model=d_model, embed_dim=embed_size)
  
   # Create the positional encodings
-  src_pos = PositionalEncoding(d_model=d_model, dropout=dropout, seq_len=seq_len)
+  if config['pos_enc_type'] == 'normal':
+    src_pos = PositionalEncoding(d_model=d_model, dropout=dropout, seq_len=seq_len, omega=omega)
+  elif config['pos_enc_type'] == 'none':
+    src_pos = None  
+    
 
 
   # Create the encoder layers

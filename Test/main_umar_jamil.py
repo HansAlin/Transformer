@@ -40,6 +40,8 @@ import training.train as tr
 # TODO Verify that the validation is correctly implemented according to batch size 
 # TODO implement the some thing better for the last block loch at the time series
 # TODO change the size in the posstional encoder
+# TODO FLOP's from fvcore.nn import FlopCountAnalysis
+# TODO Check final bloch down sizing if it is correct
 # Hyper paramters:
 #     learning rate 
 #         ¤  learning rate functions  
@@ -49,18 +51,19 @@ import training.train as tr
 
 
 
-model_num = 997
+model_num = 994
 config = {'model_name': "base_encoder",
             'model':None,
+            'pos_enc_type':'none',
             'model_num': model_num,
             'embed_size': 64,
             'seq_len': 100,
-            'd_model': 128,
+            'd_model': 512,
             'N': 2,
             'h': 2,
             'dropout': 0.1,
-            'num_epochs': 10,
-            'batch_size': 16,
+            'num_epochs': 100,
+            'batch_size': 32,
             #"experiment_name": f"/home/halin/Master/Transformer/Test/ModelsResults/model_{model_num}/runs",
             "learning_rate": 1e-3,
             "decreas_factor": 0.5,
@@ -69,11 +72,11 @@ config = {'model_name': "base_encoder",
             "current_epoch":0,
             "model_path":'',
             "test_acc":0,
-            "early_stop":3,
-            "omega": 0.01,
+            "early_stop":5,
+            "omega": 10000,
 
           }
-tr.training(config, data_path='/home/halin/Master/Transformer/Test/data/mini_test_data.npy')
-
+tr.training(config, data_path='')
+# '/home/halin/Master/Transformer/Test/data/mini_test_data.npy'
 
 tr.plot_results(model_num)

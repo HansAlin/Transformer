@@ -21,12 +21,14 @@ def training(config, data_path):
   device = torch.device("cuda" if torch.cuda.is_available() else "cpu")           
   print(f"Using device: {device}")
   if config['model_name'] == "base_encoder":
-    model = build_encoder_transformer(embed_size=config['embed_size'], 
+    model = build_encoder_transformer(config,
+                                      embed_size=config['embed_size'], 
                                       seq_len=config['seq_len'], 
                                       d_model=config['d_model'], 
                                       N=config['N'], 
                                       h=config['h'], 
-                                      dropout=config['dropout'])
+                                      dropout=config['dropout'],
+                                      omega=config['omega'])
   else:
     print("No model found")
     return None
@@ -34,6 +36,7 @@ def training(config, data_path):
   
   config['num_parms'] = get_n_params(model)
   config['model_path'] = create_model_folder(config['model_num'])
+  
   print(f"Number of paramters: {config['num_parms']}") 
   writer = SummaryWriter(config['model_path']+'/trainingdata')
   
@@ -63,24 +66,26 @@ def training(config, data_path):
   # sys.exit()
 
   # print(model)
+  #########################################################################
+  # Access weights                                                        #
+  #########################################################################
+  # for name, param in model.named_parameters():
+  #   if 'weight' in name:
+  #     print(f'Layer: {name}, Shape: {param.shape}')
+  #     print(param)
 
-  # Access the weights of each layer
-  for name, param in model.named_parameters():
-    if 'weight' in name:
-      print(f'Layer: {name}, Shape: {param.shape}')
-      print(param)
-
-  weight = model.encoder.layers[0].self_attention_block.W_0.weight.data.numpy().flatten()
-  print(weight)
+  # weight = model.encoder.layers[0].self_attention_block.W_0.weight.data.numpy().flatten()
+  # print(weight)
   #writer.add_image("weight_image",weight )
   # plt.figure(figsize=(10, 6))
   # x = plt.imshow(weight, cmap='coolwarm', interpolation='nearest')
   # plt.title(f'Layer:  - Weights')
   # plt.colorbar()
   # plt.savefig('/home/halin/Master/Transformer/Test/ModelsResults/model_997/plot/weight.png')
+  # writer.add_histogram('weights', weight)
+  # writer.close()
 
-  writer.add_histogram('weights', weight)
-  writer.close()
+
   model.to(device)
   
   initial_epoch = 0
@@ -90,8 +95,9 @@ def training(config, data_path):
   train_losses = []
   val_accs = []
   best_accuracy = 0
+  min_val_loss = float('inf')
   for epoch in range(initial_epoch, config['num_epochs']):
-    config['current_epoch'] = epoch
+    config['current_epoch'] = epoch + 1
     #print(f"Epoch {epoch + 1}/{config['num_epochs']}, Batch: ", end="             ")
     # set the model in training mode
     model.train()
@@ -103,7 +109,7 @@ def training(config, data_path):
     # Training
     batch_num = 1
     num_of_bathes = len(train_loader.dataset)
-    min_val_loss = float('inf')
+    
 
     for batch in train_loader:
       #print(f"{batch_num}/{num_of_bathes}")
@@ -159,6 +165,7 @@ def training(config, data_path):
     #############################################
     # Data saving
     #############################################
+    
     temp_df = pd.DataFrame([[train_loss, val_loss, val_acc, epoch]], 
                            columns= ['Train_loss', 'Val_loss', 'Val_acc', 'Epochs'])
     df = pd.concat([df, temp_df], ignore_index=True)

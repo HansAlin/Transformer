@@ -54,6 +54,7 @@ import training.train as tr
 model_num = 994
 config = {'model_name': "base_encoder",
             'model':None,
+            'pre_trained': None,
             'pos_enc_type':'none',
             'model_num': model_num,
             'embed_size': 64,
@@ -62,7 +63,7 @@ config = {'model_name': "base_encoder",
             'N': 2,
             'h': 2,
             'dropout': 0.1,
-            'num_epochs': 100,
+            'num_epochs': 2,
             'batch_size': 32,
             #"experiment_name": f"/home/halin/Master/Transformer/Test/ModelsResults/model_{model_num}/runs",
             "learning_rate": 1e-3,
@@ -74,9 +75,18 @@ config = {'model_name': "base_encoder",
             "test_acc":0,
             "early_stop":5,
             "omega": 10000,
+            "trained_noise":0,
+            "trained_signal":0,
+            "acc":0,
+            "trp":0,
+            "trn":0,
+            "fap":0,
+            "fan":0,
+
 
           }
-tr.training(config, data_path='')
+PATH = os.getcwd() + '/Test/data/test_100_data.npy'
+tr.training(config, data_path=PATH)
 # '/home/halin/Master/Transformer/Test/data/mini_test_data.npy'
 
 tr.plot_results(model_num)

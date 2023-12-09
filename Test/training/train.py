@@ -54,9 +54,9 @@ def training(config, data_path):
                                patience=5,
                                verbose=True)
   
-  x_train, x_test, y_train, y_test = get_data(path=data_path)
+  x_train, x_test, x_val, y_train, y_val, y_test = get_data(path=data_path)
 
-  train_loader, test_loader = prepare_data(x_train, x_test, y_train, y_test, config['batch_size'])
+  train_loader, val_loader, test_loader, config['trained_noise'], config['trained_signal'] = prepare_data(x_train, x_val, x_test, y_train, y_val, y_test, config['batch_size'])
 
   #########################################################################
   #  Visulizing graphs doesn't work satisfactory                          #
@@ -91,9 +91,7 @@ def training(config, data_path):
   initial_epoch = 0
   global_step = 0
 
-  val_losses = []
-  train_losses = []
-  val_accs = []
+  
   best_accuracy = 0
   min_val_loss = float('inf')
   for epoch in range(initial_epoch, config['num_epochs']):
@@ -138,7 +136,7 @@ def training(config, data_path):
     model.eval()
     with torch.no_grad():
       
-      for batch in test_loader:
+      for batch in val_loader:
         x_batch, y_batch = batch
         x_batch, y_batch = x_batch.to(device), y_batch.to(device)
         outputs = model.encode(x_batch,src_mask=None)
@@ -171,7 +169,7 @@ def training(config, data_path):
     df = pd.concat([df, temp_df], ignore_index=True)
     # TODO maybe use best_val_loss instead of best_accuracy
     if val_acc > best_accuracy:
-      save_model(model, config, df)
+      save_model(model, optimizer, config, global_step)
       best_accuracy = val_acc
     save_data(config, df)
 
@@ -197,7 +195,13 @@ def training(config, data_path):
     if early_stop_count >= config['early_stop']:
       print("Early stopping!")
       break
+    
+    global_step += 1
 
+  config['pre_trained']
+  (config['acc'], config['trp'], config['trn'], config['fap'], config['fan']) = test_model(model, test_loader, device, model_path=config['model_path'])    
+  print(f"Test acc: {config['acc']:.4f}")
+  save_data(config, df)
 
   #config['epochs'] = range(1,len(train_losses) + 1)
   writer.close()
@@ -208,6 +212,55 @@ def training(config, data_path):
   # TODO save training values
  
 
+def test_model(model, test_loader, device, config):
+  """
+  This function tests the model on the test set
+  and returns the accuracy and true positive rate
+  true negative rate, false positive rate and false negative rate
+  Arg:
+    model : the trained model
+    test_loader : the test data loader
+    device : the device to use
+  Return:
+    arr : (acc, trp, trn, fap, fan ) 
+  """
+  model_path = config['model_path'] + 'saved_model' + f'/model_{config["model_num"]}.pth'
+ 
+  print(f'Preloading model {model_path}')
+  state = torch.load(model_path)
+  model.load_state_dict(state['model_state_dict'])
+
+  model.to(device)
+  model.eval()
+  acc = 0
+  trp = 0
+  trn = 0
+  fap = 0
+  fan = 0
+  count = 1
+  with torch.no_grad():
+    for batch in test_loader:
+      x_test, y_test = batch
+      x_test, y_test = x_test.to(device), y_test.to(device)
+      outputs = model.encode(x_test,src_mask=None)
+      
+      pred = outputs.round()
+      if pred == y_test:
+        acc += 1
+        if pred == 1:
+          trp += 1
+        else:
+          trn += 1
+      if pred != y_test:
+        if pred == 1:
+          fap += 1
+        else:
+          fan += 1      
+      count += 1
+
+  arr = (acc/count, trp/count, trn/count, fap/count, fan/count)
+
+  return arr 
 
 def plot_results(model_number, path=''):
   if path == '':

@@ -169,4 +169,5 @@ cython_debug/
 Test/MNIST/
 Test/data/
 Test/ModelsResults/
+Test/data/rawdata
 

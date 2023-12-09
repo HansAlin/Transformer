@@ -8,9 +8,10 @@ import pickle
 import sys
 
 
-def load_test_data(data_path='/home/halin/Autoencoder/Data/', 
+
+def load_data(data_path='/home/halin/Autoencoder/Data/', 
                     save_path='/home/halin/Master/Transformer/Test/test_data/test_data.npy',
-                    train_size=1000):
+                    train_size=1000, channels=1):
   """
     This function loads data from ARIANNA group, downloaded localy
     Args:
@@ -21,6 +22,14 @@ def load_test_data(data_path='/home/halin/Autoencoder/Data/',
     x_train, y_train,  x_test, y_test 
     
   """
+  if save_path == '':
+    save_path = os.getcwd() 
+    save_path += f'../data' 
+
+ 
+
+
+
   NOISE_URL = data_path + 'trimmed100_data_noise_3.6SNR_1ch_0000.npy'
   noise = np.load(NOISE_URL)
 

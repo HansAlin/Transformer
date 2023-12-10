@@ -41,9 +41,6 @@ def training(config, data_path):
   writer = SummaryWriter(config['model_path']+'/trainingdata')
   
 
-  #os.system('tensorboard --logdir=' + config['model_path']+'/trainingdata' )
-
-  
   
   print(f"Number of paramters: {config['num_parms']}")
   criterion = nn.BCELoss().to(device)
@@ -198,18 +195,14 @@ def training(config, data_path):
     
     global_step += 1
 
-  config['pre_trained']
-  (config['acc'], config['trp'], config['trn'], config['fap'], config['fan']) = test_model(model, test_loader, device, model_path=config['model_path'])    
+  config['pre_trained'] = True
+  (config['acc'], config['TP'], config['TN'], config['FP'], config['FN']) = test_model(model, test_loader, device, config)    
   print(f"Test acc: {config['acc']:.4f}")
   save_data(config, df)
 
-  #config['epochs'] = range(1,len(train_losses) + 1)
+
   writer.close()
-  # TODO save model
-  # save_model_data(trained_model=model,
-  #                 config=config)
-  # TODO save config
-  # TODO save training values
+
  
 
 def test_model(model, test_loader, device, config):
@@ -222,7 +215,7 @@ def test_model(model, test_loader, device, config):
     test_loader : the test data loader
     device : the device to use
   Return:
-    arr : (acc, trp, trn, fap, fan ) 
+    arr : (acc, TP, TN, FP, FN ) 
   """
   model_path = config['model_path'] + 'saved_model' + f'/model_{config["model_num"]}.pth'
  
@@ -233,10 +226,10 @@ def test_model(model, test_loader, device, config):
   model.to(device)
   model.eval()
   acc = 0
-  trp = 0
-  trn = 0
-  fap = 0
-  fan = 0
+  TP = 0
+  TN = 0
+  FP = 0
+  FN = 0
   count = 1
   with torch.no_grad():
     for batch in test_loader:
@@ -248,17 +241,17 @@ def test_model(model, test_loader, device, config):
       if pred == y_test:
         acc += 1
         if pred == 1:
-          trp += 1
+          TP += 1
         else:
-          trn += 1
+          TN += 1
       if pred != y_test:
         if pred == 1:
-          fap += 1
+          FP += 1
         else:
-          fan += 1      
+          FN += 1      
       count += 1
 
-  arr = (acc/count, trp/count, trn/count, fap/count, fan/count)
+  arr = (acc/count, TP/(TP + FN), TN/(TN + FP), FP/(FP + TN), FN/(FN+TP))
 
   return arr 
 

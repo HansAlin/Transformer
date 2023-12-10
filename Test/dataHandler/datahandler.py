@@ -194,6 +194,10 @@ def save_data(config, df):
   
 
 def create_model_folder(model_number, path=''):
+  """
+  This function create a folder to save all model related stuf in.
+  """
+  # TODO uncomment after testing
   if path == '':
     path = os.getcwd() 
     path += f'/Test/ModelsResults/model_{model_number}/' 
@@ -202,9 +206,9 @@ def create_model_folder(model_number, path=''):
     if not isExist:
       os.makedirs(path)
       print("The new directory is created!")
-    else:
-      reply = input("Folder already exist, proceed y/n ?")
-      if reply.lower() != 'y':
-        sys.exit()    
+    # else:
+    #   reply = input("Folder already exist, proceed y/n ?")
+    #   if reply.lower() != 'y':
+    #     sys.exit()    
         
     return path 

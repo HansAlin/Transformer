@@ -51,7 +51,7 @@ import training.train as tr
 
 
 
-model_num = 996
+model_num = 995
 config = {'model_name': "base_encoder",
             'model':None,
             'pre_trained': None,
@@ -63,7 +63,7 @@ config = {'model_name': "base_encoder",
             'N': 2,
             'h': 2,
             'dropout': 0.1,
-            'num_epochs': 100,
+            'num_epochs': 10,
             'batch_size': 32,
             #"experiment_name": f"/home/halin/Master/Transformer/Test/ModelsResults/model_{model_num}/runs",
             "learning_rate": 1e-3,
@@ -86,7 +86,7 @@ config = {'model_name': "base_encoder",
 
           }
 PATH = os.getcwd() + '/Test/data/test_1000_data.npy'
-tr.training(config, data_path='')
+tr.training(config, data_path=PATH)
 # '/home/halin/Master/Transformer/Test/data/mini_test_data.npy'
 
 tr.plot_results(model_num)

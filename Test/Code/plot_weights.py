@@ -11,7 +11,7 @@ sys.path.append(CODE_DIR)
 
 from models.models_1 import build_encoder_transformer
 
-def get_weights(model_number, layer_name):
+def get_weights(model_number, layer_name, quiet=True):
     dic_path = f'Test/ModelsResults/model_{model_number}/config.txt'
     with open(dic_path, 'rb') as f:
         config = pickle.load(f)
@@ -31,26 +31,43 @@ def get_weights(model_number, layer_name):
 
     for name, param in model.named_parameters():
         if 'weight' in name:
-            print(f'Layer: {name}, Shape: {param.shape}')
-            print(param)
+            if not quiet:
+                print(f'Layer: {name}, Shape: {param.shape}')
+                print(param)
             if name == layer_name:
                 print(f'Layer: {name}, Shape: {param.shape}')
               
                 return param.detach().numpy()
 
 
-def plot_weights(weight, model_number, layer_name):
-    save_path = f'Test/ModelsResults/model_{model_number}/plot/{layer_name}.png'
+def plot_weights(weight, model_number, layer_name, plot_type='hist', title='', x_albel='', y_label=''):
+    save_path = f'Test/ModelsResults/model_{model_number}/plot/{layer_name}_{model_number}.png'
     one_dim = weight.shape[1]
     print(one_dim)
     if one_dim == 1:
-        weights = np.ones_like(weight)/len(weight)
-        plt.hist(weight, weights=weights)
+        if plot_type == 'hist':
+            weights = np.ones_like(weight)/len(weight)
+            plt.hist(weight, weights=weights, bins=50)
+            plt.xlabel(x_albel)
+            plt.ylabel(y_label)
+            plt.title(title)
+        elif plot_type == 'curve':
+            plt.plot(np.arange(len(weight)), weight) 
+            plt.xlabel(x_albel)
+            plt.ylabel(y_label)
+            plt.title(title)   
         plt.savefig(save_path)
+        plt.clf()
 
 
-model_number = 999 
-layer_name = 'src_embed.embedding.weight'    
-weight = get_weights(model_number=999,
-             layer_name=layer_name)
-plot_weights(weight,model_number, layer_name)
+for model_number in range(996,1000):
+
+    layer_name = 'src_embed.embedding.weight' 
+    plot_type = 'hist'   
+    weight = get_weights(model_number=model_number,
+                layer_name=layer_name)
+    plot_weights(weight,model_number, layer_name, 
+                 plot_type=plot_type,
+                 title="Embedding linear layer",
+                 x_albel='d_model')
+    

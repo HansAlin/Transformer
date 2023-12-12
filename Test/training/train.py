@@ -19,7 +19,7 @@ def training(config, data_path):
   df = pd.DataFrame([], 
                            columns= ['Train_loss', 'Val_loss', 'Val_acc', 'Epochs'])
   device = torch.device("cuda" if torch.cuda.is_available() else "cpu")           
-  print(f"Using device: {device}")
+  print(f"Using device: {device}, name of GPU: {torch.cuda.get_device_name(device=device)}")
   if config['model_name'] == "base_encoder":
     model = build_encoder_transformer(config,
                                       embed_size=config['embed_size'], 

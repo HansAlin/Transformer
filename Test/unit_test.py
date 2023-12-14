@@ -1,16 +1,16 @@
 import os
 import unittest
-from models.models_1 import TimeInputEmbeddings, LayerNormalization
+from models.models_1 import TimeInputEmbeddings, LayerNormalization, SimmpleInputEmbeddings
 from dataHandler.datahandler import get_data, prepare_data
 import torch
 
 
 path = os.getcwd()
 
-data_path = path + '/Test/data/mini_test_data.npy'
-x_train, x_test, y_train, y_test = get_data(path=data_path, test=True)
+data_path = path + '/Test/data/test_100_data.npy'
+x_train, x_test, x_val, y_train, y_val, y_test = get_data(path=data_path)
 
-train_loader, test_loader = prepare_data(x_train, x_test, y_train, y_test, 32)
+train_loader, val_loader, test_loader, number_of_noise, number_of_signals = prepare_data(x_train, x_val, x_test, y_train, y_val, y_test, 32)
 
 input_data = None
 for i in train_loader:
@@ -22,7 +22,7 @@ output = None
 
 class TestReturnDimenstions(unittest.TestCase):
     def tesTimeEmbedding(self):
-        timeinput = TimeInputEmbeddings(d_model=512, embed_dim=1)
+        timeinput = SimmpleInputEmbeddings(d_model=512, embed_dim=1)
         output = timeinput(input_data)
         print(f"Shape input: {input_data.shape}")
         batch_size = output.size(dim=0)

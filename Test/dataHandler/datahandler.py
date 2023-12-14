@@ -87,7 +87,7 @@ def get_data(path=''):
     Arg:
       path: wher data is saved
     Ret:
-      x_train, y_train, x_val, y_val, x_test, y_test
+      x_train, x_test, x_val, y_train, y_val, y_test
 
   """
   print("Loading data...")
@@ -97,10 +97,6 @@ def get_data(path=''):
     path = path + '/Test/data/' 
     path = path + 'data.npy'  
 
-      
-   
-
-    
   with open(path, 'rb') as f:
     x_train = np.load(f)
     x_val = np.load(f)
@@ -118,7 +114,7 @@ def prepare_data(x_train, x_val, x_test, y_train, y_val, y_test, batch_size):
     Arg: 
       x_train, x_test, y_train, y_test, batch_size
     Return:
-      train_loader, test_loader 
+      train_loader, val_loader, test_loader, number_of_noise, number_of_signals 
 
   """
   print(f"Train size = {len(x_train)}")

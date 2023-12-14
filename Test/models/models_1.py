@@ -51,23 +51,23 @@ class InputEmbeddings(nn.Module):
   def forward(self, x):
       # (batch, seq_len) --> (batch, seq_len, d_model)
       # Multiply by sqrt(d_model) to scale the embeddings according to the paper
-      return self.embedding(x) * math.sqrt(self.d_model)
-
+      return self.embedding(x) * math.sqrt(self.d_model) 
+  
 class TimeInputEmbeddings(nn.Module):
-
-  def __init__(self, d_model: int, embed_dim: int):
+  def __init__(self, d_model: int, dropout: float = 0.1):
     super().__init__()
     self.d_model = d_model
-    self.embed_dim = embed_dim
     self.embedding = nn.Linear(1, d_model)
-    
+    self.dropout = nn.Dropout(dropout)
+    self.activation = nn.ReLU()
 
   def forward(self, x):
     # (B, seq_len, 1)
     x = self.embedding(x)
-    x = x *  math.sqrt(self.d_model)
+    x = self.activation(x)
+    x = self.dropout(x)
     # --> (B, seq_len, d_model)
-    return x  
+    return x 
 
 class PositionalEncoding(nn.Module):
    
@@ -111,8 +111,6 @@ class PositionalEncoding(nn.Module):
     return self.dropout(x)
 
 
-
-
 class FinalBinaryBlock(nn.Module):
   def __init__(self, d_model: int, seq_len: int, dropout: float = 0.1):
     super().__init__()
@@ -120,20 +118,33 @@ class FinalBinaryBlock(nn.Module):
     self.sigmoid = nn.Sigmoid()
     self.dropout = nn.Dropout(dropout)
     self.linear_2 = nn.Linear(seq_len, 1)
+    self.activation = nn.ReLU()
 
 
   def forward(self, x):
     #(Batch, seq_len, d_model) --> ()
     x = self.linear_1(x)
+    x = self.activation(x)
     x = x.squeeze()
-    # x = torch.relu(x)
     x = self.dropout(x)
-    x = self.linear_2(x) #.transpose(1,0) 
+    x = self.linear_2(x) 
     x = self.sigmoid(x)
-    # x = self.linear_2(self.dropout(self.sigmoid(self.linear_1(x))))
-    mean = x.mean()
-    std = x.std()
+
     return x
+
+class FinalMultiBlock(nn.Module):
+  def __init__(self, d_model: int, seq_len: int, dropout: float = 0.1):
+    super().__init__()
+    self.linear_1 = nn.Linear(d_model, 1)
+    self.activation = nn.ReLU()
+
+  def forward(self, x):
+    #(Batch, seq_len, d_model) --> ()
+    x = self.linear_1(x)
+    x = self.activation(x)
+    x = x.squeeze()
+    return x
+
 
 class MultiHeadAttentionBlock(nn.Module):
   def __init__(self, d_model: int, h: int, dropout: float = 0.1):
@@ -370,10 +381,6 @@ class EncoderTransformer(nn.Module):
     return src
   
 
-
-
-
-  
 def build_transformer(src_vocab_size: int, 
                       tgt_vocab_size: int, 
                       src_seq_len: int,

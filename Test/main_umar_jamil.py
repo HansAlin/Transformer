@@ -42,6 +42,7 @@ import training.train as tr
 # TODO change the size in the posstional encoder
 # TODO FLOP's from fvcore.nn import FlopCountAnalysis
 # TODO Check final bloch down sizing if it is correct
+# TODO Do I have to concern about float 32 and float 64
 # Hyper paramters:
 #     learning rate 
 #         ¤  learning rate functions  

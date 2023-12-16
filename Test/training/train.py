@@ -5,6 +5,7 @@ import os
 import matplotlib.pyplot as plt
 from dataHandler.datahandler import get_data, prepare_data
 from config.config import getweights_file_path
+from plots.plots import histogram, noise_reduction_factor, plot_results
 import tqdm as tqdm
 from torch.utils.tensorboard import SummaryWriter
 from torch.optim.lr_scheduler import ReduceLROnPlateau
@@ -20,7 +21,7 @@ def training(config, data_path):
                            columns= ['Train_loss', 'Val_loss', 'Val_acc', 'Epochs'])
   device = torch.device("cuda" if torch.cuda.is_available() else "cpu")           
   print(f"Using device: {device}, name of GPU: {torch.cuda.get_device_name(device=device)}")
-  if config['model_name'] == "base_encoder":
+  if config['model_type'] == "base_encoder":
     model = build_encoder_transformer(config,
                                       embed_size=config['embed_size'], 
                                       seq_len=config['seq_len'], 
@@ -231,12 +232,16 @@ def test_model(model, test_loader, device, config):
   FP = 0
   FN = 0
   count = 1
+  y = []
+  y_pred = []
   with torch.no_grad():
     for batch in test_loader:
       x_test, y_test = batch
       x_test, y_test = x_test.to(device), y_test.to(device)
+      y.append(y_test.detach().item())  
       outputs = model.encode(x_test,src_mask=None)
-      
+      y_pred.append(outputs.detach().item())
+
       pred = outputs.round()
       if pred == y_test:
         acc += 1
@@ -251,36 +256,15 @@ def test_model(model, test_loader, device, config):
           FN += 1      
       count += 1
 
+  
+  y = np.asarray(y)  
+  y_pred = np.asarray(y_pred)
+  # TODO save y and y_pred
+  np.save
   arr = (acc/count, TP/(TP + FN), TN/(TN + FP), FP/(FP + TN), FN/(FN+TP))
 
-  return arr 
 
-def plot_results(model_number, path=''):
-  if path == '':
-    path = os.getcwd() + f'/Test/ModelsResults/model_{model_number}/'
-
-  df = pd.read_pickle(path + 'dataframe.pkl')
-
-  # Loss plot 
-  plot_path = path + f'plot/' 
-  isExist = os.path.exists(plot_path)
-  if not isExist:
-    os.makedirs(plot_path)
-    print("The new directory is created!")
-  loss_path = plot_path + f'model_{model_number}_loss_plot.png'  
-  df.plot(x='Epochs', y=['Train_loss','Val_loss'], kind='line', figsize=(7,7))
+  histogram(y_pred, y, config)
+  noise_reduction_factor([y_pred], y, config)
   
-  plt.title("Loss")
-  plt.legend()
-  plt.savefig(loss_path)
-  plt.cla()
-  plt.clf()
-  # Accuracy plot
-  acc_path = plot_path + f'model_{model_number}_acc_plot.png'
-  df.plot('Epochs', 'Val_acc', label='Accuracy')
-  plt.title("Accuracy")
-  plt.ylim([0,1])
-  plt.legend()
-  plt.savefig(acc_path)
-  plt.cla()
-  plt.clf()
+  return arr 

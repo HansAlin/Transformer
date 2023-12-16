@@ -123,8 +123,8 @@ class FinalBinaryBlock(nn.Module):
 
   def forward(self, x):
     #(Batch, seq_len, d_model) --> ()
+
     x = self.linear_1(x)
-    x = self.activation(x)
     x = x.squeeze()
     x = self.dropout(x)
     x = self.linear_2(x) 
@@ -442,7 +442,7 @@ def build_encoder_transformer(config,
                               d_ff: int = 2048,
                               omega: float = 10000) -> EncoderTransformer:
   # Create the input embeddings
-  src_embed = TimeInputEmbeddings(d_model=d_model, embed_dim=embed_size)
+  src_embed = TimeInputEmbeddings(d_model=d_model)
  
   # Create the positional encodings
   if config['pos_enc_type'] == 'normal':

@@ -40,7 +40,7 @@ def training(config, data_path):
   
   print(f"Number of paramters: {config['num_parms']}") 
   writer = SummaryWriter(config['model_path']+'/trainingdata')
-  
+  print(f"Follow on tensorboard: python3 -m tensorboard.main --logdir=Test/ModelsResults/model_{config['model_num']}/trainingdata")
 
   
   print(f"Number of paramters: {config['num_parms']}")
@@ -64,24 +64,7 @@ def training(config, data_path):
   # sys.exit()
 
   # print(model)
-  #########################################################################
-  # Access weights                                                        #
-  #########################################################################
-  # for name, param in model.named_parameters():
-  #   if 'weight' in name:
-  #     print(f'Layer: {name}, Shape: {param.shape}')
-  #     print(param)
 
-  # weight = model.encoder.layers[0].self_attention_block.W_0.weight.data.numpy().flatten()
-  # print(weight)
-  #writer.add_image("weight_image",weight )
-  # plt.figure(figsize=(10, 6))
-  # x = plt.imshow(weight, cmap='coolwarm', interpolation='nearest')
-  # plt.title(f'Layer:  - Weights')
-  # plt.colorbar()
-  # plt.savefig('/home/halin/Master/Transformer/Test/ModelsResults/model_997/plot/weight.png')
-  # writer.add_histogram('weights', weight)
-  # writer.close()
 
 
   model.to(device)

@@ -102,22 +102,45 @@ def plot_results(model_number, path=''):
   plt.cla()
   plt.clf()
 
-def plot_weights(model, config, save_path=''):
-
-  for name, param in model.named_parameters():
-    if 'weight' in name:
-      print(f'Layer: {name}, Shape: {param.shape}')
-      print(param)
-
-  weight = model.encoder.layers[0].self_attention_block.W_0.weight.data.numpy().flatten()
-  print(weight)
+def plot_weights(model, config, save_path='', block='self_attention_block', quiet=True):
+  """
+    This function plots the weights of a given block in the model
+    Args:
+      model : the trained model
+      config : the config file of the model
+      save_path : the path to save the plot, optional
+      block : options: 'self_attention_block', 'final_binary_block', 'embedding_block', 'feed_forward_block'
+      quiet : if True, no print statements
+  """
+  if not quiet:
+    for name, param in model.named_parameters():
+      if 'weight' in name:
+        print(f'Layer: {name}, Shape: {param.shape}')
+      
+  fig, ax = plt.subplots()
+  if block == 'self_attention_block':
+    weight = model.encoder.layers[config['h'] - 1].self_attention_block.W_0.weight.data.numpy()
+    x = ax.imshow(weight, cmap='coolwarm', interpolation='nearest')
+    cbar = ax.figure.colorbar(x, ax=ax)
+  elif block == 'final_binary_block':
+     weight = model.final_block.linear_1.weight.data.numpy()  
+     ax.plot(range(len(weight)), weight)
+  elif block == 'embedding_block':
+     weight = model.src_embed.embedding.weight.data.numpy()
+     ax.plot(range(len(weight)), weight)   
+  elif block == 'feed_forward_block':
+     weight = model.encoder.layers[config['h'] - 1].feed_forward_block.linear_2.weight.data.numpy()
+     x = ax.imshow(weight, cmap='coolwarm', interpolation='nearest')
+     cbar = ax.figure.colorbar(x, ax=ax)
+  if not quiet:
+    print(weight)
   # writer.add_image("weight_image",weight )
-  plt.figure(figsize=(10, 6))
-  x = plt.imshow(weight, cmap='coolwarm', interpolation='nearest')
-  plt.title(f'Layer:  - Weights')
-  plt.colorbar()
+
+  
+  plt.title(f'Layer: {block}  - Weights')
+  
   if save_path == '':
-    save_path = os.getcwd() + config['model_path'] + f'plot/model_{config["model_num"]}_weights.png'
+    save_path = config['model_path'] + f'plot/model_{config["model_num"]}_{block}_weights.png'
   plt.savefig(save_path)
 #   writer.add_histogram('weights', weight)
 #   writer.close()  

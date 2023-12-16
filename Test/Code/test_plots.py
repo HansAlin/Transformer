@@ -38,7 +38,7 @@ model = build_encoder_transformer(config,
                                       dropout=config['dropout'],
                                       omega=config['omega'])
 
-blocks = ['self_attention_block', 'final_binary_block', 'embedding_block', 'feed_forward_block']
+blocks = [ 'final_binary_block']
 for block in blocks:
     plot_weights(model, config, block=block, quiet=True)
 

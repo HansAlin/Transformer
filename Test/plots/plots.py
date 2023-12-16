@@ -123,8 +123,9 @@ def plot_weights(model, config, save_path='', block='self_attention_block', quie
     x = ax.imshow(weight, cmap='coolwarm', interpolation='nearest')
     cbar = ax.figure.colorbar(x, ax=ax)
   elif block == 'final_binary_block':
-     weight = model.final_block.linear_1.weight.data.numpy()  
-     ax.plot(range(len(weight)), weight)
+     weight = model.final_block.linear_1.weight.data.numpy()[0] 
+     x =  np.arange(len(weight))
+     ax.plot(x, weight)
   elif block == 'embedding_block':
      weight = model.src_embed.embedding.weight.data.numpy()
      ax.plot(range(len(weight)), weight)   

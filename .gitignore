@@ -168,6 +168,6 @@ cython_debug/
 # Other folders
 Test/MNIST/
 Test/data
-Test/ModelsResults/
+Test/ModelsResults
 Test/data/rawdata
 

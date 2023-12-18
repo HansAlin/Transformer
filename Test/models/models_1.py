@@ -227,13 +227,15 @@ class MultiHeadAttentionBlock(nn.Module):
     #query = [batch size, query len, hid dim]
     #key = [batch size, key len, hid dim]
     #value = [batch size, value len, hid dim]
-    len_k = key.shape[1]
-    len_q = query.shape[1]
-    len_v = value.shape[1]
+    len_k = key.shape[2]
+    len_q = query.shape[2]
+    len_v = value.shape[2]
     batch_size = query.shape[0]
     d_h = query.shape[-1]
 
-    normal_attention_scores = (query @ key.transpose(-2, -1)) # (batch_size, seq_len, seq_len)
+    q = query.view(batch_size, -1, h, d_h).permute(0, 2, 1, 3) 
+    k = key.view(batch_size, -1, h, d_h).permute(0, 2, 1, 3)
+    normal_attention_scores = (q @ k.transpose(-2, -1)) # (batch_size, seq_len, seq_len)
 
     relative_q = query.permute(1, 0, 2).contiguous().view(len_q, batch_size*h, -1) # (seq_len, batch_size*h, d_h)
     relative_k = relative_position_k(len_q, len_k) # (seq_len, seq_len, d_h)
@@ -275,9 +277,6 @@ class MultiHeadAttentionBlock(nn.Module):
     # transpose(1,2) --> (batch_size, h, seq_len, d_h)
     # transpose(1,2) swaps the seq_len and h dimensions dimeinstion 1 and 2
 
-    query = query.view(query.shape[0], query.shape[1], self.h, self.d_h).transpose(1,2) # (batch_size, seq_len, d_model) --> (batch_size, h, seq_len, d_h)
-    key = key.view(key.shape[0], key.shape[1], self.h, self.d_h).transpose(1,2) # (batch_size, seq_len, d_model) --> (batch_size, h, seq_len, d_h)
-    value = value.view(value.shape[0], value.shape[1], self.h, self.d_h).transpose(1,2) # (batch_size, seq_len, d_model) --> (batch_size, h, seq_len, d_h)
 
     if self.relative_positional_encoding:
       x, self.attention_scores = MultiHeadAttentionBlock.attention_with_relative_position(query, 
@@ -290,7 +289,9 @@ class MultiHeadAttentionBlock(nn.Module):
                                                                                           mask, 
                                                                                           self.dropout)
     else:
-
+      query = query.view(query.shape[0], query.shape[1], self.h, self.d_h).transpose(1,2) # (batch_size, seq_len, d_model) --> (batch_size, h, seq_len, d_h)
+      key = key.view(key.shape[0], key.shape[1], self.h, self.d_h).transpose(1,2) # (batch_size, seq_len, d_model) --> (batch_size, h, seq_len, d_h)
+      value = value.view(value.shape[0], value.shape[1], self.h, self.d_h).transpose(1,2) # (batch_size, seq_len, d_model) --> (batch_size, h, seq_len, d_h)
 
       x, self.attention_scores = MultiHeadAttentionBlock.attention(query, key, value, mask, self.dropout)  
     # Concatenate the heads

@@ -3,7 +3,7 @@ from os.path import dirname, abspath, join
 import sys
 import unittest
 import pickle
-
+import numpy as np
 # Find code directory relative to our directory
 THIS_DIR = dirname(__file__)
 CODE_DIR = abspath(join(THIS_DIR, '..', ''))
@@ -12,7 +12,7 @@ sys.path.append(CODE_DIR)
 from models.models_1 import TimeInputEmbeddings, LayerNormalization, FinalBinaryBlock, build_encoder_transformer
 from dataHandler.datahandler import get_data, prepare_data
 from training.train import test_model
-from plots.plots import plot_results, plot_weights, histogram, noise_reduction_factor
+from plots.plots import plot_results, plot_weights, histogram, noise_reduction_factor, plot_collections
 import torch
 import subprocess
 
@@ -43,5 +43,8 @@ for block in blocks:
     plot_weights(model, config, block=block, quiet=True)
 
 
+models = [997,998,999]
 
+labels = ['Omega: 0.01', 'Omega: 2', 'Omega: 10000']
 
+plot_collections(models, labels, save_path='')

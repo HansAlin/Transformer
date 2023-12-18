@@ -174,7 +174,7 @@ def save_model(trained_model, optimizer, config, global_step):
 
 
 
-def save_data(config, df):
+def save_data(config, df, y_pred_data=None):
 
   path = config['model_path']
 
@@ -187,6 +187,8 @@ def save_data(config, df):
       data.write('%s: %s\n' % (key, value))
 
   df.to_pickle(path + 'dataframe.pkl')
+  if y_pred_data is not None:
+    y_pred_data.to_pickle(path + 'y_pred_data.pkl') 
   
 
 def create_model_folder(model_number, path=''):

@@ -110,7 +110,32 @@ class PositionalEncoding(nn.Module):
     # (b, seq_len, d_model)
     return self.dropout(x)
 
+class RelativePositionalEncoding(nn.Module):
+  """
+  This part is taken from:
+  https://github.com/evelinehong/Transformer_Relative_Position_PyTorch/blob/master/relative_position.py
+  """
+  def __init__(self, d_h, max_relative_position=20):
+    super().__init__()
+    # d_h is the dimension of head
+    self.d_h = d_h
+    self.max_relative_position = max_relative_position
+    self.embeddings_table = nn.Parameter(torch.Tensor(max_relative_position * 2 + 1, d_h))
+    # Initialize the weights
+    nn.init.xavier_uniform_(self.embeddings_table)
 
+  def forward(self, length_q, length_k):
+    range_vec_q = torch.arange(length_q)
+    range_vec_k = torch.arange(length_k)
+    distance_mat = range_vec_k[None, :] - range_vec_q[:, None]
+    distance_mat_clipped = torch.clamp(distance_mat, -self.max_relative_position, self.max_relative_position)
+    final_mat = distance_mat_clipped + self.max_relative_position
+    final_mat = torch.LongTensor(final_mat)
+    embeddings = self.embeddings_table[final_mat]
+
+    return embeddings
+
+   
 class FinalBinaryBlock(nn.Module):
   def __init__(self, d_model: int, seq_len: int, dropout: float = 0.1):
     super().__init__()
@@ -147,42 +172,39 @@ class FinalMultiBlock(nn.Module):
 
 
 class MultiHeadAttentionBlock(nn.Module):
-  def __init__(self, d_model: int, h: int, dropout: float = 0.1):
+  def __init__(self, d_model: int, h: int, dropout: float = 0.1, max_relative_position = 10, relative_positional_encoding: bool = False):
     super().__init__()
     self.d_model = d_model
     self.h = h
+    
     assert d_model % h == 0, "d_model must be divisible by h"
-    self.d_k = d_model // h
+    self.d_h = d_model // h
 
     self.W_q = nn.Linear(d_model, d_model) # W_q and bias
     self.W_k = nn.Linear(d_model, d_model) # W_k and bias
     self.W_v = nn.Linear(d_model, d_model) # W_v and bias
 
-    self.W_0 = nn.Linear(self.h*self.d_k, d_model) # W_0 and bias wher self.h*self.d_k = d_model
+    self.W_0 = nn.Linear(self.h*self.d_h, d_model) # W_0 and bias wher self.h*self.d_h = d_model
     self.dropout = nn.Dropout(dropout)
 
+    # For relative positional encoding
+    self.max_relative_position = max_relative_position
+    self.relative_positional_k = RelativePositionalEncoding(self.d_h, max_relative_position)
+    self.relative_positional_v = RelativePositionalEncoding(self.d_h, max_relative_position)
+    self.scale = math.sqrt(self.d_model)
+    self.relative_positional_encoding = relative_positional_encoding
 
-
-    # self.dropout = nn.Dropout(dropout)
-
-    # # Create the query, key, value matrices
-    # self.query = nn.Linear(d_model, d_model)
-    # self.key = nn.Linear(d_model, d_model)
-    # self.value = nn.Linear(d_model, d_model)
-
-    # # Create the output layer
-    # self.output = nn.Linear(d_model, d_model)  
 
   @staticmethod # Be able to call this method without instantiating the class
   def attention(query, key, value, mask, dropout : nn.Dropout):
     # mask is used for sentences and to ignore the padding
     # that is used to fill out a sentence to the max length
-    d_k = query.shape[-1] # Get the last dimension of the query matrix
+    d_h = query.shape[-1] # Get the last dimension of the query matrix
 
     # Compute the scaled dot product attention
     # key.transpose(-2, -1) swaps the last two dimensions of the key matrix
-    # (batch_size, h, seq_len, d_k)  @ (batch_size, h, d_k, seq_len) --> (batch_size, h, seq_len, seq_len)
-    attention_scores = (query @ key.transpose(-2, -1)) / math.sqrt(d_k) 
+    # (batch_size, h, seq_len, d_h)  @ (batch_size, h, d_h, seq_len) --> (batch_size, h, seq_len, seq_len)
+    attention_scores = (query @ key.transpose(-2, -1)) / math.sqrt(d_h) 
 
     # Apply the mask
     if mask is not None:
@@ -194,10 +216,50 @@ class MultiHeadAttentionBlock(nn.Module):
     if dropout is not None:
       attention_scores = dropout(attention_scores)
 
-    # (batch_size, h, seq_len, seq_len) @ (batch_size, h, seq_len, d_k) --> 
-    # (batch_size, h, seq_len, d_k)
+    # (batch_size, h, seq_len, seq_len) @ (batch_size, h, seq_len, d_h) --> 
+    # (batch_size, h, seq_len, d_h)
     x = (attention_scores @ value)
     return x, attention_scores
+
+  @staticmethod
+  def attention_with_relative_position(query, key, value, h, relative_position_k, relative_position_v, scale, mask, dropout : nn.Dropout):
+    # Should be
+    #query = [batch size, query len, hid dim]
+    #key = [batch size, key len, hid dim]
+    #value = [batch size, value len, hid dim]
+    len_k = key.shape[1]
+    len_q = query.shape[1]
+    len_v = value.shape[1]
+    batch_size = query.shape[0]
+    d_h = query.shape[-1]
+
+    normal_attention_scores = (query @ key.transpose(-2, -1)) # (batch_size, seq_len, seq_len)
+
+    relative_q = query.permute(1, 0, 2).contiguous().view(len_q, batch_size*h, -1) # (seq_len, batch_size*h, d_h)
+    relative_k = relative_position_k(len_q, len_k) # (seq_len, seq_len, d_h)
+    relative_attention_scores = torch.matmul(relative_q, relative_k.transpose(1, 2)).transpose(0, 1)
+    relative_attention_scores = relative_attention_scores.contiguous().view(batch_size, h, len_q, len_k)
+
+    attention_scores = (normal_attention_scores + relative_attention_scores) / scale
+
+    # Apply the mask
+    if mask is not None:
+      attention_scores.masked_fill(mask == 0, -1e9)
+
+    # Apply the dropout
+    if dropout is not None:
+      attention_scores = dropout(attention_scores)
+
+    relative_v_1 = value.view(batch_size, -1, h, d_h).permute(0, 2, 1, 3)
+    weight1 = (attention_scores @ relative_v_1)
+    relative_v_2 = relative_position_v(len_q, len_v)
+    weight2 = attention_scores.permute(2, 0, 1, 3).contiguous().view(len_q, batch_size*h, len_k)
+    weight2 = (weight2 @ relative_v_2).transpose(0, 1).contiguous().view(batch_size, h, len_q, d_h)
+
+    x = weight1 + weight2
+
+    return x, attention_scores
+
 
 
   def forward(self, q, k, v, mask):
@@ -209,19 +271,32 @@ class MultiHeadAttentionBlock(nn.Module):
     # Split the query, into h heads
     # query.shape[0] = batch_size
     # query.shape[1] = seq_len
-    # (batch_size, seq_len, d_model) --> (batch_size, seq_len, h, d_k) -->
-    # transpose(1,2) --> (batch_size, h, seq_len, d_k)
+    # (batch_size, seq_len, d_model) --> (batch_size, seq_len, h, d_h) -->
+    # transpose(1,2) --> (batch_size, h, seq_len, d_h)
     # transpose(1,2) swaps the seq_len and h dimensions dimeinstion 1 and 2
-    query = query.view(query.shape[0], query.shape[1], self.h, self.d_k).transpose(1,2) # (batch_size, seq_len, d_model) --> (batch_size, h, seq_len, d_k)
-    key = key.view(key.shape[0], key.shape[1], self.h, self.d_k).transpose(1,2) # (batch_size, seq_len, d_model) --> (batch_size, h, seq_len, d_k)
-    value = value.view(value.shape[0], value.shape[1], self.h, self.d_k).transpose(1,2) # (batch_size, seq_len, d_model) --> (batch_size, h, seq_len, d_k)
 
-    x, self.attention_scores = MultiHeadAttentionBlock.attention(query, key, value, mask, self.dropout)
+    query = query.view(query.shape[0], query.shape[1], self.h, self.d_h).transpose(1,2) # (batch_size, seq_len, d_model) --> (batch_size, h, seq_len, d_h)
+    key = key.view(key.shape[0], key.shape[1], self.h, self.d_h).transpose(1,2) # (batch_size, seq_len, d_model) --> (batch_size, h, seq_len, d_h)
+    value = value.view(value.shape[0], value.shape[1], self.h, self.d_h).transpose(1,2) # (batch_size, seq_len, d_model) --> (batch_size, h, seq_len, d_h)
 
+    if self.relative_positional_encoding:
+      x, self.attention_scores = MultiHeadAttentionBlock.attention_with_relative_position(query, 
+                                                                                          key, 
+                                                                                          value, 
+                                                                                          self.h, 
+                                                                                          self.relative_positional_k, 
+                                                                                          self.relative_positional_v, 
+                                                                                          self.scale, 
+                                                                                          mask, 
+                                                                                          self.dropout)
+    else:
+
+
+      x, self.attention_scores = MultiHeadAttentionBlock.attention(query, key, value, mask, self.dropout)  
     # Concatenate the heads
-    # (batch_size, h, seq_len, d_k) --> (batch_size, seq_len, h, d_k) -->
-    #  (batch_size, seq_len, h*d_k) = (batch_size, seq_len, d_model)
-    x = x.transpose(1,2).contiguous().view(x.shape[0], -1, self.h*self.d_k)
+    # (batch_size, h, seq_len, d_h) --> (batch_size, seq_len, h, d_h) -->
+    #  (batch_size, seq_len, h*d_h) = (batch_size, seq_len, d_model)
+    x = x.transpose(1,2).contiguous().view(x.shape[0], -1, self.h*self.d_h)
 
     # Apply the last linear layer
     # (batch_size, seq_len, d_model) --> (batch_size, seq_len, d_model) 
@@ -447,14 +522,18 @@ def build_encoder_transformer(config,
   # Create the positional encodings
   if config['pos_enc_type'] == 'normal':
     src_pos = PositionalEncoding(d_model=d_model, dropout=dropout, seq_len=seq_len, omega=omega)
-  elif config['pos_enc_type'] == 'none':
+  elif config['pos_enc_type'] == 'none' or config['pos_enc_type'] == 'relative':
     src_pos = None  
+
+  
     
 
 
   # Create the encoder layers
   encoder_blocks = []
   for _ in range(N):
+    if config['pos_enc_type'] == 'relative':
+      encoder_self_attention_block = MultiHeadAttentionBlock(d_model, h, dropout, max_relative_position=100, relative_positional_encoding=True)
     encoder_self_attention_block = MultiHeadAttentionBlock(d_model, h, dropout)
     feed_forward_block = FeedForwardBlock(d_model, d_ff, dropout)
     encoder_block = EncoderBlock(encoder_self_attention_block, feed_forward_block, dropout)

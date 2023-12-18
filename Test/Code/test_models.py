@@ -8,7 +8,7 @@ THIS_DIR = dirname(__file__)
 CODE_DIR = abspath(join(THIS_DIR, '..', ''))
 sys.path.append(CODE_DIR)
 
-from models.models_1 import TimeInputEmbeddings, LayerNormalization, FinalBinaryBlock
+from models.models_1 import TimeInputEmbeddings, LayerNormalization, FinalBinaryBlock, MultiHeadAttentionBlock
 from dataHandler.datahandler import get_data, prepare_data
 import torch
 
@@ -27,9 +27,14 @@ for i in train_loader:
     break
 
 time_input_model = TimeInputEmbeddings(d_model=512)
-print(f"Shape input: {input_data.shape}")
+print(f"Shape input time embedding: {input_data.shape}")
 output = time_input_model(input_data)
-print(f"Shape output: {output.shape}")
+print(f"Shape output time embedding: {output.shape}")
+
+multi_head = MultiHeadAttentionBlock(d_model=512, h=8, dropout=0.1, max_relative_position=10, relative_positional_encoding=True)
+print(f"Shape input to multi head: {output.shape}")
+output = multi_head(output, output, output, mask=None)
+print(f"Shape output from multi head: {output.shape}")
 
 final_layer = FinalBinaryBlock(d_model=512, seq_len=100)
 final_output = final_layer(output)

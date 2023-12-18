@@ -2,8 +2,18 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pandas as pd
+import pickle
 
-def histogram(y_pred, y,config, bins=100):
+def histogram(y_pred, y, config, bins=100, save_path=''):
+
+    if save_path == '':
+      save_path = config['model_path'] + 'plot/' 
+      isExist = os.path.exists(save_path)
+      if not isExist:
+        os.makedirs(save_path)
+        print("The new directory is created!")
+
+
     plt.rcParams['text.usetex'] = True
     fig, ax = plt.subplots()
     signal_mask = y == 1
@@ -18,18 +28,33 @@ def histogram(y_pred, y,config, bins=100):
     ax.set_yscale('log')
     ax.legend()
     ax.set_xlabel(r'noise $\leftrightarrow$ signal')
-    plt.savefig(config['model_path'] + 'plot/' + f'model_{config["model_num"]}_hist.png')
+    plt.savefig(save_path + f"model_{config['model_num']}_histogram.png")
     plt.clf()
 
-def noise_reduction_factor(y_preds, ys, configs, bins=100, savefig_path='', labels=[]):
+def noise_reduction_factor(y_preds, ys, configs, bins=100, save_path='', labels=[]):
     """
             This function plots the noise reduction factor curve for a given model or models.
             Args:
                 y_preds (list of np.arrays): list of y_pred arrays
-                ys (list of np.arrays): 
+                ys (list of np.arrays): list of y arrays
+                configs (list of dicts): list of config dicts 
+                bins (int): number of bins in the histogram
+                savefig_path (str): path to save the plot, optional
     """
+    
+
+
+
     fig, ax = plt.subplots()
     length = len(y_preds)
+
+    if save_path == '' and length == 0:
+      save_path = config['model_path'] + 'plot/' 
+      isExist = os.path.exists(save_path)
+      if not isExist:
+        os.makedirs(save_path)
+        print("The new directory is created!")
+
     if len(labels) > 0:
         ax.set_title(f"Noise reduction factor for {length} models")
     else:    
@@ -43,33 +68,35 @@ def noise_reduction_factor(y_preds, ys, configs, bins=100, savefig_path='', labe
         y_pred_signal = y_pred[signal_mask]
         y_pred_noise = y_pred[~signal_mask]
         true_pos = np.zeros(bins)
-        false_pos = np.zeros(bins)
+        true_neg = np.zeros(bins)
         noise_reduction_factor = np.zeros(bins)
         binnings = np.linspace(0,1,bins)
         
-        for i, limit in enumerate(binnings):
-            true_pos[i] = np.count_nonzero(y_pred_signal > limit)/len(y_pred_signal)
-            false_pos[i] =np.count_nonzero(y_pred_noise > limit)/len(y_pred_noise)
+        for j, limit in enumerate(binnings):
+            true_pos[j] = np.count_nonzero(y_pred_signal > limit)/len(y_pred_signal)
+            true_neg[j] =np.count_nonzero(y_pred_noise < limit)/len(y_pred_noise)
 
-            if (false_pos[i] > 0):
-                noise_reduction_factor[i] = 1 / ( false_pos[i])
+            if ((true_neg[j] - 1) > 0):
+                noise_reduction_factor[j] = 1 / (true_neg[j] - 1)
             else:
-                noise_reduction_factor[i] = len(y_pred_noise)  
+                noise_reduction_factor[j] = len(y_pred_noise)  
 
         
-        ax.plot(true_pos, noise_reduction_factor)
+        
         if len(labels) > 0:
-            ax.set_label(labels[i])
-
-        ax.legend()
+            ax.plot(true_pos, noise_reduction_factor, label=labels[i])
+        else:
+            ax.plot(true_pos, noise_reduction_factor)
+            
+    ax.legend()
     ax.set_xlabel('True positive rate')
-    ax.set_ylabel(f'Noise reduction factor (\# noise {len(y_pred_noise)})')
+    ax.set_ylabel(f'Noise reduction factor (nr. noise {len(y_pred_noise)})')
     ax.set_yscale('log')
     ax.set_xlim([0.8,1])
 
-    if savefig_path == '':
-        config['model_path'] + 'plot/' + f'model_{config["model_num"]}_noise_reduction.png'
-    plt.savefig(savefig_path)
+    if save_path == '':
+        save_path = config['model_path'] + 'plot/' + f'model_{config["model_num"]}_noise_reduction.png'
+    plt.savefig(save_path)
 
 
 def plot_results(model_number, path=''):
@@ -116,7 +143,15 @@ def plot_weights(model, config, save_path='', block='self_attention_block', quie
     for name, param in model.named_parameters():
       if 'weight' in name:
         print(f'Layer: {name}, Shape: {param.shape}')
-      
+
+  if save_path == '':
+      save_path = config['model_path'] + 'plot/' 
+      isExist = os.path.exists(save_path)
+      if not isExist:
+        os.makedirs(save_path)
+        print("The new directory is created!")
+
+    
   fig, ax = plt.subplots()
   if block == 'self_attention_block':
     weight = model.encoder.layers[config['h'] - 1].self_attention_block.W_0.weight.data.numpy()
@@ -145,3 +180,29 @@ def plot_weights(model, config, save_path='', block='self_attention_block', quie
   plt.savefig(save_path)
 #   writer.add_histogram('weights', weight)
 #   writer.close()  
+
+def plot_collections(models, labels, save_path=''): 
+  y_pred = []
+  y = []
+  configs = []
+
+  for i, model_num in enumerate(models):
+    with open(f"Test/ModelsResults/model_{model_num}/config.txt", 'rb') as f:
+        config = pickle.load(f)
+    with open(f"Test/ModelsResults/model_{model_num}/y_pred_data.pkl", 'rb') as f:
+        y_data = pickle.load(f)
+    
+    y_pred.append(np.asarray(y_data['y_pred']))
+    y.append(np.asarray(y_data['y']))
+    configs.append(config)
+  if save_path == '':  
+    model_name = '/Test/ModelsResults/collections/models'
+    for model_num in models:
+      model_name += f'_{model_num}'
+    save_path = os.getcwd() + model_name + '.png'  
+
+  
+  noise_reduction_factor(ys=y, 
+                        y_preds=y_pred, 
+                        configs=configs, 
+                        save_path=save_path, labels=labels)

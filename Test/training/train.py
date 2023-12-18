@@ -180,9 +180,13 @@ def training(config, data_path):
     global_step += 1
 
   config['pre_trained'] = True
-  (config['acc'], config['TP'], config['TN'], config['FP'], config['FN']) = test_model(model, test_loader, device, config)    
+  (config['acc'], config['TP'], config['TN'], config['FP'], config['FN']), y_pred_data = test_model(model, test_loader, device, config)    
   print(f"Test acc: {config['acc']:.4f}")
-  save_data(config, df)
+  save_data(config, df, y_pred_data)
+  
+
+  histogram(y_pred_data['y_pred'], y_pred_data['y'], config)
+  noise_reduction_factor([y_pred_data['y_pred']], [y_pred_data['y']], [config])
 
 
   writer.close()
@@ -243,11 +247,8 @@ def test_model(model, test_loader, device, config):
   y = np.asarray(y)  
   y_pred = np.asarray(y_pred)
   # TODO save y and y_pred
-  np.save
+  y_pred_data = pd.DataFrame({'y_pred': y_pred, 'y': y})
   arr = (acc/count, TP/(TP + FN), TN/(TN + FP), FP/(FP + TN), FN/(FN+TP))
 
-
-  histogram(y_pred, y, config)
-  noise_reduction_factor([y_pred], y, config)
   
-  return arr 
+  return arr, y_pred_data

@@ -31,7 +31,7 @@ def histogram(y_pred, y, config, bins=100, save_path=''):
     plt.savefig(save_path + f"model_{config['model_num']}_histogram.png")
     plt.clf()
 
-def noise_reduction_factor(y_preds, ys, configs, bins=100, save_path='', labels=[]):
+def noise_reduction_factor(y_preds, ys, configs, bins=100, save_path='', labels=None):
     """
             This function plots the noise reduction factor curve for a given model or models.
             Args:
@@ -55,10 +55,12 @@ def noise_reduction_factor(y_preds, ys, configs, bins=100, save_path='', labels=
         os.makedirs(save_path)
         print("The new directory is created!")
 
-    if len(labels) > 0:
+    if labels == None:
+      ax.set_title(f"Model {configs[0]['model_num']}")
+    else:
         ax.set_title(f"Noise reduction factor for {length} models")
-    else:    
-        ax.set_title(f"Model {configs[0]['model_num']}")
+      
+        
 
     for i in range(length): 
         y_pred = y_preds[i]
@@ -76,19 +78,21 @@ def noise_reduction_factor(y_preds, ys, configs, bins=100, save_path='', labels=
             true_pos[j] = np.count_nonzero(y_pred_signal > limit)/len(y_pred_signal)
             true_neg[j] =np.count_nonzero(y_pred_noise < limit)/len(y_pred_noise)
 
-            if ((true_neg[j] - 1) > 0):
-                noise_reduction_factor[j] = 1 / (true_neg[j] - 1)
+            if (true_neg[j] != 1):
+                noise_reduction_factor[j] = 1 / (1 - true_neg[j])
             else:
                 noise_reduction_factor[j] = len(y_pred_noise)  
 
         
-        
-        if len(labels) > 0:
-            ax.plot(true_pos, noise_reduction_factor, label=labels[i])
+        if labels == None:
+          ax.plot(true_pos, noise_reduction_factor)   
         else:
-            ax.plot(true_pos, noise_reduction_factor)
+            ax.plot(true_pos, noise_reduction_factor, label=labels['hyper_parameters'][i])
+        
             
-    ax.legend()
+    if labels != None:
+       ax.legend(title=labels['name'])        
+    
     ax.set_xlabel('True positive rate')
     ax.set_ylabel(f'Noise reduction factor (nr. noise {len(y_pred_noise)})')
     ax.set_yscale('log')
@@ -206,3 +210,11 @@ def plot_collections(models, labels, save_path=''):
                         y_preds=y_pred, 
                         configs=configs, 
                         save_path=save_path, labels=labels)
+
+
+def plot_examples(data):
+  data = data[0]
+  fig, ax = plt.subplots(4,1, figsize=(10,10))
+  for i in range(4):
+    ax[i].plot(data[i][200:300])
+  plt.savefig('Test/ModelsResults/collections/examples.png')  

@@ -8,7 +8,7 @@ THIS_DIR = dirname(__file__)
 CODE_DIR = abspath(join(THIS_DIR, '..', ''))
 sys.path.append(CODE_DIR)
 
-from models.models_1 import TimeInputEmbeddings, LayerNormalization, FinalBinaryBlock, MultiHeadAttentionBlock
+from models.models_1 import TimeInputEmbeddings, LayerNormalization, FinalBinaryBlock, MultiHeadAttentionBlock, LearnablePositionalEncoding
 from dataHandler.datahandler import get_data, prepare_data
 import torch
 
@@ -30,6 +30,11 @@ time_input_model = TimeInputEmbeddings(d_model=512)
 print(f"Shape input time embedding: {input_data.shape}")
 output = time_input_model(input_data)
 print(f"Shape output time embedding: {output.shape}")
+
+learn_pos_layer = LearnablePositionalEncoding(d_model=512)
+print(f"Shape input learnable position: {output.shape}")
+output = learn_pos_layer(output)
+print(f"Shape output learnable position: {output.shape}")
 
 multi_head = MultiHeadAttentionBlock(d_model=512, h=8, dropout=0.1, max_relative_position=10, relative_positional_encoding=True)
 print(f"Shape input to multi head: {output.shape}")

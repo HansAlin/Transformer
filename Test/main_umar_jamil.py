@@ -41,6 +41,8 @@ from plots.plots import plot_collections
 # TODO Check final bloch down sizing if it is correct
 # TODO Do I have to concern about float 32 and float 64
 # TODO Make a total plot for noise reduction factor
+# TODO Add som ekind of timer
+# TODO Scheck if scheduler works!
 
 # Hyper paramters:
 #     learning rate 
@@ -49,25 +51,27 @@ from plots.plots import plot_collections
 #          ¤  based on val_loss or val_acc ???  
 
 
-hyper_paramters = [0.01, 2, 10000]
-labels = ['Omega: 0.01', 'Omega: 2', 'Omega: 10000']
-start_model_num = 997
+hyper_paramters = ['Relative', 'None', 'Learnable']
+labels = {'hyper_parameters': hyper_paramters, 'name': 'Positional Encoding'}
+start_model_num = 994
 epochs = 100
 test = False
 
 model_num = start_model_num
 models = []
+
 for i, hyper_paramter in enumerate(hyper_paramters):
   models.append(model_num)
   config = {'model_name': "with_out_activation_in_final_block",
             'model_type': "base_encoder",
               'model':None,
               'pre_trained': None,
-              'pos_enc_type':'normal',
+              'pos_enc_type':hyper_paramters[i], # Posible options: 'Sinusoidal', 'Relative', 'None', 'Learnable'
               'model_num': model_num,
-              'embed_size': hyper_paramter,
+              'embed_size': 64,
               'seq_len': 100,
               'd_model': 512,
+              'd_ff': 2048,
               'N': 8,
               'h': 4,
               'dropout': 0.1,

@@ -121,20 +121,55 @@ class RelativePositionalEncoding(nn.Module):
     self.d_h = d_h
     self.max_relative_position = max_relative_position
     self.embeddings_table = nn.Parameter(torch.Tensor(max_relative_position * 2 + 1, d_h))
-    # Initialize the weights
-    nn.init.xavier_uniform_(self.embeddings_table)
+ 
 
   def forward(self, length_q, length_k):
+    #length_q = length_k = seq_len
     range_vec_q = torch.arange(length_q)
     range_vec_k = torch.arange(length_k)
     distance_mat = range_vec_k[None, :] - range_vec_q[:, None]
+    # distance_mat = (seq_len, seq_len)
+    # [ 0,  1,  2,  3,  4]
+    # [-1,  0,  1,  2,  3]
+    # [-2, -1,  0,  1,  2]
+    # [-3, -2, -1,  0,  1]
+    # [-4, -3, -2, -1,  0]
+   
     distance_mat_clipped = torch.clamp(distance_mat, -self.max_relative_position, self.max_relative_position)
+    # distance_mat_clipped = (seq_len, seq_len)
+    # if max_relative_position = 3
+    # [ 0,  1,  2,  3,  3]
+    # [-1,  0,  1,  2,  3]
+    # [-2, -1,  0,  1,  2]
+    # [-3, -2, -1,  0,  1]
+    # [-3, -3, -2, -1,  0]
     final_mat = distance_mat_clipped + self.max_relative_position
+    # final_mat = (seq_len, seq_len)
+    # [3, 4, 5, 6, 6]
+    # [2, 3, 4, 5, 6]
+    # [1, 2, 3, 4, 5]
+    # [0, 1, 2, 3, 4]
+    # [0, 0, 1, 2, 3]
     final_mat = torch.LongTensor(final_mat)
-    embeddings = self.embeddings_table[final_mat]
+    embeddings = self.embeddings_table[final_mat] # (seq_len, seq_len, d_h)
+    # Each value in the final_mat is used as an index in the embeddings_table
+    # E.g. final_mat[0,0] = 3, embeddings_table[3] => third row in the embeddings_table
+    # and final_mat[0,1] = 4, embeddings_table[4] => fourth row in the embeddings_table
+    # so the first row in the embeddings matrix will be:
+    # [[embeddings_table[3]], [embeddings_table[4]], ...]
+     
 
     return embeddings
 
+class LearnablePositionalEncoding(nn.Module):
+  def __init__(self, d_model):
+    super().__init__()
+    self.d_model = d_model
+    self.positional_encoding = nn.Parameter(torch.zeros(1, d_model))
+
+  def forward(self, x):
+    x += self.positional_encoding
+    return x  
    
 class FinalBinaryBlock(nn.Module):
   def __init__(self, d_model: int, seq_len: int, dropout: float = 0.1):
@@ -222,26 +257,29 @@ class MultiHeadAttentionBlock(nn.Module):
     return x, attention_scores
 
   @staticmethod
-  def attention_with_relative_position(query, key, value, h, relative_position_k, relative_position_v, scale, mask, dropout : nn.Dropout):
-    # Should be
-    #query = [batch size, query len, hid dim]
-    #key = [batch size, key len, hid dim]
-    #value = [batch size, value len, hid dim]
-    len_k = key.shape[2]
-    len_q = query.shape[2]
-    len_v = value.shape[2]
-    batch_size = query.shape[0]
-    d_h = query.shape[-1]
+  def attention_with_relative_position(query, key, value, h, d_h, relative_position_k, relative_position_v, scale, mask, dropout : nn.Dropout):
+    # query = (batch size, seq_len, d_model)
+    # key = (batch size, seq_len, d_model)
+    # value = (batch size, seq_len, d_model)
+    len_k = key.shape[1] # seq_len
+    len_q = query.shape[1] # seq_len
+    len_v = value.shape[1] # seq_len
+    batch_size = query.shape[0] # batch_size
+    
 
-    q = query.view(batch_size, -1, h, d_h).permute(0, 2, 1, 3) 
-    k = key.view(batch_size, -1, h, d_h).permute(0, 2, 1, 3)
-    normal_attention_scores = (q @ k.transpose(-2, -1)) # (batch_size, seq_len, seq_len)
+    q = query.view(query.shape[0], query.shape[1], h, d_h).transpose(1,2) # (batch_size, n_head, seq_len, d_h)
+    k = key.view(key.shape[0], key.shape[1], h, d_h).transpose(1,2) # (batch_size, n_head, seq_len, d_h)
+    normal_attention_scores = (q @ k.transpose(-2, -1)) # (batch_size, n_head, seq_len, seq_len)
 
-    relative_q = query.permute(1, 0, 2).contiguous().view(len_q, batch_size*h, -1) # (seq_len, batch_size*h, d_h)
+    relative_q = query.permute(1, 0, 2).contiguous().view(len_q, batch_size*h, -1) # (seq_len, batch_size*n_head, d_h)
     relative_k = relative_position_k(len_q, len_k) # (seq_len, seq_len, d_h)
+    # realative_k = (seq_len, seq_len, d_h) --> (seq_len, d_h, seq_len)
+    # (seq_len, batch_size*n_head, d_h) @ (seq_len, d_h, seq_len) --> (seq_len, batch_size*n_head, seq_len)
+    # (seq_len, batch_size*n_head, seq_len) --> (batch_size*n_head, seq_len, seq_len)
+    #
     relative_attention_scores = torch.matmul(relative_q, relative_k.transpose(1, 2)).transpose(0, 1)
     relative_attention_scores = relative_attention_scores.contiguous().view(batch_size, h, len_q, len_k)
-
+    # (batch_size, n_head, seq_len, seq_len)
     attention_scores = (normal_attention_scores + relative_attention_scores) / scale
 
     # Apply the mask
@@ -252,17 +290,16 @@ class MultiHeadAttentionBlock(nn.Module):
     if dropout is not None:
       attention_scores = dropout(attention_scores)
 
-    relative_v_1 = value.view(batch_size, -1, h, d_h).permute(0, 2, 1, 3)
-    weight1 = (attention_scores @ relative_v_1)
-    relative_v_2 = relative_position_v(len_q, len_v)
-    weight2 = attention_scores.permute(2, 0, 1, 3).contiguous().view(len_q, batch_size*h, len_k)
+    relative_v_1 = value.view(batch_size, -1, h, d_h).permute(0, 2, 1, 3) # (batch_size, n_head, seq_len, d_h)
+    weight1 = (attention_scores @ relative_v_1) # (batch_size, n_head, seq_len, seq_len) @ (batch_size, n_head, seq_len, d_h) --> 
+    # (batch_size, n_head, seq_len, d_h)
+    relative_v_2 = relative_position_v(len_q, len_v) # (seq_len, seq_len, d_h) 
+    weight2 = attention_scores.permute(2, 0, 1, 3).contiguous().view(len_q, batch_size*h, len_k)  # (seq_len, batch_size*n_head, seq_len)
     weight2 = (weight2 @ relative_v_2).transpose(0, 1).contiguous().view(batch_size, h, len_q, d_h)
 
     x = weight1 + weight2
 
     return x, attention_scores
-
-
 
   def forward(self, q, k, v, mask):
     # secretly q,k,v are all the same
@@ -282,7 +319,8 @@ class MultiHeadAttentionBlock(nn.Module):
       x, self.attention_scores = MultiHeadAttentionBlock.attention_with_relative_position(query, 
                                                                                           key, 
                                                                                           value, 
-                                                                                          self.h, 
+                                                                                          self.h,
+                                                                                          self.d_h, 
                                                                                           self.relative_positional_k, 
                                                                                           self.relative_positional_v, 
                                                                                           self.scale, 
@@ -508,41 +546,41 @@ def build_transformer(src_vocab_size: int,
 
   return transformer    
 
-def build_encoder_transformer(config,
-                              embed_size: int, 
-                              seq_len: int,
-                              d_model: int = 512,
-                              N: int = 6,
-                              h: int = 8, 
-                              dropout: float = 0.1,
-                              d_ff: int = 2048,
-                              omega: float = 10000) -> EncoderTransformer:
+def build_encoder_transformer(config) -> EncoderTransformer:
+  
+  embed_size=config['embed_size']
+  seq_len=config['seq_len']
+  d_model=config['d_model']
+  N=config['N']
+  h=config['h']
+  dropout=config['dropout']
+  omega=config['omega']
+  d_ff=config['d_ff']
+
   # Create the input embeddings
   src_embed = TimeInputEmbeddings(d_model=d_model)
  
   # Create the positional encodings
-  if config['pos_enc_type'] == 'normal':
+  if config['pos_enc_type'] == 'Sinusoidal':
     src_pos = PositionalEncoding(d_model=d_model, dropout=dropout, seq_len=seq_len, omega=omega)
-  elif config['pos_enc_type'] == 'none' or config['pos_enc_type'] == 'relative':
+  elif config['pos_enc_type'] == 'None' or config['pos_enc_type'] == 'Relative':
     src_pos = None  
-
-  
-    
-
+  elif config['pos_enc_type'] == 'Learnable':
+    src_pos = LearnablePositionalEncoding(d_model=d_model)  
 
   # Create the encoder layers
   encoder_blocks = []
   for _ in range(N):
-    if config['pos_enc_type'] == 'relative':
+    if config['pos_enc_type'] == 'Relative':
       encoder_self_attention_block = MultiHeadAttentionBlock(d_model, h, dropout, max_relative_position=100, relative_positional_encoding=True)
     encoder_self_attention_block = MultiHeadAttentionBlock(d_model, h, dropout)
     feed_forward_block = FeedForwardBlock(d_model, d_ff, dropout)
     encoder_block = EncoderBlock(encoder_self_attention_block, feed_forward_block, dropout)
     encoder_blocks.append(encoder_block)
-
   # Create the encoder and decoder
   encoder = Encoder(nn.ModuleList(encoder_blocks))
 
+  # Create the final block
   final_block = FinalBinaryBlock(d_model=d_model, seq_len=seq_len, dropout=dropout)
 
   # Create the transformer

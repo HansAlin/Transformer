@@ -1,0 +1,44 @@
+arch: CNN
+
+layers:
+  conv1:
+    type: 1dconv
+    out_channels: 5
+    kernel_size: 5
+    stride: 3
+  relu:
+    type: relu
+  mp:
+    type: maxpool
+    kernel_size: 2
+    stride: 2
+  reshape:
+    type: reshape
+  flat:
+    type: flatten
+  dense1:
+    type: dense
+    output: 1
+  sigmoid:
+    type: sigmoid
+
+shared_weights: True
+input_length: 256
+n_ant: 4
+
+sampling:
+  band:
+    low: 0.08
+    high: 0.23
+  rate: 0.5
+  filter:
+    order_low: 5
+    order_high: 10
+    type: butter
+
+training:
+  batch_size: 30
+  forward_skip_size: 200
+  cdf: 0.7
+  ns_readout_window: 800
+  consecutive_deadtime: 2

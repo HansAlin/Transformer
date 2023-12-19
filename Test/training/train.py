@@ -22,14 +22,7 @@ def training(config, data_path):
   device = torch.device("cuda" if torch.cuda.is_available() else "cpu")           
   print(f"Using device: {device}, name of GPU: {torch.cuda.get_device_name(device=device)}")
   if config['model_type'] == "base_encoder":
-    model = build_encoder_transformer(config,
-                                      embed_size=config['embed_size'], 
-                                      seq_len=config['seq_len'], 
-                                      d_model=config['d_model'], 
-                                      N=config['N'], 
-                                      h=config['h'], 
-                                      dropout=config['dropout'],
-                                      omega=config['omega'])
+    model = build_encoder_transformer(config)
   else:
     print("No model found")
     return None

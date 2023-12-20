@@ -42,9 +42,6 @@ def noise_reduction_factor(y_preds, ys, configs, bins=100, save_path='', labels=
                 savefig_path (str): path to save the plot, optional
     """
     
-
-
-
     fig, ax = plt.subplots()
     length = len(y_preds)
 
@@ -200,7 +197,7 @@ def plot_collections(models, labels, save_path=''):
     y.append(np.asarray(y_data['y']))
     configs.append(config)
   if save_path == '':  
-    model_name = '/Test/ModelsResults/collections/models'
+    model_name = f'/Test/ModelsResults/collections/{labels["name"].replace(" ", "_")}_models'
     for model_num in models:
       model_name += f'_{model_num}'
     save_path = os.getcwd() + model_name + '.png'  

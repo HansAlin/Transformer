@@ -2,7 +2,7 @@ import os
 from os.path import dirname, abspath, join
 import sys
 import unittest
-
+import numpy as np
 # Find code directory relative to our directory
 THIS_DIR = dirname(__file__)
 CODE_DIR = abspath(join(THIS_DIR, '..', ''))
@@ -12,21 +12,19 @@ from models.models_1 import TimeInputEmbeddings, LayerNormalization, FinalBinary
 from dataHandler.datahandler import get_data, prepare_data
 import torch
 
+PATH = '/home/halin/Master/Transformer/Test/data/test_100_data.npy'
 
+x_train, x_val, x_test, y_train, y_val, y_test = get_data(path=PATH)
 
-path = os.getcwd()
+train_loader, val_loader, test_loader = prepare_data(x_train, x_val, x_test, y_train, y_val, y_test, batch_size=32, multi_channel=True)    
 
-data_path = path + '/Test/data/test_100_data.npy'
-x_train, x_test, x_val, y_train, y_val, y_test = get_data(path=data_path)
-
-train_loader, val_loader, test_loader, number_of_noise, number_of_signals = prepare_data(x_train, x_val, x_test, y_train, y_val, y_test, 32)
 
 input_data = None
 for i in train_loader:
     input_data = i[0]
     break
 
-time_input_model = TimeInputEmbeddings(d_model=512)
+time_input_model = TimeInputEmbeddings(d_model=512, channels=4 )
 print(f"Shape input time embedding: {input_data.shape}")
 output = time_input_model(input_data)
 print(f"Shape output time embedding: {output.shape}")

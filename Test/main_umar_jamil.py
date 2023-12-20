@@ -25,7 +25,7 @@ print("Host name: ", myhost)
 
 import dataHandler.datahandler as dh
 import models.models_1 as md
-import training.train as tr
+from training.train import training
 from plots.plots import plot_collections
 
 # TODO implement loading and saving of model
@@ -43,7 +43,7 @@ from plots.plots import plot_collections
 # TODO Make a total plot for noise reduction factor
 # TODO Add som ekind of timer
 # TODO Scheck if scheduler works!
-
+# '/mnt/md0/halin/Models'
 # Hyper paramters:
 #     learning rate 
 #         ¤  learning rate functions  
@@ -51,33 +51,33 @@ from plots.plots import plot_collections
 #          ¤  based on val_loss or val_acc ???  
 
 
-hyper_paramters = ['Relative', 'None', 'Learnable']
-labels = {'hyper_parameters': hyper_paramters, 'name': 'Positional Encoding'}
-start_model_num = 994
-epochs = 100
-test = False
+hyper_paramters = [64, 512, 2048]
+labels = {'hyper_parameters': hyper_paramters, 'name': 'Model Size (d_model)'}
+start_model_num = 993
+batch_size = 128
+epochs = 2
+test = True
 
 model_num = start_model_num
 models = []
-
+configs = []
 for i, hyper_paramter in enumerate(hyper_paramters):
   models.append(model_num)
   config = {'model_name': "with_out_activation_in_final_block",
             'model_type': "base_encoder",
               'model':None,
               'pre_trained': None,
-              'pos_enc_type':hyper_paramters[i], # Posible options: 'Sinusoidal', 'Relative', 'None', 'Learnable'
+              'pos_enc_type':'Sinusoidal', # Posible options: 'Sinusoidal', 'Relative', 'None', 'Learnable'
               'model_num': model_num,
               'embed_size': 64,
-              'seq_len': 100,
-              'd_model': 512,
-              'd_ff': 2048,
-              'N': 8,
-              'h': 4,
+              'seq_len': 1000,
+              'd_model': hyper_paramters[i],
+              'd_ff': 512,
+              'N': 2,
+              'h': 2,
               'dropout': 0.1,
               'num_epochs': epochs,
-              'batch_size': 32,
-              #"experiment_name": f"/home/halin/Master/Transformer/Test/ModelsResults/model_{model_num}/runs",
+              'batch_size': batch_size,
               "learning_rate": 1e-3,
               "decreas_factor": 0.5,
               "num_parms":0,
@@ -85,10 +85,11 @@ for i, hyper_paramter in enumerate(hyper_paramters):
               "current_epoch":0,
               "model_path":'',
               "test_acc":0,
-              "early_stop":5,
+              "early_stop":7,
               "omega": 10000,
               "trained_noise":0,
               "trained_signal":0,
+              "n_ant":4,
               "acc":0,
               "TP":0,
               "TN":0,
@@ -97,16 +98,18 @@ for i, hyper_paramter in enumerate(hyper_paramters):
 
 
             }
-  if test:
-    PATH = os.getcwd() + '/Test/data/test_1000_data.npy'
-  else:
-    PATH = ''  
-  
-  tr.training(config, data_path=PATH)
-
-  tr.plot_results(model_num)
-  
+  configs.append(config)
   model_num += 1
+if test:
+  PATH = os.getcwd() + '/Test/data/test_100_data.npy'
+else:
+  PATH = ''  
+
+training(configs, data_path=PATH, batch_size=configs[0]['batch_size'], channels=configs[0]['n_ant'])
+
+
+  
+  
 
 
 plot_collections(models, labels, save_path='')  

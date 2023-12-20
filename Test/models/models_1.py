@@ -54,10 +54,10 @@ class InputEmbeddings(nn.Module):
       return self.embedding(x) * math.sqrt(self.d_model) 
   
 class TimeInputEmbeddings(nn.Module):
-  def __init__(self, d_model: int, dropout: float = 0.1):
+  def __init__(self, d_model: int, dropout: float = 0.1, channels: int = 1):
     super().__init__()
     self.d_model = d_model
-    self.embedding = nn.Linear(1, d_model)
+    self.embedding = nn.Linear(channels, d_model)
     self.dropout = nn.Dropout(dropout)
     self.activation = nn.ReLU()
 
@@ -172,12 +172,12 @@ class LearnablePositionalEncoding(nn.Module):
     return x  
    
 class FinalBinaryBlock(nn.Module):
-  def __init__(self, d_model: int, seq_len: int, dropout: float = 0.1):
+  def __init__(self, d_model: int, seq_len: int, dropout: float = 0.1,  out_put_size: int = 1):
     super().__init__()
-    self.linear_1 = nn.Linear(d_model, 1)
+    self.linear_1 = nn.Linear(d_model, seq_len)
     self.sigmoid = nn.Sigmoid()
     self.dropout = nn.Dropout(dropout)
-    self.linear_2 = nn.Linear(seq_len, 1)
+    self.linear_2 = nn.Linear(seq_len, out_put_size)
     self.activation = nn.ReLU()
 
 
@@ -188,6 +188,7 @@ class FinalBinaryBlock(nn.Module):
     x = x.squeeze()
     x = self.dropout(x)
     x = self.linear_2(x) 
+    x = x.squeeze()
     x = self.sigmoid(x)
 
     return x
@@ -556,9 +557,14 @@ def build_encoder_transformer(config) -> EncoderTransformer:
   dropout=config['dropout']
   omega=config['omega']
   d_ff=config['d_ff']
+  if config['n_ant'] == 1:
+    output_size = 1
+  else:
+    output_size = 1 
+  
 
   # Create the input embeddings
-  src_embed = TimeInputEmbeddings(d_model=d_model)
+  src_embed = TimeInputEmbeddings(d_model=d_model, channels=config['n_ant'])
  
   # Create the positional encodings
   if config['pos_enc_type'] == 'Sinusoidal':
@@ -581,7 +587,7 @@ def build_encoder_transformer(config) -> EncoderTransformer:
   encoder = Encoder(nn.ModuleList(encoder_blocks))
 
   # Create the final block
-  final_block = FinalBinaryBlock(d_model=d_model, seq_len=seq_len, dropout=dropout)
+  final_block = FinalBinaryBlock(d_model=d_model, seq_len=seq_len, dropout=dropout, out_put_size=output_size)
 
   # Create the transformer
   encoder_transformer = EncoderTransformer(encoder=encoder,

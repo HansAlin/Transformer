@@ -415,6 +415,12 @@ def create_model_folder(model_number, path=''):
     # else:
     #   reply = input("Folder already exist, proceed y/n ?")
     #   if reply.lower() != 'y':
-    #     sys.exit()    
-        
+    #     sys.exit()          
     return path 
+  else:
+    path = path + f'/model_{model_number}/' 
+    isExist = os.path.exists(path)
+    if not isExist:
+      os.makedirs(path)
+      print("The new directory is created!")
+    return path  

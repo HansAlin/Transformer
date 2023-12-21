@@ -51,12 +51,12 @@ from plots.plots import plot_collections
 #          ¤  based on val_loss or val_acc ???  
 
 
-hyper_paramters = [64, 512, 2048]
+hyper_paramters = [64, 256, 512]
 labels = {'hyper_parameters': hyper_paramters, 'name': 'Model Size (d_model)'}
 start_model_num = 993
-batch_size = 128
-epochs = 2
-test = True
+batch_size = 64
+epochs = 100
+test = False
 
 model_num = start_model_num
 models = []
@@ -90,9 +90,10 @@ for i, hyper_paramter in enumerate(hyper_paramters):
               "trained_noise":0,
               "trained_signal":0,
               "n_ant":4,
-              "acc":0,
-              "TP":0,
-              "TN":0,
+              "metric":'Accuracy', # Posible options: 'Accuracy', 'Efficiency', 'Precision'
+              "Accuracy":0,
+              "Efficiency":0,
+              "Precission":0,
               "FP":0,
               "FN":0,
 
@@ -104,8 +105,12 @@ if test:
   PATH = os.getcwd() + '/Test/data/test_100_data.npy'
 else:
   PATH = ''  
-
-training(configs, data_path=PATH, batch_size=configs[0]['batch_size'], channels=configs[0]['n_ant'])
+# /mnt/md0/halin/Models/
+training(configs=configs, 
+         data_path=PATH, 
+         batch_size=configs[0]['batch_size'], 
+         channels=configs[0]['n_ant'],
+         save_folder='/mnt/md0/halin/Models/',)
 
 
   

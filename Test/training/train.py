@@ -17,7 +17,7 @@ from models.models_1 import build_encoder_transformer, get_n_params, set_max_spl
 from dataHandler.datahandler import save_data, save_model, create_model_folder
 
 
-def training(configs, data_path, batch_size=32, channels=4):
+def training(configs, data_path, batch_size=32, channels=4, save_folder=''):
   if data_path == '':
     x_train, x_test, x_val, y_train, y_val, y_test = get_data()
   else:  
@@ -36,7 +36,7 @@ def training(configs, data_path, batch_size=32, channels=4):
 
   for config in configs:
     df = pd.DataFrame([], 
-                            columns= ['Train_loss', 'Val_loss', 'Val_acc', 'Epochs'])
+                            columns= ['Train_loss', 'Val_loss', 'metric', 'Epochs'])
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")           
     print(f"Using device: {device}, name of GPU: {torch.cuda.get_device_name(device=device)}")
     if config['model_type'] == "base_encoder":
@@ -47,11 +47,11 @@ def training(configs, data_path, batch_size=32, channels=4):
     
     
     config['num_parms'] = get_n_params(model)
-    config['model_path'] = create_model_folder(config['model_num'])
+    config['model_path'] = create_model_folder(config['model_num'], path=save_folder)
     
     print(f"Number of paramters: {config['num_parms']}") 
-    writer = SummaryWriter(config['model_path']+'/trainingdata')
-    print(f"Follow on tensorboard: python3 -m tensorboard.main --logdir=Test/ModelsResults/model_{config['model_num']}/trainingdata")
+    writer = SummaryWriter(config['model_path'] + '/trainingdata')
+    print(f"Follow on tensorboard: python3 -m tensorboard.main --logdir={config['model_path']}/trainingdata")
 
     
     print(f"Number of paramters: {config['num_parms']}")
@@ -98,7 +98,7 @@ def training(configs, data_path, batch_size=32, channels=4):
       
       train_loss = []
       val_loss = []
-      val_acc = []
+      metric = []
       # Training
       batch_num = 1
       num_of_bathes = int(len(train_loader.dataset)/batch_size)
@@ -141,18 +141,18 @@ def training(configs, data_path, batch_size=32, channels=4):
 
           # TODO put in function
           pred = outputs.round()
-          acc = pred.eq(y_batch).sum() / float(y_batch.shape[0])
+          met = validate(y_batch.cpu().detach().numpy(), pred.cpu().detach().numpy(), config['metric'])
           
           
 
           # Log the loss
           # writer.add_scalar("Val loss", loss.item())  
           val_loss.append(loss.item())
-          val_acc.append(acc.item())
+          metric.append(met)
 
       train_loss = np.mean(train_loss)
       val_loss = np.mean(val_loss)    
-      val_acc = np.mean(val_acc)
+      metric = np.mean(metric)
 
       
       print(f"Learning rate: {optimizer.state_dict()['param_groups'][0]['lr']}", end=" ")
@@ -162,8 +162,8 @@ def training(configs, data_path, batch_size=32, channels=4):
       # Data saving
       #############################################
       
-      temp_df = pd.DataFrame([[train_loss, val_loss, val_acc, epoch]], 
-                            columns= ['Train_loss', 'Val_loss', 'Val_acc', 'Epochs'])
+      temp_df = pd.DataFrame([[train_loss, val_loss, metric, epoch]], 
+                            columns= ['Train_loss', 'Val_loss', 'metric', 'Epochs'])
       df = pd.concat([df, temp_df], ignore_index=True)
       # TODO maybe use best_val_loss instead of best_accuracy
       if val_loss < min_val_loss:
@@ -175,10 +175,10 @@ def training(configs, data_path, batch_size=32, channels=4):
       ############################################
       writer.add_scalar('Training Loss' , train_loss, epoch)
       writer.add_scalar('Validation Loss' , val_loss, epoch)
-      writer.add_scalar('Accuracy', val_acc, epoch)
+      writer.add_scalar('Accuracy', metric, epoch)
       writer.flush()
 
-      print(f"Training Loss: {train_loss:.4f}, Validation Loss: {val_loss:.4f}, Val acc: {val_acc:.6f}, Time: {time.time() - epoch_time:.2f} s")
+      print(f"Training Loss: {train_loss:.4f}, Validation Loss: {val_loss:.4f}, Val acc: {metric:.6f}, Time: {time.time() - epoch_time:.2f} s")
 
       #############################################
       # Early stopping
@@ -196,8 +196,8 @@ def training(configs, data_path, batch_size=32, channels=4):
       global_step += 1
     print(f"Total time: {time.time() - total_time:.2f} s")
     config['pre_trained'] = True
-    (config['acc'], config['TP'], config['TN'], config['FP'], config['FN']), y_pred_data = test_model(model, test_loader, device, config)    
-    print(f"Test acc: {config['acc']:.4f}")
+    y_pred_data, config['Accuracy'], config['Efficiency'], config['Precission'] = test_model(model, test_loader, device, config)    
+    print(f"Test efficiency: {config['Efficiency']:.4f}")
     save_data(config, df, y_pred_data)
     
 
@@ -205,7 +205,7 @@ def training(configs, data_path, batch_size=32, channels=4):
     noise_reduction_factor([y_pred_data['y_pred']], [y_pred_data['y']], [config])
     writer.close()
 
-    plot_results(config['model_num'])
+    plot_results(config['model_num'], config)
  
 
 def test_model(model, test_loader, device, config):
@@ -271,12 +271,39 @@ def test_model(model, test_loader, device, config):
         FN += np.sum(false_noise)
       count += 1  
 
+
+
   
   y = np.asarray(y).flatten()
   y_pred = np.asarray(y_pred).flatten()
-  # TODO save y and y_pred
-  y_pred_data = pd.DataFrame({'y_pred': y_pred, 'y': y})
-  arr = (acc/count, TP/(TP + FN), TN/(TN + FP), FP/(FP + TN), FN/(FN+TP))
 
+  accuracy = (TP + TN) / len(y)
   
-  return arr, y_pred_data
+  efficiency = TP / np.count_nonzero(y)
+
+  if TP + FP == 0:
+    precission = 0
+  else:  
+    precission = TP / (TP + FP) 
+ 
+  y_pred_data = pd.DataFrame({'y_pred': y_pred, 'y': y})
+
+  return y_pred_data, accuracy, efficiency, precission
+
+def validate(y, y_pred, metric='Accuracy'):
+  y = y.flatten()
+  y_pred = y_pred.flatten()
+  TP = np.sum(np.logical_and(y == 1, y_pred == 1))
+  TN = np.sum(np.logical_and(y == 0, y_pred == 0))
+  FP = np.sum(np.logical_and(y == 0, y_pred == 1))
+  FN = np.sum(np.logical_and(y == 1, y_pred == 0))
+  
+  if metric == 'Accuracy':
+    metric = (TP + TN) / len(y)
+  elif metric == 'Efficiency':
+    metric = TP / len(y == 1)
+  elif metric == 'Precision':
+    metric = TP / (TP + FP)  
+
+
+  return metric

@@ -100,7 +100,7 @@ def noise_reduction_factor(y_preds, ys, configs, bins=100, save_path='', labels=
     plt.savefig(save_path)
 
 
-def plot_results(model_number, path=''):
+def plot_results(model_number, config, path=''):
   if path == '':
     path = os.getcwd() + f'/Test/ModelsResults/model_{model_number}/'
 
@@ -122,7 +122,7 @@ def plot_results(model_number, path=''):
   plt.clf()
   # Accuracy plot
   acc_path = plot_path + f'model_{model_number}_acc_plot.png'
-  df.plot('Epochs', 'Val_acc', label='Accuracy')
+  df.plot('Epochs', 'metric', label=config['metric'])
   plt.title("Accuracy")
   plt.ylim([0,1])
   plt.legend()

@@ -114,7 +114,7 @@ def get_test_data(path=''):
   print(f"Shape: x_train {x_train.shape}, x_test {x_test.shape}, y_train {y_train.shape}, y_test {y_test.shape}")  
   return x_train, x_test, x_val, y_train, y_val, y_test
 
-def get_data():
+def get_data(batch_size, seq_len, subset=True):
   CODE_DIR_1  ='/home/acoleman/software/NuRadioMC/'
   sys.path.append(CODE_DIR_1)
   CODE_DIR_2 = '/home/acoleman/work/rno-g/'
@@ -157,7 +157,10 @@ def get_data():
   sampling_rate = config["sampling"]["rate"]
   wvf_length = config["input_length"]
 
-  random_seed = 100
+  config['training']['batch_size'] = batch_size
+  config['input_length'] = seq_len
+
+  random_seed = 123
   np_rng = np.random.default_rng(random_seed)
 
   waveform_filenames = data_locations.NoiselessSigFiles(
@@ -168,6 +171,10 @@ def get_data():
 
   waveforms = None
   signal_labels = None
+
+  if subset:
+    waveform_filenames = [waveform_filenames[0]]
+    print(f"Only using {len(waveform_filenames)} files")
 
   print("\tReading in signal waveforms")
   t0 = time.time()
@@ -288,11 +295,33 @@ def get_data():
   print(f"Training on {len(x_train)} waveforms")
   print(f"Testing on {len(x_test)} waveforms")
   print(f"Number of signals in test set: {np.sum(y_test)}")
+    # For costum dataloader
+  mixture = np.linspace(0.0, 1.0, batch_size)
+  train_loader = DatasetContinuousStreamStitchless(waveforms=x_train,
+                                                   signal_labels=y_train,
+                                                  config=config, 
+                                                  mixture=mixture, 
+                                                  np_rng=np_rng)
+  del x_train
+  del y_train
+  val_loader = DatasetContinuousStreamStitchless(waveforms=x_val,
+                                                   signal_labels=y_val,
+                                                  config=config, 
+                                                  mixture=mixture, 
+                                                  np_rng=np_rng)
+  del x_val
+  del y_val
+  test_loader = DatasetContinuousStreamStitchless(waveforms=x_test,
+                                                   signal_labels=y_test,
+                                                  config=config, 
+                                                  mixture=mixture, 
+                                                  np_rng=np_rng)
+  del x_test
+  del y_test
 
-  del waveforms
-  del signal_labels
+  
 
-  return x_train, x_test, x_val, y_train, y_val, y_test
+  return train_loader, val_loader, test_loader
 
 def prepare_data(x_train, x_val, x_test, y_train, y_val, y_test, batch_size, multi_channel=False):
   """ This methode takes train and test data as numpy arrays and
@@ -418,7 +447,7 @@ def create_model_folder(model_number, path=''):
     #     sys.exit()          
     return path 
   else:
-    path = path + f'/model_{model_number}/' 
+    path = path + f'model_{model_number}/' 
     isExist = os.path.exists(path)
     if not isExist:
       os.makedirs(path)

@@ -5,40 +5,45 @@ import os
 import matplotlib.pyplot as plt
 from dataHandler.datahandler import get_data, prepare_data, get_test_data
 from config.config import getweights_file_path
-from plots.plots import histogram, noise_reduction_factor, plot_results
+from plots.plots import histogram, noise_reduction_factor, plot_results, plot_examples
 import tqdm as tqdm
 from torch.utils.tensorboard import SummaryWriter
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 import pandas as pd
 import sys
 import time
+from tqdm import tqdm
 
 from models.models_1 import build_encoder_transformer, get_n_params, set_max_split_size_mb 
 from dataHandler.datahandler import save_data, save_model, create_model_folder
 
 
-def training(configs, data_path, batch_size=32, channels=4, save_folder=''):
+
+def training(configs, data_path, batch_size=32, channels=4, save_folder='', test=False):
   if data_path == '':
-    x_train, x_test, x_val, y_train, y_val, y_test = get_data()
+    train_loader, val_loader, test_loader = get_data(batch_size=batch_size, seq_len=configs[0]['seq_len'], subset=test)
   else:  
     x_train, x_test, x_val, y_train, y_val, y_test = get_test_data(path=data_path)
-  if channels == 1:
-    train_loader, val_loader, test_loader, config['trained_noise'], config['trained_signal'] = prepare_data(x_train, x_val, x_test, y_train, y_val, y_test, batch_size)
-  else:
-    train_loader, val_loader, test_loader = prepare_data(x_train, x_val, x_test, y_train, y_val, y_test, batch_size, multi_channel=True)
-  del x_train
-  del x_test
-  del x_val
-  del y_train
-  del y_test
-  del y_val
+    if channels == 1:
+      train_loader, val_loader, test_loader, config['trained_noise'], config['trained_signal'] = prepare_data(x_train, x_val, x_test, y_train, y_val, y_test, batch_size)
+    else:
+      train_loader, val_loader, test_loader = prepare_data(x_train, x_val, x_test, y_train, y_val, y_test, batch_size, multi_channel=True)
+    
+    del x_train
+    del x_test
+    del x_val
+    del y_train
+    del y_test
+    del y_val
 
 
   for config in configs:
     df = pd.DataFrame([], 
                             columns= ['Train_loss', 'Val_loss', 'metric', 'Epochs'])
+    
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")           
     print(f"Using device: {device}, name of GPU: {torch.cuda.get_device_name(device=device)}")
+  
     if config['model_type'] == "base_encoder":
       model = build_encoder_transformer(config)
     else:
@@ -51,7 +56,7 @@ def training(configs, data_path, batch_size=32, channels=4, save_folder=''):
     
     print(f"Number of paramters: {config['num_parms']}") 
     writer = SummaryWriter(config['model_path'] + '/trainingdata')
-    print(f"Follow on tensorboard: python3 -m tensorboard.main --logdir={config['model_path']}/trainingdata")
+    print(f"Follow on tensorboard: python3 -m tensorboard.main --logdir={config['model_path']}trainingdata")
 
     
     print(f"Number of paramters: {config['num_parms']}")
@@ -63,17 +68,6 @@ def training(configs, data_path, batch_size=32, channels=4, save_folder=''):
                                 patience=4,
                                 verbose=True)
     
-
-
-    #########################################################################
-    #  Visulizing graphs doesn't work satisfactory                          #
-    #########################################################################
-    # writer.add_graph(model=model.encoder, input_to_model=torch.ones(32,100,1))
-    # writer.close()
-    # sys.exit()
-
-    # print(model)
-
 
 
     model.to(device)
@@ -94,61 +88,97 @@ def training(configs, data_path, batch_size=32, channels=4, save_folder=''):
       
       # set the model in training mode
       model.train()
-
       
       train_loss = []
       val_loss = []
       metric = []
       # Training
       batch_num = 1
-      num_of_bathes = int(len(train_loader.dataset)/batch_size)
-      
-
-      for batch in train_loader:
-        
-        print(f"Epoch {epoch + 1}/{config['num_epochs']} Batch {batch_num}/{num_of_bathes}", end="\r")
-        x_batch, y_batch = batch
-        x_batch, y_batch = x_batch.to(device), y_batch.to(device)
-      
-        
-        outputs = model.encode(x_batch, src_mask=None)
-
-        loss = criterion(outputs, y_batch)
-
-        # Backpropagation
-        loss.backward()
-
-        # Update the weights
-        optimizer.step()
-        optimizer.zero_grad()
-
-        train_loss.append(loss.item())
-        batch_num += 1
-      print(f"\rEpoch {epoch + 1}/{config['num_epochs']} Done ", end="  ")
-      
-      # writer.flush()
-      # validation
-      # set model in evaluation mode
-      # This part should not be part of the model thats the reason for .no_grad()
-      model.eval()
-      with torch.no_grad():
-        
-        for batch in val_loader:
+      #############################################
+      # Training                                  #
+      #############################################
+      if isinstance(train_loader, torch.utils.data.DataLoader):
+        #############################################
+        # Torch Dataloader                          #
+        #############################################
+        print("train_loader is a DataLoader")
+        num_of_bathes = int(len(train_loader.dataset)/batch_size)
+        for batch in test_loader:
+          print(f"Epoch {epoch + 1}/{config['num_epochs']} Batch {batch_num}/{num_of_bathes}", end="\r")
           x_batch, y_batch = batch
           x_batch, y_batch = x_batch.to(device), y_batch.to(device)
-          outputs = model.encode(x_batch,src_mask=None)
-          loss = criterion(outputs, y_batch)
+          y_test = y_test.squeeze() 
 
-          # TODO put in function
-          pred = outputs.round()
-          met = validate(y_batch.cpu().detach().numpy(), pred.cpu().detach().numpy(), config['metric'])
-          
-          
+          outputs = model.encode(x_batch, src_mask=None)
 
-          # Log the loss
-          # writer.add_scalar("Val loss", loss.item())  
-          val_loss.append(loss.item())
-          metric.append(met)
+          loss = criterion(outputs, y_batch.squeeze())
+
+          loss.backward()
+
+          optimizer.step()
+          optimizer.zero_grad()
+
+          train_loss.append(loss.item())
+          batch_num += 1
+
+      else:
+        #############################################
+        # Alan's Dataloader                         #
+        #############################################
+        print("train_loader is not a DataLoader")    
+        num_of_bathes = int(len(train_loader))
+        for istep in tqdm(range(len(train_loader))):
+
+          print(f"Epoch {epoch + 1}/{config['num_epochs']} Batch {batch_num}/{num_of_bathes}", end="\r")
+    
+          x_batch, y_batch = train_loader.__getitem__(istep)
+          x_batch, y_batch = x_batch.to(device), y_batch.to(device)
+          
+          outputs = model.encode(x_batch, src_mask=None)
+
+          loss = criterion(outputs, y_batch.squeeze())
+
+          loss.backward()
+
+          optimizer.step()
+          optimizer.zero_grad()
+
+          train_loss.append(loss.item())
+          batch_num += 1
+
+      print(f"\rEpoch {epoch + 1}/{config['num_epochs']} Done ", end="  ")
+      
+      #############################################
+      # Validation                                #
+      #############################################
+      model.eval()
+      with torch.no_grad():
+        if isinstance(val_loader, torch.utils.data.DataLoader):
+          print("train_loader is a DataLoader")
+          for batch in val_loader:
+            x_batch, y_batch = batch
+            x_batch, y_batch = x_batch.to(device), y_batch.to(device)
+            outputs = model.encode(x_batch,src_mask=None)
+            loss = criterion(outputs, y_batch.squeeze())
+            
+            pred = outputs.round()
+            
+
+        else:
+            print("train_loader is not a DataLoader")
+       
+            for istep in tqdm(range(len(val_loader))):
+
+              x_batch, y_batch = val_loader.__getitem__(istep)
+              x_batch, y_batch = x_batch.to(device), y_batch.to(device)
+              outputs = model.encode(x_batch,src_mask=None)
+              loss = criterion(outputs, y_batch.squeeze())
+
+              pred = outputs.round()
+              met = validate(y_batch.cpu().detach().numpy(), pred.cpu().detach().numpy(), config['metric'])
+                
+              val_loss.append(loss.item())
+              metric.append(met)
 
       train_loss = np.mean(train_loss)
       val_loss = np.mean(val_loss)    
@@ -175,10 +205,10 @@ def training(configs, data_path, batch_size=32, channels=4, save_folder=''):
       ############################################
       writer.add_scalar('Training Loss' , train_loss, epoch)
       writer.add_scalar('Validation Loss' , val_loss, epoch)
-      writer.add_scalar('Accuracy', metric, epoch)
+      writer.add_scalar(config['metric'], metric, epoch)
       writer.flush()
 
-      print(f"Training Loss: {train_loss:.4f}, Validation Loss: {val_loss:.4f}, Val acc: {metric:.6f}, Time: {time.time() - epoch_time:.2f} s")
+      print(f"Training Loss: {train_loss:.4f}, Validation Loss: {val_loss:.4f}, Val {config['metric']}: {metric:.6f}, Time: {time.time() - epoch_time:.2f} s")
 
       #############################################
       # Early stopping
@@ -188,24 +218,38 @@ def training(configs, data_path, batch_size=32, channels=4, save_folder=''):
         early_stop_count = 0
       else:
         early_stop_count += 1
-
       if early_stop_count >= config['early_stop']:
         print("Early stopping!")
         break
       
       global_step += 1
+
+    ###########################################
+    # Training done                           #
+    ###########################################  
+    writer.close()      
     print(f"Total time: {time.time() - total_time:.2f} s")
     config['pre_trained'] = True
-    y_pred_data, config['Accuracy'], config['Efficiency'], config['Precission'] = test_model(model, test_loader, device, config)    
+    y_pred_data, config['Accuracy'], config['Efficiency'], config['Precission'] = test_model(model=model, 
+                                                                                             test_loader=test_loader,
+                                                                                             device=device, 
+                                                                                             config=config)    
     print(f"Test efficiency: {config['Efficiency']:.4f}")
     save_data(config, df, y_pred_data)
-    
 
     histogram(y_pred_data['y_pred'], y_pred_data['y'], config)
     noise_reduction_factor([y_pred_data['y_pred']], [y_pred_data['y']], [config])
-    writer.close()
-
     plot_results(config['model_num'], config)
+
+    if isinstance(train_loader, torch.utils.data.DataLoader):
+      dataiter = iter(train_loader)
+      x_batch, y_batch = dataiter.next()
+      data = x_batch.cpu().detach().numpy()
+    else:
+      x_batch, y_batch = train_loader.__getitem__(0)
+      data = x_batch.cpu().detach().numpy()
+    plot_examples(data, config=config)
+
  
 
 def test_model(model, test_loader, device, config):
@@ -236,47 +280,49 @@ def test_model(model, test_loader, device, config):
   count = 0
   y = []
   y_pred = []
+  pred_round = []
   with torch.no_grad():
-    for batch in test_loader:
-      x_test, y_test = batch
-      x_test, y_test = x_test.to(device), y_test.to(device)
-       
-      outputs = model.encode(x_test,src_mask=None)
-      y_pred.append(outputs.cpu().detach().numpy())
-      y.append(y_test.cpu().detach().numpy()) 
+    
+    if isinstance(test_loader, torch.utils.data.DataLoader):
+      print("train_loader is a DataLoader")
+      for batch in test_loader:
+        x_test, y_test = batch
+        y_test = y_test.squeeze() 
+        outputs = model.encode(x_test,src_mask=None)
+        y_pred.append(outputs.cpu().detach().numpy())
+        y.append(y_test.cpu().detach().numpy()) 
+        pred_round.append(outputs.cpu().detach().numpy().round())
+    else:
+      print("train_loader is not a DataLoader")
+      for istep in tqdm(range(len(test_loader))):
 
-      pred = outputs.cpu().detach().numpy().round()
-      if config['n_ant'] == 1:
-        if pred == y_test:
-          acc += 1
-          if pred == 1:
-            TP += 1
-          else:
-            TN += 1
-        if pred != y_test:
-          if pred == 1:
-            FP += 1
-          else:
-            FN += 1      
-        
-      else:
-        true_signal = np.logical_and(y[-1] == 1, pred == 1)
-        true_noise = np.logical_and( y[-1] == 0, pred == 0)
-        false_signal = np.logical_and(y[-1] == 0, pred == 1)
-        false_noise = np.logical_and(y[-1] == 1, pred == 0)
+        x_test, y_test = test_loader.__getitem__(istep)
+        x_test, y_test = x_test.to(device), y_test.to(device)
+        y_test = y_test.squeeze() 
+        outputs = model.encode(x_test,src_mask=None)
+        y_pred.append(outputs.cpu().detach().numpy())
+        y.append(y_test.cpu().detach().numpy()) 
+        pred_round.append(outputs.cpu().detach().numpy().round())
 
-        TP += np.sum(true_signal)
-        TN += np.sum(true_noise)
-        FP += np.sum(false_signal)
-        FN += np.sum(false_noise)
-      count += 1  
+      
+          
 
 
 
-  
+
+
   y = np.asarray(y).flatten()
   y_pred = np.asarray(y_pred).flatten()
+  pred_round = np.asarray(pred_round).flatten()
+  true_signal = np.logical_and(y == 1, pred_round == 1)
+  true_noise = np.logical_and( y == 0, pred_round == 0)
+  false_signal = np.logical_and(y == 0, pred_round == 1)
+  false_noise = np.logical_and(y == 1, pred_round == 0)
 
+  TP += np.sum(true_signal)
+  TN += np.sum(true_noise)
+  FP += np.sum(false_signal)
+  FN += np.sum(false_noise)
   accuracy = (TP + TN) / len(y)
   
   efficiency = TP / np.count_nonzero(y)
@@ -301,7 +347,7 @@ def validate(y, y_pred, metric='Accuracy'):
   if metric == 'Accuracy':
     metric = (TP + TN) / len(y)
   elif metric == 'Efficiency':
-    metric = TP / len(y == 1)
+    metric = TP / np.count_nonzero(y)
   elif metric == 'Precision':
     metric = TP / (TP + FP)  
 

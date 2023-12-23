@@ -50,10 +50,10 @@ from plots.plots import plot_collections
 #          ¤  facor 
 #          ¤  based on val_loss or val_acc ???  
 
-
-hyper_paramters = [64, 256, 512]
+models_path = '/mnt/md0/halin/Models/'
+hyper_paramters = [256, 512]
 labels = {'hyper_parameters': hyper_paramters, 'name': 'Model Size (d_model)'}
-start_model_num = 993
+start_model_num = 991
 batch_size = 64
 epochs = 100
 test = False
@@ -70,7 +70,7 @@ for i, hyper_paramter in enumerate(hyper_paramters):
               'pos_enc_type':'Sinusoidal', # Posible options: 'Sinusoidal', 'Relative', 'None', 'Learnable'
               'model_num': model_num,
               'embed_size': 64,
-              'seq_len': 1000,
+              'seq_len': 256,
               'd_model': hyper_paramters[i],
               'd_ff': 512,
               'N': 2,
@@ -90,7 +90,7 @@ for i, hyper_paramter in enumerate(hyper_paramters):
               "trained_noise":0,
               "trained_signal":0,
               "n_ant":4,
-              "metric":'Accuracy', # Posible options: 'Accuracy', 'Efficiency', 'Precision'
+              "metric":'Efficiency', # Posible options: 'Accuracy', 'Efficiency', 'Precision'
               "Accuracy":0,
               "Efficiency":0,
               "Precission":0,
@@ -101,20 +101,19 @@ for i, hyper_paramter in enumerate(hyper_paramters):
             }
   configs.append(config)
   model_num += 1
-if test:
-  PATH = os.getcwd() + '/Test/data/test_100_data.npy'
-else:
+#'/Test/data/test_100_data.npy'
+
   PATH = ''  
 # /mnt/md0/halin/Models/
 training(configs=configs, 
          data_path=PATH, 
          batch_size=configs[0]['batch_size'], 
          channels=configs[0]['n_ant'],
-         save_folder='/mnt/md0/halin/Models/',)
+         save_folder=models_path,
+         test=test,)
 
 
   
   
-
-
-plot_collections(models, labels, save_path='')  
+if len(hyper_paramters) > 1:
+  plot_collections(models, labels, models_path=models_path)  

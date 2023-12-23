@@ -57,7 +57,7 @@ def noise_reduction_factor(y_preds, ys, configs, bins=100, save_path='', labels=
     else:
         ax.set_title(f"Noise reduction factor for {length} models")
       
-        
+    y_pred_noise = 0    
 
     for i in range(length): 
         y_pred = y_preds[i]
@@ -102,7 +102,7 @@ def noise_reduction_factor(y_preds, ys, configs, bins=100, save_path='', labels=
 
 def plot_results(model_number, config, path=''):
   if path == '':
-    path = os.getcwd() + f'/Test/ModelsResults/model_{model_number}/'
+    path = config['model_path']
 
   df = pd.read_pickle(path + 'dataframe.pkl')
 
@@ -182,25 +182,27 @@ def plot_weights(model, config, save_path='', block='self_attention_block', quie
 #   writer.add_histogram('weights', weight)
 #   writer.close()  
 
-def plot_collections(models, labels, save_path=''): 
+def plot_collections(models, labels, save_path='', models_path='Test/ModelsResults/'): 
   y_pred = []
   y = []
   configs = []
 
   for i, model_num in enumerate(models):
-    with open(f"Test/ModelsResults/model_{model_num}/config.txt", 'rb') as f:
+    config_path = models_path + f'model_{model_num}/config.txt'
+    with open(config_path, 'rb') as f:
         config = pickle.load(f)
-    with open(f"Test/ModelsResults/model_{model_num}/y_pred_data.pkl", 'rb') as f:
+    y_data_path = models_path + f'model_{model_num}/y_pred_data.pkl'    
+    with open(y_data_path, 'rb') as f:
         y_data = pickle.load(f)
     
     y_pred.append(np.asarray(y_data['y_pred']))
     y.append(np.asarray(y_data['y']))
     configs.append(config)
   if save_path == '':  
-    model_name = f'/Test/ModelsResults/collections/{labels["name"].replace(" ", "_")}_models'
+    model_name = models_path + f'collections/{labels["name"].replace(" ", "_")}_models'
     for model_num in models:
       model_name += f'_{model_num}'
-    save_path = os.getcwd() + model_name + '.png'  
+    save_path =  model_name + '.png'  
 
   
   noise_reduction_factor(ys=y, 
@@ -209,9 +211,16 @@ def plot_collections(models, labels, save_path=''):
                         save_path=save_path, labels=labels)
 
 
-def plot_examples(data):
+def plot_examples(data, config=None, save_path=''):
+
+  if config != None:
+    save_path = config['model_path'] + 'plot/examples.png'
+  else:
+    if save_path == '':
+      save_path = os.getcwd() + 'examples.png'
+
   data = data[0]
   fig, ax = plt.subplots(4,1, figsize=(10,10))
   for i in range(4):
-    ax[i].plot(data[i][200:300])
-  plt.savefig('Test/ModelsResults/collections/examples.png')  
+    ax[i].plot(data[:,i])
+  plt.savefig(save_path)  

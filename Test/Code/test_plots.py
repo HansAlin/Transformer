@@ -15,6 +15,7 @@ from training.train import test_model
 from plots.plots import plot_results, plot_weights, histogram, noise_reduction_factor, plot_collections, plot_examples
 import torch
 import subprocess
+import pandas as pd
 
 
 # path = os.getcwd()
@@ -25,9 +26,13 @@ import subprocess
 # train_loader, val_loader, test_loader, number_of_noise, number_of_signals = prepare_data(x_train, x_val, x_test, y_train, y_val, y_test, 32)
 
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")    
-# model_number = 998
-# with open(f"Test/ModelsResults/model_{model_number}/config.txt", 'rb') as f:
-#     config = pickle.load(f)
+model_number = 992
+with open(f"/mnt/md0/halin/Models/model_{model_number}/config.txt", 'rb') as f:
+    config = pickle.load(f)
+path = config['model_path']
+df = pd.read_pickle(path + 'y_pred_data.pkl')
+noise_reduction_factor([df['y_pred']], [df['y']], [config],)
+#histogram(df['y_pred'], df['y'], config,)
 
 # model = build_encoder_transformer(config)
 
@@ -42,5 +47,5 @@ import subprocess
 
 # plot_collections(models, labels, save_path='')
 
-data = np.load('/home/halin/Master/Transformer/Test/data/test_100_data.npy')
-plot_examples(data)
+# data = np.load('/home/halin/Master/Transformer/Test/data/test_100_data.npy')
+# plot_examples(data)

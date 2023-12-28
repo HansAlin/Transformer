@@ -10,9 +10,9 @@ import matplotlib.pyplot as plt
 from os.path import dirname, abspath, join
 import sys
 # Find code directory relative to our directory
-THIS_DIR = dirname(__file__)
-CODE_DIR = abspath(join(THIS_DIR, '..', ''))
-sys.path.append(CODE_DIR)
+# THIS_DIR = dirname(__file__)
+# CODE_DIR = abspath(join(THIS_DIR, '..', ''))
+# sys.path.append(CODE_DIR)
 
 type(sys.path)
 for path in sys.path:
@@ -24,7 +24,7 @@ myhost = os.uname()[1]
 print("Host name: ", myhost)
 
 import dataHandler.datahandler as dh
-import models.models_1 as md
+import models.models as md
 from training.train import training
 from plots.plots import plot_collections
 
@@ -51,9 +51,9 @@ from plots.plots import plot_collections
 #          ¤  based on val_loss or val_acc ???  
 
 models_path = '/mnt/md0/halin/Models/'
-hyper_paramters = [256, 512]
-labels = {'hyper_parameters': hyper_paramters, 'name': 'Model Size (d_model)'}
-start_model_num = 991
+hyper_paramters = [8]
+labels = {'hyper_parameters': hyper_paramters, 'name': 'Number of heads (h)'}
+start_model_num = 1
 batch_size = 64
 epochs = 100
 test = False
@@ -63,7 +63,7 @@ models = []
 configs = []
 for i, hyper_paramter in enumerate(hyper_paramters):
   models.append(model_num)
-  config = {'model_name': "with_out_activation_in_final_block",
+  config = {'model_name': "Attention is all you need",
             'model_type': "base_encoder",
               'model':None,
               'pre_trained': None,
@@ -71,10 +71,10 @@ for i, hyper_paramter in enumerate(hyper_paramters):
               'model_num': model_num,
               'embed_size': 64,
               'seq_len': 256,
-              'd_model': hyper_paramters[i],
-              'd_ff': 512,
-              'N': 2,
-              'h': 2,
+              'd_model': 512,
+              'd_ff': 2048,
+              'N': 6,
+              'h': hyper_paramters[i],
               'dropout': 0.1,
               'num_epochs': epochs,
               'batch_size': batch_size,

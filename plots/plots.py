@@ -5,6 +5,15 @@ import pandas as pd
 import pickle
 
 def histogram(y_pred, y, config, bins=100, save_path=''):
+    """
+          This function plots the histogram of the predictions of a given model.
+          Args:
+              y_pred (array like): array of y_pred
+              y (array like): array of y
+              config (dict): config dict of the model
+              bins (int): number of bins in the histogram
+              savefig_path (str): path to save the plot, optional
+    """
 
     if save_path == '':
       save_path = config['model_path'] + 'plot/' 
@@ -31,9 +40,11 @@ def histogram(y_pred, y, config, bins=100, save_path=''):
     plt.savefig(save_path + f"model_{config['model_num']}_histogram.png")
     plt.clf()
 
-def noise_reduction_factor(y_preds, ys, configs, bins=100, save_path='', labels=None):
+def noise_reduction_factor(y_preds, ys, configs, bins=100, save_path='', labels=None, x_lim=[0.8,1]):
     """
-            This function plots the noise reduction factor curve for a given model or models.
+            This function plots the noise reduction factor curve for a given model or models. Note that
+            the y_pred, y and config must be a list of arrays and dicts respectively.
+            If labels is not None, they also have to be in a list. 
             Args:
                 y_preds (list of np.arrays): list of y_pred arrays
                 ys (list of np.arrays): list of y arrays
@@ -93,7 +104,7 @@ def noise_reduction_factor(y_preds, ys, configs, bins=100, save_path='', labels=
     ax.set_xlabel('True positive rate')
     ax.set_ylabel(f'Noise reduction factor (nr. noise {len(y_pred_noise)})')
     ax.set_yscale('log')
-    ax.set_xlim([0.8,1])
+    ax.set_xlim(x_lim)
 
     if save_path == '':
         save_path = config['model_path'] + 'plot/' + f'model_{config["model_num"]}_noise_reduction.png'
@@ -123,7 +134,7 @@ def plot_results(model_number, config, path=''):
   # Accuracy plot
   acc_path = plot_path + f'model_{model_number}_acc_plot.png'
   df.plot('Epochs', 'metric', label=config['metric'])
-  plt.title("Accuracy")
+  plt.title("Metric")
   plt.ylim([0,1])
   plt.legend()
   plt.savefig(acc_path)
@@ -182,7 +193,7 @@ def plot_weights(model, config, save_path='', block='self_attention_block', quie
 #   writer.add_histogram('weights', weight)
 #   writer.close()  
 
-def plot_collections(models, labels, save_path='', models_path='Test/ModelsResults/'): 
+def plot_collections(models, labels, save_path='', models_path='Test/ModelsResults/', x_lim=[0.8,1]): 
   y_pred = []
   y = []
   configs = []
@@ -208,7 +219,9 @@ def plot_collections(models, labels, save_path='', models_path='Test/ModelsResul
   noise_reduction_factor(ys=y, 
                         y_preds=y_pred, 
                         configs=configs, 
-                        save_path=save_path, labels=labels)
+                        save_path=save_path, 
+                        labels=labels,
+                        x_lim=x_lim)
 
 
 def plot_examples(data, config=None, save_path=''):

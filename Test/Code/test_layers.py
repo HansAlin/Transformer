@@ -4,20 +4,22 @@ import sys
 import unittest
 import numpy as np
 # Find code directory relative to our directory
-THIS_DIR = dirname(__file__)
-CODE_DIR = abspath(join(THIS_DIR, '..', ''))
-sys.path.append(CODE_DIR)
-
-from models.models_1 import TimeInputEmbeddings, LayerNormalization, FinalBinaryBlock, MultiHeadAttentionBlock, LearnablePositionalEncoding
+CODE_DIR_1  ='/home/halin/Master/Transformer'
+sys.path.append(CODE_DIR_1)
+type(sys.path)
+for path in sys.path:
+   print(path)
+from models.models import TimeInputEmbeddings, LayerNormalization, FinalBinaryBlock, MultiHeadAttentionBlock, LearnablePositionalEncoding
 from dataHandler.datahandler import get_data, prepare_data
 import torch
 
-PATH = '/home/halin/Master/Transformer/Test/data/test_100_data.npy'
+# PATH = '/home/halin/Master/Transformer/Test/data/test_100_data.npy'
 
-x_train, x_val, x_test, y_train, y_val, y_test = get_data(path=PATH)
+# x_train, x_val, x_test, y_train, y_val, y_test = get_data(path=PATH)
 
-train_loader, val_loader, test_loader = prepare_data(x_train, x_val, x_test, y_train, y_val, y_test, batch_size=32, multi_channel=True)    
+# train_loader, val_loader, test_loader = prepare_data(x_train, x_val, x_test, y_train, y_val, y_test, batch_size=32, multi_channel=True)    
 
+train_loader, val_loader, test_loader = get_data(batch_size=32, seq_len=256, subset=True)
 
 input_data = None
 for i in train_loader:

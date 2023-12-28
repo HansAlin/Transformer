@@ -114,7 +114,19 @@ def get_test_data(path=''):
   print(f"Shape: x_train {x_train.shape}, x_test {x_test.shape}, y_train {y_train.shape}, y_test {y_test.shape}")  
   return x_train, x_test, x_val, y_train, y_val, y_test
 
-def get_data(batch_size, seq_len, subset=True):
+def get_data(batch_size, seq_len, subset=True, data_config_path='/home/halin/Master/Transformer/data_config.yaml'):
+  """
+  This function loads data from XXXX and returns train, test and validation data
+  as DatasetContinuousStreamStitchless objects. It needs a data_config_path to
+  know where to look for parameters for the data
+  Arg:
+    batch_size: batch size
+    seq_len: sequence length
+    subset: if True, only one file is loaded
+
+  Ret:
+    train_loader, val_loader, test_loader  
+  """
   CODE_DIR_1  ='/home/acoleman/software/NuRadioMC/'
   sys.path.append(CODE_DIR_1)
   CODE_DIR_2 = '/home/acoleman/work/rno-g/'
@@ -148,8 +160,8 @@ def get_data(batch_size, seq_len, subset=True):
   # args = parser.parse_args()
 
   # Read the configuration for this training/network
-  config_path = '/home/halin/Master/Transformer/Test/Code/config.yaml'
-  config = GetConfig(config_path)
+ 
+  config = GetConfig(data_config_path)
   model_string = config["name"]
 
   band_flow = config["sampling"]["band"]["low"]
@@ -453,3 +465,24 @@ def create_model_folder(model_number, path=''):
       os.makedirs(path)
       print("The new directory is created!")
     return path  
+  
+def find_hyperparameters(model_number, parameter, models_path='/mnt/md0/halin/Models/', ):
+  """ This function finds the hyperparameters for a list of models.
+      Arg:
+        model_number: list of model numbers
+        parameter: parameter to find (str) e.g. 'h', 'd_model', 'N'
+        models_path: path to models are stored
+      Ret:
+        hyper_parameters: list of hyperparameters      
+      
+  """
+  hyper_parameters = []
+
+  for i, model in enumerate(model_number):
+    with open(models_path + f'model_{model}/config.txt', 'rb') as f:
+      config = pickle.load(f)
+      hyper_parameters.append(config[parameter])
+
+  return hyper_parameters   
+
+ 

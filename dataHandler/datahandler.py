@@ -486,3 +486,27 @@ def find_hyperparameters(model_number, parameter, models_path='/mnt/md0/halin/Mo
   return hyper_parameters   
 
  
+def save_example_data(save_path='/home/halin/Master/Transformer/Test/data/'):
+
+  train_loader, val_loader, test_loader = get_data(batch_size=64, 
+                                                   seq_len=256, 
+                                                   subset=True, 
+                                                   data_config_path='/home/halin/Master/Transformer/data_config.yaml')
+  del train_loader
+  del val_loader
+
+  plot_data = None
+  random_index = np.random.randint(0, len(test_loader))
+  count = 0
+  for batch in test_loader:
+    if count == random_index:
+      x_data = batch[0]
+      y_data = batch[1]
+      torch.save(x_data, save_path + 'example_x_data.pt')
+      torch.save(y_data, save_path + 'example_y_data.pt')
+      break
+    count += 1
+
+save_example_data()
+
+

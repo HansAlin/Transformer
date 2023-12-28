@@ -3,6 +3,9 @@ import numpy as np
 import os
 import pandas as pd
 import pickle
+import torch
+
+from models.models import build_encoder_transformer
 
 def histogram(y_pred, y, config, bins=100, save_path=''):
     """
@@ -109,7 +112,6 @@ def noise_reduction_factor(y_preds, ys, configs, bins=100, save_path='', labels=
     if save_path == '':
         save_path = config['model_path'] + 'plot/' + f'model_{config["model_num"]}_noise_reduction.png'
     plt.savefig(save_path)
-
 
 def plot_results(model_number, config, path=''):
   if path == '':
@@ -237,3 +239,21 @@ def plot_examples(data, config=None, save_path=''):
   for i in range(4):
     ax[i].plot(data[:,i])
   plt.savefig(save_path)  
+
+def plot_performance(model_num, data_path='/home/halin/Master/Transformer/Test/data/'):
+  # TODO
+  x_test = torch.load(data_path + 'example_x_data.pt')
+  y_test = torch.load(data_path + 'example_y_data.pt')
+  device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  
+  MODEL_PATH = f'/mnt/md0/halin/Models/model_{model_num}/saved_model/model_{model_num}.pth'
+  CONFIG_PATH = f'/mnt/md0/halin/Models/model_{model_num}/config.txt'
+  with open(CONFIG_PATH, 'rb') as f:
+    config = pickle.load(f)
+
+  model = build_encoder_transformer(config)
+  state = torch.load(MODEL_PATH)
+  model.load_state_dict(state['model_state_dict'])
+
+  model.to(device)
+  model.eval()
+  return None

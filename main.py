@@ -51,12 +51,12 @@ from plots.plots import plot_collections
 #          ¤  based on val_loss or val_acc ???  
 
 models_path = '/mnt/md0/halin/Models/'
-hyper_paramters = [8]
-labels = {'hyper_parameters': hyper_paramters, 'name': 'Number of heads (h)'}
-start_model_num = 1
-batch_size = 64
-epochs = 100
-test = False
+hyper_paramters = [16,32,64]
+labels = {'hyper_parameters': hyper_paramters, 'name': 'Model size: (d_model)'}
+start_model_num = 2
+batch_size = 32
+epochs = 2
+test = True
 
 model_num = start_model_num
 models = []
@@ -67,14 +67,14 @@ for i, hyper_paramter in enumerate(hyper_paramters):
             'model_type': "base_encoder",
               'model':None,
               'pre_trained': None,
+              'embed_type': 'relu_drop', # Posible options: 'relu_drop', 'gelu_drop', 'basic'
               'pos_enc_type':'Sinusoidal', # Posible options: 'Sinusoidal', 'Relative', 'None', 'Learnable'
               'model_num': model_num,
-              'embed_size': 64,
               'seq_len': 256,
-              'd_model': 512,
-              'd_ff': 2048,
-              'N': 6,
-              'h': hyper_paramters[i],
+              'd_model': hyper_paramters[i], # Have to be dividable by h
+              'd_ff': 64,
+              'N': 2,
+              'h': 2,
               'dropout': 0.1,
               'num_epochs': epochs,
               'batch_size': batch_size,

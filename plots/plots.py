@@ -43,7 +43,9 @@ def histogram(y_pred, y, config, bins=100, save_path=''):
     plt.savefig(save_path + f"model_{config['model_num']}_histogram.png")
     plt.clf()
 
-def noise_reduction_factor(y_preds, ys, configs, bins=100, save_path='', labels=None, x_lim=[0.8,1]):
+
+
+def plot_performance_curve(y_preds, ys, configs, bins=100, save_path='', labels=None, x_lim=[0.8,1], window_pred=False, curve='roc'):
     """
             This function plots the noise reduction factor curve for a given model or models. Note that
             the y_pred, y and config must be a list of arrays and dicts respectively.
@@ -55,7 +57,10 @@ def noise_reduction_factor(y_preds, ys, configs, bins=100, save_path='', labels=
                 bins (int): number of bins in the histogram
                 savefig_path (str): path to save the plot, optional
     """
-    
+    if window_pred:
+      text = ' per window'
+    else:
+      text = ' per timestep'  
     fig, ax = plt.subplots()
     length = len(y_preds)
 
@@ -67,50 +72,59 @@ def noise_reduction_factor(y_preds, ys, configs, bins=100, save_path='', labels=
         print("The new directory is created!")
 
     if labels == None:
-      ax.set_title(f"Model {configs[0]['model_num']}")
+      ax.set_title(f"Model {configs[0]['model_num']}{text}")
     else:
-        ax.set_title(f"Noise reduction factor for {length} models")
+        if curve == 'roc':
+          ax.set_title(f"ROC curve for {length} models,{text}") 
+        elif curve == 'nr':  
+          ax.set_title(f"Noise reduction factor for {length} models,{text}")
       
-    y_pred_noise = 0    
+    nr_y_noise = 0    
 
     for i in range(length): 
         y_pred = y_preds[i]
         y = ys[i]
         config = configs[i]
-        signal_mask = y == 1
-        y_pred_signal = y_pred[signal_mask]
-        y_pred_noise = y_pred[~signal_mask]
-        true_pos = np.zeros(bins)
-        true_neg = np.zeros(bins)
-        noise_reduction_factor = np.zeros(bins)
-        binnings = np.linspace(0,1,bins)
-        
-        for j, limit in enumerate(binnings):
-            true_pos[j] = np.count_nonzero(y_pred_signal > limit)/len(y_pred_signal)
-            true_neg[j] =np.count_nonzero(y_pred_noise < limit)/len(y_pred_noise)
-
-            if (true_neg[j] != 1):
-                noise_reduction_factor[j] = 1 / (1 - true_neg[j])
-            else:
-                noise_reduction_factor[j] = len(y_pred_noise)  
-
-        
-        if labels == None:
-          ax.plot(true_pos, noise_reduction_factor)   
+        if window_pred:
+          seq_len = config['seq_len']
+          y_pred = np.asarray(y_pred)
+          y = np.asarray(y)
+          y_pred = np.reshape(y_pred, (-1, seq_len))
+          
+          y = np.reshape(y, (-1, seq_len))
+          y_window = np.count_nonzero(y==1, axis=-1)
+          y = np.where(y_window > 0, 1, y_window)
+          nr_y_signal = np.count_nonzero(y==1)
+          nr_y_noise = np.count_nonzero(y == 0)
         else:
-            ax.plot(true_pos, noise_reduction_factor, label=labels['hyper_parameters'][i])
+          nr_y_signal = np.count_nonzero(y==1)
+          nr_y_noise = np.count_nonzero(y == 0)
+
+        if curve == 'roc':
+          y, x = get_roc(y, y_pred)
+        elif curve == 'nr':  
+          x, y = get_noise_reduction(y, y_pred, bins, window_pred=window_pred)
+
+        if labels == None:
+          ax.plot(x, y)   
+        else:
+            ax.plot(x, y, label=labels['hyper_parameters'][i])
         
             
     if labels != None:
        ax.legend(title=labels['name'])        
     
-    ax.set_xlabel('True positive rate')
-    ax.set_ylabel(f'Noise reduction factor (nr. noise {len(y_pred_noise)})')
-    ax.set_yscale('log')
-    ax.set_xlim(x_lim)
+    if curve == 'roc':
+      ax.set_xlabel('False positive rate')
+      ax.set_ylabel('True positive rate')
+    elif curve == 'nr':
+      ax.set_xlabel('True positive rate') 
+      ax.set_ylabel(f'Noise reduction factor (nr. noise {nr_y_noise})')
+      ax.set_yscale('log')
+      ax.set_xlim(x_lim)
 
     if save_path == '':
-        save_path = config['model_path'] + 'plot/' + f'model_{config["model_num"]}_noise_reduction.png'
+        save_path = config['model_path'] + 'plot/' + f'model_{config["model_num"]}_{curve}_{text.replace(" ", "_")}.png'
     plt.savefig(save_path)
 
 def plot_results(model_number, config, path=''):
@@ -195,7 +209,7 @@ def plot_weights(model, config, save_path='', block='self_attention_block', quie
 #   writer.add_histogram('weights', weight)
 #   writer.close()  
 
-def plot_collections(models, labels, save_path='', models_path='Test/ModelsResults/', x_lim=[0.8,1]): 
+def plot_collections(models, labels, save_path='', models_path='Test/ModelsResults/', x_lim=[0.8,1], window_pred=False, curve='roc'): 
   y_pred = []
   y = []
   configs = []
@@ -218,12 +232,14 @@ def plot_collections(models, labels, save_path='', models_path='Test/ModelsResul
     save_path =  model_name + '.png'  
 
   
-  noise_reduction_factor(ys=y, 
+  plot_performance_curve(ys=y, 
                         y_preds=y_pred, 
                         configs=configs, 
                         save_path=save_path, 
                         labels=labels,
-                        x_lim=x_lim)
+                        x_lim=x_lim,
+                        window_pred=window_pred,
+                        curve=curve)
 
 
 def plot_examples(data, config=None, save_path=''):
@@ -240,13 +256,13 @@ def plot_examples(data, config=None, save_path=''):
     ax[i].plot(data[:,i])
   plt.savefig(save_path)  
 
-def plot_performance(model_num, data_path='/home/halin/Master/Transformer/Test/data/'):
+def plot_performance(model_num, data_path='/home/halin/Master/Transformer/Test/data/', model_path='/mnt/md0/halin/Models/', save_path=''):
   # TODO
   x_test = torch.load(data_path + 'example_x_data.pt')
   y_test = torch.load(data_path + 'example_y_data.pt')
   device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  
-  MODEL_PATH = f'/mnt/md0/halin/Models/model_{model_num}/saved_model/model_{model_num}.pth'
-  CONFIG_PATH = f'/mnt/md0/halin/Models/model_{model_num}/config.txt'
+  MODEL_PATH = model_path + f'model_{model_num}/saved_model/model_{model_num}.pth'
+  CONFIG_PATH = model_path + f'model_{model_num}/config.txt'
   with open(CONFIG_PATH, 'rb') as f:
     config = pickle.load(f)
 
@@ -255,5 +271,101 @@ def plot_performance(model_num, data_path='/home/halin/Master/Transformer/Test/d
   model.load_state_dict(state['model_state_dict'])
 
   model.to(device)
+  x_test, y_test = x_test.to(device), y_test.to(device)
   model.eval()
+  pred = model.encode(x_test,src_mask=None)
+  index = 0
+
+  pred = pred.cpu().detach().numpy()
+  x_test = x_test.cpu().detach().numpy()
+  y_test = y_test.cpu().detach().numpy()
+  index = 0
+  lim_value = 0.2
+  count = 1
+  for i in range(pred.shape[0]):
+    pred_value = np.max(pred[i])
+    y_value = np.max(y_test[i])
+    if pred_value >= lim_value and y_value >= lim_value:
+      
+      index = i
+
+
+      max_value = np.max(pred[index])  
+      print(f"Max value: {max_value}")
+      pred = pred[index]
+      x_test = x_test[index]
+      y_test = y_test[index]
+
+
+
+      fig, ax = plt.subplots(4,1, figsize=(10,10))
+      for i in range(4):
+        ax[i].plot(x_test[:,i], color='grey')
+        ax[i].plot(pred, label='Prediction')
+        ax[i].plot(y_test, label='True signal')
+      plt.legend()
+      if save_path == '':
+        save_path = config['model_path'] + f'plot/performance_{count}.png'
+      else:
+        save_path = save_path + f'performance_{count}.png'  
+      plt.savefig(save_path)
+      count += 1
   return None
+
+def get_roc(y, y_pred, bins=100):
+  TPR = []
+  FPR = []
+  binnings = np.logspace(np.log10(np.amin(y_pred)), np.log10(np.amax(y_pred)), num=bins)
+  for i, limit in enumerate(binnings):
+    
+    sub_arr = np.zeros_like(y_pred)
+    sub_arr[y_pred <= limit] = 0
+    sub_arr[y_pred > limit] = 1
+    sub_arr = np.max(sub_arr, axis=-1)
+    true_pos = np.sum(np.logical_and(y == 1, sub_arr == 1))
+    false_pos = np.sum(np.logical_and(y == 0, sub_arr == 1))
+    true_neg = np.sum(np.logical_and( y == 0, sub_arr == 0))
+    false_neg = np.sum(np.logical_and(y == 1, sub_arr == 0))
+    TPR.append(true_pos/(true_pos + false_neg))
+    FPR.append(false_pos/(false_pos + true_neg))
+
+  return TPR, FPR
+
+def get_noise_reduction(y, y_pred, bins, window_pred=False):
+  smask = y == 1
+
+  binnings = np.logspace(np.log10(np.amin(y_pred)), np.log10(np.amax(y_pred)), num=bins)
+  backround  = float(len(y[~smask]))
+  signal = float(len(y[smask]))
+  noise_reduction = []
+  TP = []
+  
+  for i, limit in enumerate(binnings):
+
+    if window_pred:
+      sub_arr = np.zeros_like(y_pred)
+      sub_arr[y_pred <= limit] = 0
+      sub_arr[y_pred > limit] = 1
+      pred_per_window = np.max(sub_arr, axis=1)
+
+      pred_pos = ((pred_per_window[smask] > limit) == True).astype(int)
+      pred_neg = ((pred_per_window[~smask] <= limit) == True).astype(int)
+
+      nr_true_pos = np.sum(pred_pos)
+      nr_true_neg = np.sum(pred_neg)
+    else:
+      nr_true_pos = np.sum((y_pred[smask] > limit) == True)
+      nr_true_neg = np.sum((y_pred[~smask] <= limit) == True)
+
+
+    true_pos = nr_true_pos/ signal
+    TP.append(true_pos)
+
+    true_neg = nr_true_neg / backround 
+
+    if (true_neg < 1):
+      noise_reduction.append(1 / (1 - true_neg))
+    else:
+      noise_reduction.append(backround)
+
+  return TP, noise_reduction      

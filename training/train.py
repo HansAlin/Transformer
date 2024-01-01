@@ -5,7 +5,7 @@ import os
 import matplotlib.pyplot as plt
 from dataHandler.datahandler import get_data, prepare_data, get_test_data
 
-from plots.plots import histogram, noise_reduction_factor, plot_results, plot_examples
+from plots.plots import histogram, plot_performance_curve, plot_results, plot_examples
 import tqdm as tqdm
 from torch.utils.tensorboard import SummaryWriter
 from torch.optim.lr_scheduler import ReduceLROnPlateau
@@ -58,10 +58,14 @@ def training(configs, data_path, batch_size=32, channels=4, save_folder='', test
     print(f"Number of paramters: {config['num_parms']}") 
     writer = SummaryWriter(config['model_path'] + '/trainingdata')
     print(f"Follow on tensorboard: python3 -m tensorboard.main --logdir={config['model_path']}trainingdata")
-    #  python3 -m tensorboard.main --logdir=/mnt/md0/halin/Models/model_992/trainingdata
+    #  python3 -m tensorboard.main --logdir=/mnt/md0/halin/Models/model_1/trainingdata
     
-    print(f"Number of paramters: {config['num_parms']}")
-    criterion = nn.BCELoss().to(device)
+    loss_function = config.get('loss_function', 'BCE')
+    if loss_function == 'BCE':
+      criterion = nn.BCELoss().to(device)
+    elif loss_function == 'BCEWithLogits':
+      criterion = nn.BCEWithLogitsLoss().to(device)
+
     optimizer = torch.optim.Adam(model.parameters(), lr=config['learning_rate'])
     scheduler = ReduceLROnPlateau(optimizer=optimizer,
                                 mode='min',
@@ -239,7 +243,7 @@ def training(configs, data_path, batch_size=32, channels=4, save_folder='', test
     save_data(config, df, y_pred_data)
 
     histogram(y_pred_data['y_pred'], y_pred_data['y'], config)
-    noise_reduction_factor([y_pred_data['y_pred']], [y_pred_data['y']], [config])
+    plot_performance_curve([y_pred_data['y_pred']], [y_pred_data['y']], [config])
     plot_results(config['model_num'], config)
 
     if isinstance(train_loader, torch.utils.data.DataLoader):

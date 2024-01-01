@@ -61,32 +61,41 @@ class FeedForwardBlock(nn.Module):
 
 
 class InputEmbeddings(nn.Module):
+  """This layer maps feature space from the input to the d_model space.
 
-  def __init__(self, d_model: int, vocab_size: int) -> None:
-      super().__init__()
-      self.d_model = d_model
-      self.vocab_size = vocab_size
-      self.embedding = nn.Embedding(vocab_size, d_model)
-
-  def forward(self, x):
-      # (batch, seq_len) --> (batch, seq_len, d_model)
-      # Multiply by sqrt(d_model) to scale the embeddings according to the paper
-      return self.embedding(x) * math.sqrt(self.d_model) 
   
-class TimeInputEmbeddings(nn.Module):
-  def __init__(self, d_model: int, dropout: float = 0.1, channels: int = 1):
+  Args:
+      d_model (int): The dimension of the model.
+      channels (int, optional): The number of channels in the input. Defaults to 1.
+      dropout (float, optional): The dropout rate. Defaults to 0.1.
+      activation (str, optional): The activation function. Defaults to 'relu'.
+  
+
+  
+  """
+  def __init__(self, d_model: int, dropout: float = 0.1, channels: int = 1, activation='relu'):
     super().__init__()
     self.d_model = d_model
     self.embedding = nn.Linear(channels, d_model)
     self.dropout = nn.Dropout(dropout)
-    self.activation = nn.ReLU()
+    
+    activations = {
+        'relu': nn.ReLU(),
+        'gelu': nn.GELU(),
+        'none': nn.Identity(),  
+        }
+    try:
+      self.activation = activations[activation]
+    except KeyError:
+      raise KeyError(f"{activation} is not a valid activation function. Choose between {activations.keys()}")  
+
 
   def forward(self, x):
-    # (B, seq_len, 1)
+    # (batch_size, seq_len, channels)
     x = self.embedding(x)
     x = self.activation(x)
     x = self.dropout(x)
-    # --> (B, seq_len, d_model)
+    # --> (batch_size, seq_len, d_model)
     return x 
 
 class PositionalEncoding(nn.Module):
@@ -191,40 +200,38 @@ class LearnablePositionalEncoding(nn.Module):
     x += self.positional_encoding
     return x  
    
-class FinalBinaryBlock(nn.Module):
+class FinalBlock(nn.Module):
   def __init__(self, d_model: int, seq_len: int, dropout: float = 0.1,  out_put_size: int = 1):
     super().__init__()
     self.linear_1 = nn.Linear(d_model, seq_len)
-    self.sigmoid = nn.Sigmoid()
     self.dropout = nn.Dropout(dropout)
     self.linear_2 = nn.Linear(seq_len, out_put_size)
-    self.activation = nn.ReLU()
+
 
 
   def forward(self, x):
-    #(Batch, seq_len, d_model) --> ()
-
+    #(batch_size, seq_len, d_model)
     x = self.linear_1(x)
     x = x.squeeze()
     x = self.dropout(x)
     x = self.linear_2(x) 
     x = x.squeeze()
-    x = self.sigmoid(x)
+    # (batch_size, seq_len )
 
     return x
 
-class FinalMultiBlock(nn.Module):
-  def __init__(self, d_model: int, seq_len: int, dropout: float = 0.1):
-    super().__init__()
-    self.linear_1 = nn.Linear(d_model, 1)
-    self.activation = nn.ReLU()
+# class FinalMultiBlock(nn.Module):
+#   def __init__(self, d_model: int, seq_len: int, dropout: float = 0.1):
+#     super().__init__()
+#     self.linear_1 = nn.Linear(d_model, 1)
+#     self.activation = nn.ReLU()
 
-  def forward(self, x):
-    #(Batch, seq_len, d_model) --> ()
-    x = self.linear_1(x)
-    x = self.activation(x)
-    x = x.squeeze()
-    return x
+#   def forward(self, x):
+#     #(Batch, seq_len, d_model) --> ()
+#     x = self.linear_1(x)
+#     x = self.activation(x)
+#     x = x.squeeze()
+#     return x
 
 
 class MultiHeadAttentionBlock(nn.Module):
@@ -427,37 +434,6 @@ class Encoder(nn.Module):
 
 
 
-class DecoderBlock(nn.Module):
-  def __init__(self, 
-               self_attention_block: MultiHeadAttentionBlock,
-               cross_attention_block: MultiHeadAttentionBlock,
-               feed_forward_block: FeedForwardBlock,
-               dropout: float = 0.1):  
-    super().__init__()
-    self.self_attention_block = self_attention_block
-    self.cross_attention_block = cross_attention_block
-    self.feed_forward_block = feed_forward_block
-    self.residual_connections = nn.ModuleList([ResidualConnection(dropout) for _ in range(3)])
-
-  def forward(self, x, encoder_output, src_mask, tgt_mask):
-    x = self.residual_connections[0](x, lambda x: self.self_attention_block(x, x, x, tgt_mask))
-    x = self.residual_connections[1](x, lambda x: self.cross_attention_block(x, encoder_output, encoder_output, src_mask))
-    x = self.residual_connections[2](x, self.feed_forward_block)
-
-    return x
-  
-class Decoder(nn.Module):
-  def __init__(self, layers: nn.ModuleList) -> None:
-    super().__init__()
-    self.layers = layers
-    self.norm = LayerNormalization()
-
-  def forward(self, x, encoder_output, src_mask, tgt_mask):
-    for layer in self.layers:
-      x = layer(x, encoder_output, src_mask, tgt_mask)
-
-    return self.norm(x)
-
 class ProjectionLayer(nn.Module):
   def __init__(self, d_model: int, vocab_size: int) -> None:
     super().__init__()
@@ -467,41 +443,13 @@ class ProjectionLayer(nn.Module):
     # (Batch, seq_len, d_model) --> (Batch, seq_len, vocab_size)
     return torch.log_softmax(self.proj(x), dim=-1)
   
-class Transformer(nn.Module):
-  def __init__(self, encoder: Encoder, 
-               decoder: Decoder, 
-               src_embed: InputEmbeddings, 
-               tgt_embed: InputEmbeddings,
-               src_pos: PositionalEncoding,
-               tgt_pos: PositionalEncoding,
-               projeciton_layer: ProjectionLayer) -> None:
-    super().__init__()
-    self.encoder = encoder
-    self.decoder = decoder
-    self.src_embed = src_embed
-    self.tgt_embed = tgt_embed
-    self.src_pos = src_pos
-    self.tgt_pos = tgt_pos
-    self.projection_layer = projeciton_layer
 
-  def encode(self, src, src_mask=None):
-    src = self.src_embed(src)
-    src = self.src_pos(src)
-    return self.encoder(src, src_mask)
-
-  def decode(self, encoder_output, src_mask, tgt, tgt_mask):
-    tgt = self.tgt_embed(tgt)
-    tgt = self.tgt_pos(tgt)
-    return self.decoder(tgt, encoder_output, src_mask, tgt_mask)  
-  
-  def project(self, x):
-    return self.projection_layer(x)
   
 class EncoderTransformer(nn.Module):
   def __init__(self, encoder: Encoder, 
-               src_embed: TimeInputEmbeddings, 
+               src_embed: InputEmbeddings, 
                src_pos: PositionalEncoding,
-               final_block: FinalBinaryBlock) -> None:
+               final_block: FinalBlock) -> None:
     super().__init__()
     self.encoder = encoder
     self.src_embed = src_embed
@@ -510,75 +458,21 @@ class EncoderTransformer(nn.Module):
 
 
   def encode(self, src, src_mask=None):
-    # (b, seq_len, d_model)
+    # (batch_size, seq_len, d_model)
     src = self.src_embed(src)
 
-    if self.src_pos != None:
-      # (b,seq_len,1)
-      src = self.src_pos(src)
+    src = self.src_pos(src)
     
-   
-    # (b,1) !!!!! TODO does not seem right
     src = self.encoder(src, src_mask)
 
     src = self.final_block(src)
     return src
   
 
-def build_transformer(src_vocab_size: int, 
-                      tgt_vocab_size: int, 
-                      src_seq_len: int,
-                      tgt_seq_len: int,
-                      d_model: int = 512,
-                      N: int = 6,
-                      h: int = 8, 
-                      dropout: float = 0.1,
-                      d_ff: int = 2048) -> Transformer:
-  # Create the input embeddings
-  src_embed = InputEmbeddings(d_model, src_vocab_size)
-  tgt_embed = InputEmbeddings(d_model, tgt_vocab_size)
-
-  # Create the positional encodings
-  src_pos = PositionalEncoding(d_model, src_seq_len, dropout)
-  tgt_pos = PositionalEncoding(d_model, tgt_seq_len, dropout)
-
-  # Create the encoder layers
-  encoder_blocks = []
-  for _ in range(N):
-    encoder_self_attention_block = MultiHeadAttentionBlock(d_model, h, dropout)
-    feed_forward_block = FeedForwardBlock(d_model, d_ff, dropout)
-    encoder_block = EncoderBlock(encoder_self_attention_block, feed_forward_block, dropout)
-    encoder_blocks.append(encoder_block)
-
-  # Create the decoder blocks
-  decoder_blocks = []
-  for _ in range(N):
-    decoder_self_attention_block = MultiHeadAttentionBlock(d_model, h, dropout)
-    decoder_cross_attention_block = MultiHeadAttentionBlock(d_model, h, dropout)
-    feed_forward_block = FeedForwardBlock(d_model, d_ff, dropout)
-    decoder_block = DecoderBlock(decoder_self_attention_block, decoder_cross_attention_block, feed_forward_block, dropout)
-    decoder_blocks.append(decoder_block)  
-
-  # Create the encoder and decoder
-  encoder = Encoder(nn.ModuleList(encoder_blocks), normalization='layer')
-  decoder= Decoder(nn.ModuleList(decoder_blocks))
-
-  # Create the projection layer
-  projection_layer = ProjectionLayer(d_model, tgt_vocab_size)   
-
-  # Create the transformer
-  transformer = Transformer(encoder, decoder, src_embed, tgt_embed, src_pos, tgt_pos, projection_layer)
-
-  # Initialize the parameters
-  for p in transformer.parameters():
-    if p.dim() > 1:
-      nn.init.xavier_uniform_(p)  
-
-  return transformer    
+ 
 
 def build_encoder_transformer(config) -> EncoderTransformer:
-  
-  embed_size=config['embed_size']
+
   seq_len=config['seq_len']
   d_model=config['d_model']
   N=config['N']
@@ -591,17 +485,36 @@ def build_encoder_transformer(config) -> EncoderTransformer:
   else:
     output_size = 1 
   
+  #########################################################
+  # Create the input embeddings                           #
+  #########################################################    
+  embed_type = config.get('embed_type', 'relu_drop')
 
-  # Create the input embeddings
-  src_embed = TimeInputEmbeddings(d_model=d_model, channels=config['n_ant'])
- 
-  # Create the positional encodings
+  if embed_type == 'relu_drop':
+      activation = 'relu' 
+      emb_drop = dropout  
+  elif embed_type == 'gelu_drop':
+      activation = 'gelu'
+      emb_drop = dropout
+  elif embed_type == 'basic':
+      activation = 'none'
+      emb_drop = 0
+  else:
+      raise ValueError(f"Unsupported Embedding type: {embed_type}")
+
+  src_embed = InputEmbeddings(d_model=d_model, channels=config['n_ant'], dropout=emb_drop, activation=activation)
+  
+  #########################################################
+  # Create the positional encodings                       #
+  #########################################################
   if config['pos_enc_type'] == 'Sinusoidal':
     src_pos = PositionalEncoding(d_model=d_model, dropout=dropout, seq_len=seq_len, omega=omega)
   elif config['pos_enc_type'] == 'None' or config['pos_enc_type'] == 'Relative':
-    src_pos = None  
+    src_pos = nn.Identity()  
   elif config['pos_enc_type'] == 'Learnable':
     src_pos = LearnablePositionalEncoding(d_model=d_model)  
+  else:
+    raise ValueError(f"Unsupported positional encoding type: {config['pos_enc_type']}")  
 
   # Create the encoder layers
   encoder_blocks = []
@@ -616,7 +529,7 @@ def build_encoder_transformer(config) -> EncoderTransformer:
   encoder = Encoder(nn.ModuleList(encoder_blocks), normalization='layer')
 
   # Create the final block
-  final_block = FinalBinaryBlock(d_model=d_model, seq_len=seq_len, dropout=dropout, out_put_size=output_size)
+  final_block = FinalBlock(d_model=d_model, seq_len=seq_len, dropout=dropout, out_put_size=output_size)
 
   # Create the transformer
   encoder_transformer = EncoderTransformer(encoder=encoder,

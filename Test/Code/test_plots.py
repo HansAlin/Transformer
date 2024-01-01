@@ -7,13 +7,13 @@ import numpy as np
 # Find code directory relative to our directory
 CODE_DIR_1  ='/home/halin/Master/Transformer/'
 sys.path.append(CODE_DIR_1)
-type(sys.path)
-for path in sys.path:
-   print(path)
-from models.models import TimeInputEmbeddings, LayerNormalization, FinalBinaryBlock, build_encoder_transformer
+# type(sys.path)
+# for path in sys.path:
+#    print(path)
+from models.models import InputEmbeddings, LayerNormalization, FinalBlock, build_encoder_transformer
 from dataHandler.datahandler import get_data, prepare_data, find_hyperparameters
-from training.train import test_model
-from plots.plots import plot_results, plot_weights, histogram, noise_reduction_factor, plot_collections, plot_examples
+# from training.train import test_model
+from plots.plots import plot_results, plot_weights, histogram, plot_performance_curve, plot_collections, plot_examples, plot_performance
 import torch
 import subprocess
 import pandas as pd
@@ -44,11 +44,15 @@ import pandas as pd
 
 
 ###################################################################
-#  Plot collections of noise reduction factors                    #
+#  Plot collections of noise reduction factors or roc             #
 ###################################################################
-save_path = ''
 models_path = '/mnt/md0/halin/Models/'
-models = [990,991,992]
+models = [1]
+curve = 'roc'
+window_pred = False
+str_models = '_'.join(map(str, models))
+save_path = f'/home/halin/Master/Transformer/Test/ModelsResults/model_{str_models}_{curve}_window_pred_{str(window_pred)}.png'
+
 parameter = 'd_model'
 hyper_parameters = find_hyperparameters(model_number=models, 
                                         parameter=parameter,
@@ -59,7 +63,47 @@ plot_collections(models,
                  labels, 
                  save_path=save_path, 
                  models_path=models_path,
-                 x_lim=[0,1])
+                 x_lim=[0,1],
+                 window_pred=True,
+                 curve=curve)
 
-# data = np.load('/home/halin/Master/Transformer/Test/data/test_100_data.npy')
-# plot_examples(data)
+###################################################################
+# Plot performance of a model                                     #
+###################################################################
+# num = 1
+# plot_performance(model_num=num, save_path=f'/home/halin/Master/Transformer/Test/ModelsResults/model_{num}_')
+
+
+###################################################################
+# Test noise reduction factor                                     #
+###################################################################
+# model_num = 990
+# save_path=f'/home/halin/Master/Transformer/Test/ModelsResults/model_{model_num}_roc'
+# data_path='/home/halin/Master/Transformer/Test/data/'
+# model_path='/mnt/md0/halin/Models/'
+# x_test = torch.load(data_path + 'example_x_data.pt')
+# y_test = torch.load(data_path + 'example_y_data.pt')
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  
+# MODEL_PATH = model_path + f'model_{model_num}/saved_model/model_{model_num}.pth'
+# CONFIG_PATH = model_path + f'model_{model_num}/config.txt'
+# with open(CONFIG_PATH, 'rb') as f:
+#     config = pickle.load(f)
+
+# model = build_encoder_transformer(config)
+# state = torch.load(MODEL_PATH)
+# model.load_state_dict(state['model_state_dict'])
+
+# model.to(device)
+# x_test, y_test = x_test.to(device), y_test.to(device)
+# model.eval()
+# pred = model.encode(x_test,src_mask=None)
+# index = 0
+
+# pred = pred.cpu().detach().numpy().reshape(-1,1)
+# x_test = x_test.cpu().detach().numpy()
+# y_test = y_test.cpu().detach().numpy().reshape(-1,1)
+
+# plot_performance_curve(y_preds=[pred], 
+#                        ys=[y_test], 
+#                        configs=[config], 
+#                        save_path=save_path, x_lim=[0,1], curve='roc')

@@ -507,6 +507,4 @@ def save_example_data(save_path='/home/halin/Master/Transformer/Test/data/'):
       break
     count += 1
 
-save_example_data()
-
 

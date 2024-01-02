@@ -72,7 +72,10 @@ def plot_performance_curve(y_preds, ys, configs, bins=100, save_path='', labels=
         print("The new directory is created!")
 
     if labels == None:
-      ax.set_title(f"Model {configs[0]['model_num']}{text}")
+      if configs[0] != None:
+        ax.set_title(f"Model {configs[0]['model_num']}{text}")
+      else:
+        ax.set_title(f"Model Test")  
     else:
         if curve == 'roc':
           ax.set_title(f"ROC curve for {length} models,{text}") 
@@ -122,7 +125,7 @@ def plot_performance_curve(y_preds, ys, configs, bins=100, save_path='', labels=
       ax.set_ylabel(f'Noise reduction factor (nr. noise {nr_y_noise})')
       ax.set_yscale('log')
       ax.set_xlim(x_lim)
-
+    ax.grid()
     if save_path == '':
         save_path = config['model_path'] + 'plot/' + f'model_{config["model_num"]}_{curve}_{text.replace(" ", "_")}.png'
     plt.savefig(save_path)
@@ -312,10 +315,13 @@ def plot_performance(model_num, data_path='/home/halin/Master/Transformer/Test/d
       count += 1
   return None
 
-def get_roc(y, y_pred, bins=100):
+def get_roc(y, y_pred, bins=100, log_bins=False):
   TPR = []
   FPR = []
-  binnings = np.logspace(np.log10(np.amin(y_pred)), np.log10(np.amax(y_pred)), num=bins)
+  if log_bins:
+    binnings = np.logspace(np.log10(np.amin(y_pred)), np.log10(np.amax(y_pred)), num=bins)
+  else:
+    binnings = np.linspace(0.1, 0.99999, num=bins)  
   for i, limit in enumerate(binnings):
     
     sub_arr = np.zeros_like(y_pred)
@@ -331,15 +337,18 @@ def get_roc(y, y_pred, bins=100):
 
   return TPR, FPR
 
-def get_noise_reduction(y, y_pred, bins, window_pred=False):
+def get_noise_reduction(y, y_pred, bins, window_pred=False, log_bins=False):
   smask = y == 1
 
-  binnings = np.logspace(np.log10(np.amin(y_pred)), np.log10(np.amax(y_pred)), num=bins)
+  if log_bins:
+   binnings = np.logspace(np.log10(np.amin(y_pred)), np.log10(np.amax(y_pred)), num=bins)
+  else:
+    binnings = np.linspace(0.1, 0.99999, num=bins)
   backround  = float(len(y[~smask]))
   signal = float(len(y[smask]))
   noise_reduction = []
   TP = []
-  
+ 
   for i, limit in enumerate(binnings):
 
     if window_pred:

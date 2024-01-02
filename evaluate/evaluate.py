@@ -70,7 +70,10 @@ def test_model(model, test_loader, device, config):
   FN += np.sum(false_noise)
   accuracy = (TP + TN) / len(y)
   
-  efficiency = TP / np.count_nonzero(y)
+  if np.count_nonzero(y) != 0:
+    efficiency = TP / np.count_nonzero(y)
+  else:
+    efficiency = 0  
 
   if TP + FP == 0:
     precission = 0
@@ -93,9 +96,9 @@ def validate(y, y_pred, metric='Accuracy'):
   if metric == 'Accuracy':
     metric = (TP + TN) / len(y)
   elif metric == 'Efficiency':
-    metric = TP / np.count_nonzero(y)
+    metric = TP / np.count_nonzero(y) if np.count_nonzero(y) != 0 else 0
   elif metric == 'Precision':
-    metric = TP / (TP + FP)  
+    metric = TP / (TP + FP) if TP + FP != 0 else 0 
 
 
   return metric

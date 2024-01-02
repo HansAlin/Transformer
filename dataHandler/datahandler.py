@@ -434,8 +434,9 @@ def save_data(config, df, y_pred_data=None):
   with open(path + 'text_config.txt', 'w') as data:
     for key, value in config.items():
       data.write('%s: %s\n' % (key, value))
+  if df is not None:  
+    df.to_pickle(path + 'dataframe.pkl')
 
-  df.to_pickle(path + 'dataframe.pkl')
   if y_pred_data is not None:
     y_pred_data.to_pickle(path + 'y_pred_data.pkl') 
   

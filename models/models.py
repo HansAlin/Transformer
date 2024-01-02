@@ -201,11 +201,17 @@ class LearnablePositionalEncoding(nn.Module):
     return x  
    
 class FinalBlock(nn.Module):
-  def __init__(self, d_model: int, seq_len: int, dropout: float = 0.1,  out_put_size: int = 1):
+  def __init__(self, d_model: int, seq_len: int, dropout: float = 0.1,  out_put_size: int = 1, final_type: str = 'basic'):
     super().__init__()
     self.linear_1 = nn.Linear(d_model, seq_len)
     self.dropout = nn.Dropout(dropout)
     self.linear_2 = nn.Linear(seq_len, out_put_size)
+    # TODO might be redundant
+    if final_type == 'first':
+      self.final_layer = nn.Sigmoid()
+    else:
+      self.final_layer = nn.Identity()  
+
 
 
 
@@ -216,6 +222,12 @@ class FinalBlock(nn.Module):
     x = self.dropout(x)
     x = self.linear_2(x) 
     x = x.squeeze()
+    x = self.final_layer(x)
+    # (batch_size, seq_len )
+
+    # Apply sigmoid function during evaluation
+    if not self.training:
+      x = torch.sigmoid(x)
     # (batch_size, seq_len )
 
     return x
@@ -529,7 +541,9 @@ def build_encoder_transformer(config) -> EncoderTransformer:
   encoder = Encoder(nn.ModuleList(encoder_blocks), normalization='layer')
 
   # Create the final block
-  final_block = FinalBlock(d_model=d_model, seq_len=seq_len, dropout=dropout, out_put_size=output_size)
+  final_type = config.get('final_type', 'first')
+ 
+  final_block = FinalBlock(d_model=d_model, seq_len=seq_len, dropout=dropout, out_put_size=output_size, final_type=final_type)
 
   # Create the transformer
   encoder_transformer = EncoderTransformer(encoder=encoder,

@@ -55,8 +55,8 @@ hyper_paramters = [16,32,64]
 labels = {'hyper_parameters': hyper_paramters, 'name': 'Model size: (d_model)'}
 start_model_num = 2
 batch_size = 32
-epochs = 2
-test = True
+epochs = 100
+test = False
 
 model_num = start_model_num
 models = []
@@ -69,6 +69,8 @@ for i, hyper_paramter in enumerate(hyper_paramters):
               'pre_trained': None,
               'embed_type': 'relu_drop', # Posible options: 'relu_drop', 'gelu_drop', 'basic'
               'pos_enc_type':'Sinusoidal', # Posible options: 'Sinusoidal', 'Relative', 'None', 'Learnable'
+              'final_type': 'basic',
+              'loss_function': 'BCEWithLogits', # Posible options: 'BCE', 'BCEWithLogits' 
               'model_num': model_num,
               'seq_len': 256,
               'd_model': hyper_paramters[i], # Have to be dividable by h

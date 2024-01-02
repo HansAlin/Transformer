@@ -46,26 +46,26 @@ import pandas as pd
 ###################################################################
 #  Plot collections of noise reduction factors or roc             #
 ###################################################################
-models_path = '/mnt/md0/halin/Models/'
-models = [1]
-curve = 'roc'
-window_pred = False
-str_models = '_'.join(map(str, models))
-save_path = f'/home/halin/Master/Transformer/Test/ModelsResults/model_{str_models}_{curve}_window_pred_{str(window_pred)}.png'
+# models_path = '/mnt/md0/halin/Models/'
+# models = [1]
+# curve = 'nr'
+# window_pred = False
+# str_models = '_'.join(map(str, models))
+# save_path = f'/home/halin/Master/Transformer/Test/ModelsResults/model_{str_models}_{curve}_window_pred_{str(window_pred)}.png'
 
-parameter = 'd_model'
-hyper_parameters = find_hyperparameters(model_number=models, 
-                                        parameter=parameter,
-                                        models_path=models_path)
-labels = {'hyper_parameters': hyper_parameters, 'name': 'H parameter (d_model)'}
+# parameter = 'd_model'
+# hyper_parameters = find_hyperparameters(model_number=models, 
+#                                         parameter=parameter,
+#                                         models_path=models_path)
+# labels = {'hyper_parameters': hyper_parameters, 'name': 'H parameter (d_model)'}
 
-plot_collections(models, 
-                 labels, 
-                 save_path=save_path, 
-                 models_path=models_path,
-                 x_lim=[0,1],
-                 window_pred=True,
-                 curve=curve)
+# plot_collections(models, 
+#                  labels, 
+#                  save_path=save_path, 
+#                  models_path=models_path,
+#                  x_lim=[0,1],
+#                  window_pred=window_pred,
+#                  curve=curve)
 
 ###################################################################
 # Plot performance of a model                                     #
@@ -107,3 +107,4 @@ plot_collections(models,
 #                        ys=[y_test], 
 #                        configs=[config], 
 #                        save_path=save_path, x_lim=[0,1], curve='roc')
+

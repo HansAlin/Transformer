@@ -53,7 +53,7 @@ from plots.plots import plot_collections
 models_path = '/mnt/md0/halin/Models/'
 hyper_paramters = [16,32,64]
 labels = {'hyper_parameters': hyper_paramters, 'name': 'Model size: (d_model)'}
-start_model_num = 2
+start_model_num = 5
 batch_size = 32
 epochs = 100
 test = False
@@ -67,7 +67,7 @@ for i, hyper_paramter in enumerate(hyper_paramters):
             'model_type': "base_encoder",
               'model':None,
               'pre_trained': None,
-              'embed_type': 'relu_drop', # Posible options: 'relu_drop', 'gelu_drop', 'basic'
+              'embed_type': 'basic', # Posible options: 'relu_drop', 'gelu_drop', 'basic'
               'pos_enc_type':'Sinusoidal', # Posible options: 'Sinusoidal', 'Relative', 'None', 'Learnable'
               'final_type': 'basic',
               'loss_function': 'BCEWithLogits', # Posible options: 'BCE', 'BCEWithLogits' 

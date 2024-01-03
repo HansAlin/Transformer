@@ -45,7 +45,7 @@ def histogram(y_pred, y, config, bins=100, save_path=''):
 
 
 
-def plot_performance_curve(y_preds, ys, configs, bins=100, save_path='', labels=None, x_lim=[0.8,1], window_pred=False, curve='roc'):
+def plot_performance_curve(y_preds, ys, configs, bins=1000, save_path='', labels=None, x_lim=[0.8,1], window_pred=False, curve='roc'):
     """
             This function plots the noise reduction factor curve for a given model or models. Note that
             the y_pred, y and config must be a list of arrays and dicts respectively.
@@ -104,7 +104,7 @@ def plot_performance_curve(y_preds, ys, configs, bins=100, save_path='', labels=
           nr_y_noise = np.count_nonzero(y == 0)
 
         if curve == 'roc':
-          y, x = get_roc(y, y_pred)
+          y, x = get_roc(y, y_pred,bins=bins)
         elif curve == 'nr':  
           x, y = get_noise_reduction(y, y_pred, bins, window_pred=window_pred)
 
@@ -212,7 +212,7 @@ def plot_weights(model, config, save_path='', block='self_attention_block', quie
 #   writer.add_histogram('weights', weight)
 #   writer.close()  
 
-def plot_collections(models, labels, save_path='', models_path='Test/ModelsResults/', x_lim=[0.8,1], window_pred=False, curve='roc'): 
+def plot_collections(models, labels, bins=100, save_path='', models_path='Test/ModelsResults/', x_lim=[0.8,1], window_pred=False, curve='roc'): 
   y_pred = []
   y = []
   configs = []
@@ -241,6 +241,7 @@ def plot_collections(models, labels, save_path='', models_path='Test/ModelsResul
                         save_path=save_path, 
                         labels=labels,
                         x_lim=x_lim,
+                        bins=bins,
                         window_pred=window_pred,
                         curve=curve)
 
@@ -259,10 +260,15 @@ def plot_examples(data, config=None, save_path=''):
     ax[i].plot(data[:,i])
   plt.savefig(save_path)  
 
-def plot_performance(model_num, data_path='/home/halin/Master/Transformer/Test/data/', model_path='/mnt/md0/halin/Models/', save_path=''):
+def plot_performance(model_num, x_batch=None, y_batch=None,lim_value=0.2, data_path='/home/halin/Master/Transformer/Test/data/', model_path='/mnt/md0/halin/Models/', save_path=''):
   # TODO
-  x_test = torch.load(data_path + 'example_x_data.pt')
-  y_test = torch.load(data_path + 'example_y_data.pt')
+  if x_batch == None and y_batch == None:
+    x_test = torch.load(data_path + 'example_x_data.pt')
+    y_test = torch.load(data_path + 'example_y_data.pt')
+  else:
+    x_test = x_batch
+    y_test = y_batch
+
   device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  
   MODEL_PATH = model_path + f'model_{model_num}/saved_model/model_{model_num}.pth'
   CONFIG_PATH = model_path + f'model_{model_num}/config.txt'
@@ -283,67 +289,108 @@ def plot_performance(model_num, data_path='/home/halin/Master/Transformer/Test/d
   x_test = x_test.cpu().detach().numpy()
   y_test = y_test.cpu().detach().numpy()
   index = 0
-  lim_value = 0.2
+
   count = 1
+  text = ''
+  plot_true_pos = False
+  plot_false_pos = False
+  plot_true_neg = False
+  plot_false_neg = False
+  plot = False
   for i in range(pred.shape[0]):
     pred_value = np.max(pred[i])
     y_value = np.max(y_test[i])
-    if pred_value >= lim_value and y_value >= lim_value:
-      
-      index = i
 
-
-      max_value = np.max(pred[index])  
-      print(f"Max value: {max_value}")
-      pred = pred[index]
-      x_test = x_test[index]
-      y_test = y_test[index]
-
-
-
-      fig, ax = plt.subplots(4,1, figsize=(10,10))
-      for i in range(4):
-        ax[i].plot(x_test[:,i], color='grey')
-        ax[i].plot(pred, label='Prediction')
-        ax[i].plot(y_test, label='True signal')
-      plt.legend()
-      if save_path == '':
-        save_path = config['model_path'] + f'plot/performance_{count}.png'
+    if y_value >= lim_value:
+      if pred_value >= lim_value and not plot_true_pos:
+        text = 'true positive'
+        plot_true_pos = True
+        plot = True
+      elif pred_value < lim_value and not plot_false_neg:
+        text = 'false negative' 
+        plot_false_neg = True 
+        plot = True
       else:
-        save_path = save_path + f'performance_{count}.png'  
-      plt.savefig(save_path)
+        plot = False 
+    else:
+      if pred_value >= lim_value and not plot_false_pos:
+        text = 'false positive'
+        plot_false_pos = True
+        plot = True
+      elif pred_value < lim_value and not plot_true_neg:
+        text = 'true negative'
+        plot_true_neg = True  
+        plot = True
+      else:
+        plot = False  
+
+    index = i
+
+    if plot:
+      max_value = np.max(pred[index])  
+      print(f"Max value: {max_value} {text}")
+      pred_y = pred[index]
+      x = x_test[index]
+      y = y_test[index]
+
+
+
+      fig, ax = plt.subplots(4,1, figsize=(10,10), sharex=True)
+      for i in range(4):
+        ax[i].plot(x[:,i], color='grey')
+        ax[i].plot(pred_y, label='Prediction')
+        ax[i].plot(y, label='True signal')
+      plt.legend()
+      
+      fig.suptitle(f"Model {config['model_num']} - {text} treshold: {lim_value}")
+      if save_path == '':
+        path = config['model_path'] + f'plot/performance_{text.replace(" ", "_")}.png'
+      else:
+        path = save_path + f'performance_{text.replace(" ", "_")}.png'  
+      plt.savefig(path)
       count += 1
+      plt.clf()
   return None
 
-def get_roc(y, y_pred, bins=100, log_bins=False):
+def get_roc(y, y_pred, bins=1000, log_bins=False):
+  smask = y == 1
+  backround  = float(len(y[~smask]))
+  signal = float(len(y[smask]))
   TPR = []
   FPR = []
   if log_bins:
     binnings = np.logspace(np.log10(np.amin(y_pred)), np.log10(np.amax(y_pred)), num=bins)
   else:
-    binnings = np.linspace(0.1, 0.99999, num=bins)  
+    binnings = np.linspace(np.amin(y_pred), 0.99999, num=bins)  
   for i, limit in enumerate(binnings):
     
     sub_arr = np.zeros_like(y_pred)
     sub_arr[y_pred <= limit] = 0
     sub_arr[y_pred > limit] = 1
-    sub_arr = np.max(sub_arr, axis=-1)
+    #sub_arr = np.max(sub_arr, axis=-1)
     true_pos = np.sum(np.logical_and(y == 1, sub_arr == 1))
     false_pos = np.sum(np.logical_and(y == 0, sub_arr == 1))
     true_neg = np.sum(np.logical_and( y == 0, sub_arr == 0))
     false_neg = np.sum(np.logical_and(y == 1, sub_arr == 0))
-    TPR.append(true_pos/(true_pos + false_neg))
-    FPR.append(false_pos/(false_pos + true_neg))
+    # print(f"True pos: {true_pos}, False pos: {false_pos}, True neg: {true_neg}, False neg: {false_neg}")
+    if (true_pos + false_neg) == 0:
+      TPR.append(0)
+    else:  
+      TPR.append(true_pos/(true_pos + false_neg))
+    if (false_pos + true_neg) == 0:
+      FPR.append(0) 
+    else:   
+      FPR.append(false_pos/(false_pos + true_neg))
 
   return TPR, FPR
 
-def get_noise_reduction(y, y_pred, bins, window_pred=False, log_bins=False):
+def get_noise_reduction(y, y_pred, bins=1000, window_pred=False, log_bins=False):
   smask = y == 1
 
   if log_bins:
    binnings = np.logspace(np.log10(np.amin(y_pred)), np.log10(np.amax(y_pred)), num=bins)
   else:
-    binnings = np.linspace(0.1, 0.99999, num=bins)
+    binnings = np.linspace(np.amin(y_pred), 0.99999, num=bins)
   backround  = float(len(y[~smask]))
   signal = float(len(y[smask]))
   noise_reduction = []
@@ -367,10 +414,16 @@ def get_noise_reduction(y, y_pred, bins, window_pred=False, log_bins=False):
       nr_true_neg = np.sum((y_pred[~smask] <= limit) == True)
 
 
-    true_pos = nr_true_pos/ signal
+    if signal == 0:
+      true_pos = 0
+    else:  
+      true_pos = nr_true_pos/ signal
     TP.append(true_pos)
 
-    true_neg = nr_true_neg / backround 
+    if backround == 0:
+      true_neg = 0
+    else:  
+      true_neg = nr_true_neg / backround 
 
     if (true_neg < 1):
       noise_reduction.append(1 / (1 - true_neg))

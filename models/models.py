@@ -206,6 +206,9 @@ class FinalBlock(nn.Module):
     self.linear_1 = nn.Linear(d_model, seq_len)
     self.dropout = nn.Dropout(dropout)
     self.linear_2 = nn.Linear(seq_len, out_put_size)
+    self.activation = nn.Sigmoid()
+ 
+
 
 
 
@@ -216,12 +219,9 @@ class FinalBlock(nn.Module):
     x = self.dropout(x)
     x = self.linear_2(x) 
     x = x.squeeze()
+    x = self.activation(x)
     # (batch_size, seq_len )
 
-    # Apply sigmoid function during evaluation
-    if not self.training:
-      x = torch.sigmoid(x)
-    # (batch_size, seq_len )
 
     return x
 
@@ -533,7 +533,9 @@ def build_encoder_transformer(config) -> EncoderTransformer:
   # Create the encoder and decoder
   encoder = Encoder(nn.ModuleList(encoder_blocks), normalization='layer')
 
-
+  #########################################################
+  # Create the final block                                #
+  #########################################################
   final_block = FinalBlock(d_model=d_model, seq_len=seq_len, dropout=dropout, out_put_size=output_size)
 
   # Create the transformer

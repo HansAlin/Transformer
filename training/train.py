@@ -5,7 +5,7 @@ import os
 import matplotlib.pyplot as plt
 from dataHandler.datahandler import get_data, prepare_data, get_test_data
 
-from plots.plots import histogram, plot_performance_curve, plot_results, plot_examples
+from plots.plots import histogram, plot_performance_curve, plot_results, plot_examples, plot_performance
 import tqdm as tqdm
 from torch.utils.tensorboard import SummaryWriter
 from torch.optim.lr_scheduler import ReduceLROnPlateau
@@ -60,12 +60,7 @@ def training(configs, data_path, batch_size=32, channels=4, save_folder='', test
     print(f"Follow on tensorboard: python3 -m tensorboard.main --logdir={config['model_path']}trainingdata")
     #  python3 -m tensorboard.main --logdir=/mnt/md0/halin/Models/model_1/trainingdata
     
-    loss_function = config.get('loss_function', 'BCE')
-    if loss_function == 'BCE':
-      criterion = nn.BCELoss().to(device)
-    elif loss_function == 'BCEWithLogits':
-      criterion = nn.BCEWithLogitsLoss().to(device)
-
+    criterion = nn.BCELoss().to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=config['learning_rate'])
     scheduler = ReduceLROnPlateau(optimizer=optimizer,
                                 mode='min',
@@ -243,7 +238,8 @@ def training(configs, data_path, batch_size=32, channels=4, save_folder='', test
     save_data(config, df, y_pred_data)
 
     histogram(y_pred_data['y_pred'], y_pred_data['y'], config)
-    plot_performance_curve([y_pred_data['y_pred']], [y_pred_data['y']], [config])
+    plot_performance_curve([y_pred_data['y_pred']], [y_pred_data['y']], [config], curve='nr', x_lim=[0,1])
+    plot_performance_curve([y_pred_data['y_pred']], [y_pred_data['y']], [config], curve='roc')
     plot_results(config['model_num'], config)
 
     if isinstance(train_loader, torch.utils.data.DataLoader):
@@ -254,5 +250,5 @@ def training(configs, data_path, batch_size=32, channels=4, save_folder='', test
       x_batch, y_batch = train_loader.__getitem__(0)
       data = x_batch.cpu().detach().numpy()
     plot_examples(data, config=config)
-
+    plot_performance(config['model_num'], x_batch=x_batch, y_batch=y_batch, lim_value=0.5, )
 

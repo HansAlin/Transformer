@@ -46,32 +46,33 @@ import pandas as pd
 ###################################################################
 #  Plot collections of noise reduction factors or roc             #
 ###################################################################
-# models_path = '/mnt/md0/halin/Models/'
-# models = [1]
-# curve = 'nr'
-# window_pred = False
-# str_models = '_'.join(map(str, models))
-# save_path = f'/home/halin/Master/Transformer/Test/ModelsResults/model_{str_models}_{curve}_window_pred_{str(window_pred)}.png'
+models_path = '/mnt/md0/halin/Models/'
+models = [5]
+curve = 'nr'
+window_pred = False
+str_models = '_'.join(map(str, models))
+save_path = f'/home/halin/Master/Transformer/Test/ModelsResults/test/model_{str_models}_{curve}_window_pred_{str(window_pred)}.png'
 
-# parameter = 'd_model'
-# hyper_parameters = find_hyperparameters(model_number=models, 
-#                                         parameter=parameter,
-#                                         models_path=models_path)
-# labels = {'hyper_parameters': hyper_parameters, 'name': 'H parameter (d_model)'}
+parameter = 'd_model'
+hyper_parameters = find_hyperparameters(model_number=models, 
+                                        parameter=parameter,
+                                        models_path=models_path)
+labels = {'hyper_parameters': hyper_parameters, 'name': 'H parameter (d_model)'}
 
-# plot_collections(models, 
-#                  labels, 
-#                  save_path=save_path, 
-#                  models_path=models_path,
-#                  x_lim=[0,1],
-#                  window_pred=window_pred,
-#                  curve=curve)
+plot_collections(models, 
+                 labels, 
+                 save_path=save_path, 
+                 models_path=models_path,
+                 x_lim=[0,1],
+                 window_pred=window_pred,
+                 curve=curve,
+                 bins=100)
 
 ###################################################################
 # Plot performance of a model                                     #
 ###################################################################
-# num = 1
-# plot_performance(model_num=num, save_path=f'/home/halin/Master/Transformer/Test/ModelsResults/model_{num}_')
+# num = 4
+# plot_performance(model_num=num, lim_value=0.1, save_path=f'/home/halin/Master/Transformer/Test/ModelsResults/test/model_{num}_')
 
 
 ###################################################################

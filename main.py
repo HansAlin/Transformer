@@ -51,9 +51,9 @@ from plots.plots import plot_collections
 #          ¤  based on val_loss or val_acc ???  
 
 models_path = '/mnt/md0/halin/Models/'
-hyper_paramters = [16,32,64]
+hyper_paramters = [32, 64, 128]
 labels = {'hyper_parameters': hyper_paramters, 'name': 'Model size: (d_model)'}
-start_model_num = 5
+start_model_num = 8
 batch_size = 32
 epochs = 100
 test = False
@@ -70,7 +70,7 @@ for i, hyper_paramter in enumerate(hyper_paramters):
               'embed_type': 'basic', # Posible options: 'relu_drop', 'gelu_drop', 'basic'
               'pos_enc_type':'Sinusoidal', # Posible options: 'Sinusoidal', 'Relative', 'None', 'Learnable'
               'final_type': 'basic',
-              'loss_function': 'BCEWithLogits', # Posible options: 'BCE', 'BCEWithLogits' 
+              'loss_function': 'BCE', # No options yet
               'model_num': model_num,
               'seq_len': 256,
               'd_model': hyper_paramters[i], # Have to be dividable by h
@@ -117,5 +117,7 @@ training(configs=configs,
 
   
   
-if len(hyper_paramters) > 1:
-  plot_collections(models, labels, models_path=models_path)  
+# if len(hyper_paramters) > 1:
+#   plot_collections(models, labels, models_path=models_path, curve='nr', window_pred=False, bins=1000, x_lim=[0,1])
+#   plot_collections(models, labels, models_path=models_path, curve='nr', window_pred=True, bins=1000, x_lim=[0,1])  
+#   plot_collections(models, labels, models_path=models_path, curve='roc', window_pred=False, bins=1000, x_lim=[0,1])

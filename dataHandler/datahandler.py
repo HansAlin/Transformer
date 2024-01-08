@@ -13,6 +13,19 @@ import sys
 import time
 from tqdm import tqdm
 
+CODE_DIR_1  ='/home/acoleman/software/NuRadioMC/'
+sys.path.append(CODE_DIR_1)
+CODE_DIR_2 = '/home/acoleman/work/rno-g/'
+sys.path.append(CODE_DIR_2)
+
+from NuRadioReco.utilities import units
+
+from analysis_tools import data_locations
+from analysis_tools.config import GetConfig
+from analysis_tools.data_loaders import DatasetContinuousStreamStitchless
+from analysis_tools.Filters import GetRMSNoise
+from analysis_tools.model_loaders import ConstructModelFromConfig, LoadModelFromConfig
+
 
 
 def load_raw_data(data_path='/home/halin/Autoencoder/Data/', 
@@ -113,6 +126,84 @@ def get_test_data(path=''):
 
   print(f"Shape: x_train {x_train.shape}, x_test {x_test.shape}, y_train {y_train.shape}, y_test {y_test.shape}")  
   return x_train, x_test, x_val, y_train, y_val, y_test
+def get_data_binary_class(data_config_path='/home/halin/Master/Transformer/data_config.yaml', random_seed=123, batch_size=62, test=False):
+  config = GetConfig(data_config_path)
+  band_flow = config["sampling"]["band"]["low"]
+  band_fhigh = config["sampling"]["band"]["high"]
+  sampling_rate = config["sampling"]["rate"]
+  wvf_length = config["input_length"]
+
+  
+  np_rng = np.random.default_rng(random_seed)
+  use_beam = False
+  waveform_filenames = data_locations.PreTrigSignalFiles(config=config, nu="*", inter="?c", lgE="1?.??", beam=use_beam)
+  if test:
+    nFiles = 1
+  else:
+    nFiles = None  
+  background_filenames = data_locations.HighLowNoiseFiles("3.421", config=config, nFiles=nFiles)
+  if not len(background_filenames):
+    background_filenames = data_locations.PhasedArrayNoiseFiles(config, beam=use_beam)
+  if not len(background_filenames):
+    print("No background files found!")
+    exit()
+  print(f"\t\tFound {len(waveform_filenames)} signal files and {len(background_filenames)} background files")
+
+  waveforms = None
+  background = None
+
+  # TODO I don't know what this does
+  frac_into_waveform = config["training"]["start_frac"]  # Trigger location will be put this far into the cut waveform
+  trig_bin = config['training']['trigger_time'] * sampling_rate * config["training"]["upsampling"]
+  cut_low_bin = max(0, int(trig_bin - wvf_length * frac_into_waveform))
+  cut_high_bin = cut_low_bin + wvf_length
+  print(f"Cutting waveform sizes to be {wvf_length} bins long, trigger bin: {trig_bin}, bins: {cut_low_bin} to {cut_high_bin}")
+
+  ###################
+  ## Signal waveforms
+  ###################
+
+  print("\tReading in waveforms")
+  t0 = time.time()
+  # Precalculate how much space will be needed to read in all waveforms
+  print("\t\tPrecalculating RAM requirements")
+  total_len = 0
+  for filename in tqdm(waveform_filenames):
+      shape = np.load(filename, mmap_mode="r")["wvf"].shape
+      total_len += shape[0]
+
+  print(f"\t\tSize on disk {(total_len, shape[1], shape[2])}")
+  waveforms = np.zeros((total_len, shape[1], wvf_length), dtype=np.float32)
+  print(f"\t\tWill load as {waveforms.shape}")
+
+  total_len = 0
+  for filename in tqdm(waveform_filenames):
+      this_dat = np.load(filename)
+      waveforms[total_len : total_len + len(this_dat["wvf"])] = this_dat["wvf"][:, :, cut_low_bin:cut_high_bin]
+      total_len += len(this_dat["wvf"])
+      del this_dat
+
+  assert len(waveforms)
+
+  rms_noise = GetRMSNoise(float(band_flow), float(band_fhigh), sampling_rate, 300 * units.kelvin)
+  print(f"\t\tWill scale waveforms by values by 1 / {rms_noise / (1e-6 * units.volt):0.4f} uV")
+  std = np.median(np.std(waveforms[:, :, int(waveforms.shape[-1] * 0.77) :]))
+  print(f"\t\tFYI: the RMS noise of waveforms is {std / (1e-6 * units.volt):0.4f} uV")
+  waveforms /= rms_noise
+
+  print(
+      f"\t\tLoaded signal data of shape {waveforms.shape} --> {waveforms.shape[0] * waveforms.shape[-1] / sampling_rate / units.s:0.3f} s of data"
+  )
+
+  nan_check = np.isnan(waveforms)
+  if np.any(nan_check):
+      print("Found NAN WVF")
+      index = np.argwhere(nan_check)
+      print(numpy.unique(index[:, 0]))
+      print(index)
+      exit()
+
+
 
 def get_data(batch_size, seq_len, subset=True, data_config_path='/home/halin/Master/Transformer/data_config.yaml'):
   """
@@ -330,8 +421,6 @@ def get_data(batch_size, seq_len, subset=True, data_config_path='/home/halin/Mas
                                                   np_rng=np_rng)
   del x_test
   del y_test
-
-  
 
   return train_loader, val_loader, test_loader
 

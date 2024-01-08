@@ -70,8 +70,6 @@ class InputEmbeddings(nn.Module):
       dropout (float, optional): The dropout rate. Defaults to 0.1.
       activation (str, optional): The activation function. Defaults to 'relu'.
   
-
-  
   """
   def __init__(self, d_model: int, dropout: float = 0.1, channels: int = 4, activation='relu'):
     super().__init__()
@@ -201,6 +199,13 @@ class LearnablePositionalEncoding(nn.Module):
     return x  
    
 class FinalBlock(nn.Module):
+  """ This layer maps the d_model space to the output space.
+      Args:
+          d_model (int): The dimension of the model.
+          seq_len (int): The length of the sequence.
+          dropout (float, optional): The dropout rate. Defaults to 0.1.
+          out_put_size (int, optional): The size of the output. Defaults to 1.
+  """
   def __init__(self, d_model: int, seq_len: int, dropout: float = 0.1,  out_put_size: int = 1):
     super().__init__()
     self.linear_1 = nn.Linear(d_model, seq_len)
@@ -208,10 +213,6 @@ class FinalBlock(nn.Module):
     self.linear_2 = nn.Linear(seq_len, out_put_size)
     self.activation = nn.Sigmoid()
  
-
-
-
-
   def forward(self, x):
     #(batch_size, seq_len, d_model)
     x = self.linear_1(x)
@@ -221,7 +222,6 @@ class FinalBlock(nn.Module):
     x = x.squeeze()
     x = self.activation(x)
     # (batch_size, seq_len )
-
 
     return x
 

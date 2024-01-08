@@ -45,7 +45,7 @@ def histogram(y_pred, y, config, bins=100, save_path=''):
 
 
 
-def plot_performance_curve(y_preds, ys, configs, bins=1000, save_path='', labels=None, x_lim=[0.8,1], window_pred=False, curve='roc'):
+def plot_performance_curve(y_preds, ys, configs, bins=1000, save_path='', labels=None, x_lim=[0.8,1], window_pred=False, curve='roc', log_bins=False):
     """
             This function plots the noise reduction factor curve for a given model or models. Note that
             the y_pred, y and config must be a list of arrays and dicts respectively.
@@ -58,9 +58,9 @@ def plot_performance_curve(y_preds, ys, configs, bins=1000, save_path='', labels
                 savefig_path (str): path to save the plot, optional
     """
     if window_pred:
-      text = ' per window'
+      text = 'per window'
     else:
-      text = ' per timestep'  
+      text = 'per timestep'  
     fig, ax = plt.subplots()
     length = len(y_preds)
 
@@ -104,9 +104,9 @@ def plot_performance_curve(y_preds, ys, configs, bins=1000, save_path='', labels
           nr_y_noise = np.count_nonzero(y == 0)
 
         if curve == 'roc':
-          y, x = get_roc(y, y_pred,bins=bins)
+          y, x = get_roc(y, y_pred,bins=bins, log_bins=log_bins)
         elif curve == 'nr':  
-          x, y = get_noise_reduction(y, y_pred, bins, window_pred=window_pred)
+          x, y = get_noise_reduction(y, y_pred, bins, window_pred=window_pred, log_bins=log_bins)
 
         if labels == None:
           ax.plot(x, y)   
@@ -151,7 +151,7 @@ def plot_results(model_number, config, path=''):
   plt.cla()
   plt.clf()
   # Accuracy plot
-  acc_path = plot_path + f'model_{model_number}_acc_plot.png'
+  acc_path = plot_path + f'model_{model_number}_{config["metric"]}_plot.png'
   df.plot('Epochs', 'metric', label=config['metric'])
   plt.title("Metric")
   plt.ylim([0,1])
@@ -212,7 +212,7 @@ def plot_weights(model, config, save_path='', block='self_attention_block', quie
 #   writer.add_histogram('weights', weight)
 #   writer.close()  
 
-def plot_collections(models, labels, bins=100, save_path='', models_path='Test/ModelsResults/', x_lim=[0.8,1], window_pred=False, curve='roc'): 
+def plot_collections(models, labels, bins=100, save_path='', models_path='Test/ModelsResults/', x_lim=[0.8,1], window_pred=False, curve='roc', log_bins=False): 
   y_pred = []
   y = []
   configs = []
@@ -229,10 +229,13 @@ def plot_collections(models, labels, bins=100, save_path='', models_path='Test/M
     y.append(np.asarray(y_data['y']))
     configs.append(config)
   if save_path == '':  
-    model_name = models_path + f'collections/{labels["name"].replace(" ", "_")}_models'
-    for model_num in models:
-      model_name += f'_{model_num}'
-    save_path =  model_name + '.png'  
+    if labels == None:
+      save_path = ''
+    else:  
+      model_name = models_path + f'collections/{labels["name"].replace(" ", "_")}_models'
+      for model_num in models:
+        model_name += f'_{model_num}'
+      save_path =  model_name + '.png'  
 
   
   plot_performance_curve(ys=y, 
@@ -243,7 +246,8 @@ def plot_collections(models, labels, bins=100, save_path='', models_path='Test/M
                         x_lim=x_lim,
                         bins=bins,
                         window_pred=window_pred,
-                        curve=curve)
+                        curve=curve,
+                        log_bins=log_bins)
 
 
 def plot_examples(data, config=None, save_path=''):
@@ -261,7 +265,7 @@ def plot_examples(data, config=None, save_path=''):
   plt.savefig(save_path)  
 
 def plot_performance(model_num, x_batch=None, y_batch=None,lim_value=0.2, data_path='/home/halin/Master/Transformer/Test/data/', model_path='/mnt/md0/halin/Models/', save_path=''):
-  # TODO
+
   if x_batch == None and y_batch == None:
     x_test = torch.load(data_path + 'example_x_data.pt')
     y_test = torch.load(data_path + 'example_y_data.pt')

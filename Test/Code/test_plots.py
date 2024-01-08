@@ -47,8 +47,8 @@ import pandas as pd
 #  Plot collections of noise reduction factors or roc             #
 ###################################################################
 models_path = '/mnt/md0/halin/Models/'
-models = [5]
-curve = 'nr'
+models = [8,9,10,11]
+curve = 'roc'
 window_pred = False
 str_models = '_'.join(map(str, models))
 save_path = f'/home/halin/Master/Transformer/Test/ModelsResults/test/model_{str_models}_{curve}_window_pred_{str(window_pred)}.png'
@@ -66,7 +66,7 @@ plot_collections(models,
                  x_lim=[0,1],
                  window_pred=window_pred,
                  curve=curve,
-                 bins=100)
+                 bins=1000)
 
 ###################################################################
 # Plot performance of a model                                     #
@@ -109,3 +109,33 @@ plot_collections(models,
 #                        configs=[config], 
 #                        save_path=save_path, x_lim=[0,1], curve='roc')
 
+###################################################################
+# Plot curves                                                     #
+###################################################################
+# model_nums = [5,6,7]
+# models_path = '/mnt/md0/halin/Models/'
+
+# window_pred = False
+# bins = 100
+# save_path = ''
+# labels = None
+# for model_num in model_nums:
+#     plot_collections([model_num], 
+#                     labels, 
+#                     save_path=save_path, 
+#                     models_path=models_path,
+#                     x_lim=[0,1],
+#                     window_pred=window_pred,
+#                     curve='nr',
+#                     bins=bins,
+#                     log_bins=True)
+#     plot_collections([model_num], 
+#                     labels, 
+#                     save_path=save_path, 
+#                     models_path=models_path,
+#                     x_lim=[0,1],
+#                     window_pred=window_pred,
+#                     curve='roc',
+#                     bins=bins,
+#                     log_bins=True)
+#     plot_performance(model_num=model_num, lim_value=0.5)

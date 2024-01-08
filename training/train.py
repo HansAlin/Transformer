@@ -40,7 +40,7 @@ def training(configs, data_path, batch_size=32, channels=4, save_folder='', test
 
   for config in configs:
     df = pd.DataFrame([], 
-                            columns= ['Train_loss', 'Val_loss', 'metric', 'Epochs'])
+                            columns= ['Train_loss', 'Val_loss', 'metric', 'Epochs', 'lr'])
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")           
     print(f"Using device: {device}, name of GPU: {torch.cuda.get_device_name(device=device)}")
@@ -184,16 +184,16 @@ def training(configs, data_path, batch_size=32, channels=4, save_folder='', test
       val_loss = np.mean(val_loss)    
       metric = np.mean(metric)
 
-      
-      print(f"Learning rate: {optimizer.state_dict()['param_groups'][0]['lr']}", end=" ")
+      current_lr = optimizer.state_dict()['param_groups'][0]['lr']
+      print(f"Learning rate: {current_lr}", end=" ")
       scheduler.step(metrics=val_loss)
 
       #############################################
       # Data saving
       #############################################
       
-      temp_df = pd.DataFrame([[train_loss, val_loss, metric, epoch]], 
-                            columns= ['Train_loss', 'Val_loss', 'metric', 'Epochs'])
+      temp_df = pd.DataFrame([[train_loss, val_loss, metric, epoch, current_lr]], 
+                            columns= ['Train_loss', 'Val_loss', 'metric', 'Epochs', 'lr'])
       df = pd.concat([df, temp_df], ignore_index=True)
       # TODO maybe use best_val_loss instead of best_accuracy
       if val_loss < min_val_loss:
@@ -227,9 +227,11 @@ def training(configs, data_path, batch_size=32, channels=4, save_folder='', test
     ###########################################
     # Training done                           #
     ###########################################  
-    writer.close()      
-    print(f"Total time: {time.time() - total_time:.2f} s")
+    writer.close()   
+    total_training_time = time.time() - total_time   
+    print(f"Total time: {total_training_time} s")
     config['pre_trained'] = True
+    config['training_time'] = total_training_time
     y_pred_data, config['Accuracy'], config['Efficiency'], config['Precission'] = test_model(model=model, 
                                                                                              test_loader=test_loader,
                                                                                              device=device, 

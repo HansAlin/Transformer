@@ -34,26 +34,19 @@ from plots.plots import plot_collections
 # TODO read Visualiz... and  Checklist....
 # TODO use Pathlib?
 # TODO save the optimaizer also
-# TODO Verify that the validation is correctly implemented according to batch size 
-# TODO implement the some thing better for the last block loch at the time series
-# TODO change the size in the posstional encoder
 # TODO FLOP's from fvcore.nn import FlopCountAnalysis
 # TODO Check final bloch down sizing if it is correct
 # TODO Do I have to concern about float 32 and float 64
-# TODO Make a total plot for noise reduction factor
+
 # TODO Add som ekind of timer
 # TODO Scheck if scheduler works!
-# '/mnt/md0/halin/Models'
-# Hyper paramters:
-#     learning rate 
-#         ¤  learning rate functions  
-#          ¤  facor 
-#          ¤  based on val_loss or val_acc ???  
+# TODO secure no model gets overwritten when running a new model
+
 
 models_path = '/mnt/md0/halin/Models/'
-hyper_paramters = [32, 64, 128]
+hyper_paramters = [256,512]
 labels = {'hyper_parameters': hyper_paramters, 'name': 'Model size: (d_model)'}
-start_model_num = 8
+start_model_num = 11
 batch_size = 32
 epochs = 100
 test = False

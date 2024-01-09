@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import os
 import matplotlib.pyplot as plt
-from dataHandler.datahandler import get_data, prepare_data, get_test_data
+from dataHandler.datahandler import get_data, get_data_binary_class, prepare_data, get_test_data
 
 from plots.plots import histogram, plot_performance_curve, plot_results, plot_examples, plot_performance
 import tqdm as tqdm
@@ -22,7 +22,11 @@ from evaluate.evaluate import test_model, validate
 
 def training(configs, data_path, batch_size=32, channels=4, save_folder='', test=False):
   if data_path == '':
-    train_loader, val_loader, test_loader = get_data(batch_size=batch_size, seq_len=configs[0]['seq_len'], subset=test)
+    data_type = configs[0].get('data_type', 'chunked')
+    if data_type == 'chunked':
+      train_loader, val_loader, test_loader = get_data(batch_size=batch_size, seq_len=configs[0]['seq_len'], subset=test)
+    else:
+      train_loader, val_loader, test_loader = get_data_binary_class(batch_size=batch_size, seq_len=configs[0]['seq_len'], subset=test)
   else:  
     x_train, x_test, x_val, y_train, y_val, y_test = get_test_data(path=data_path)
     if channels == 1:
@@ -37,6 +41,9 @@ def training(configs, data_path, batch_size=32, channels=4, save_folder='', test
     del y_test
     del y_val
 
+  item = next(iter(train_loader))
+  out_put_shape = item[0].shape[-2]
+  print(f"Output shape: {out_put_shape}")
 
   for config in configs:
     df = pd.DataFrame([], 
@@ -44,7 +51,7 @@ def training(configs, data_path, batch_size=32, channels=4, save_folder='', test
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")           
     print(f"Using device: {device}, name of GPU: {torch.cuda.get_device_name(device=device)}")
-  
+    config['out_put_shape'] = out_put_shape
     if config['model_type'] == "base_encoder":
       model = build_encoder_transformer(config)
     else:
@@ -60,7 +67,15 @@ def training(configs, data_path, batch_size=32, channels=4, save_folder='', test
     print(f"Follow on tensorboard: python3 -m tensorboard.main --logdir={config['model_path']}trainingdata")
     #  python3 -m tensorboard.main --logdir=/mnt/md0/halin/Models/model_1/trainingdata
     
-    criterion = nn.BCELoss().to(device)
+    loss_type = config.get('loss_function', 'BCE')
+    if loss_type == 'BCE':
+      criterion = nn.BCELoss().to(device)
+    elif loss_type == 'BCEWithLogits':
+      criterion = nn.BCEWithLogitsLoss().to(device)
+    else:
+      print("No loss function found")
+      return None
+   
     optimizer = torch.optim.Adam(model.parameters(), lr=config['learning_rate'])
     scheduler = ReduceLROnPlateau(optimizer=optimizer,
                                 mode='min',
@@ -173,7 +188,8 @@ def training(configs, data_path, batch_size=32, channels=4, save_folder='', test
               x_batch, y_batch = x_batch.to(device), y_batch.to(device)
               outputs = model.encode(x_batch,src_mask=None)
               loss = criterion(outputs, y_batch.squeeze())
-
+              if config['loss_function'] == 'BCEWithLogits':
+                outputs = torch.sigmoid(outputs)
               pred = outputs.round()
               met = validate(y_batch.cpu().detach().numpy(), pred.cpu().detach().numpy(), config['metric'])
                 
@@ -251,6 +267,7 @@ def training(configs, data_path, batch_size=32, channels=4, save_folder='', test
     else:
       x_batch, y_batch = train_loader.__getitem__(0)
       data = x_batch.cpu().detach().numpy()
+      
     plot_examples(data, config=config)
-    plot_performance(config['model_num'], x_batch=x_batch, y_batch=y_batch, lim_value=0.5, )
+    plot_performance(config, x_batch=x_batch, y_batch=y_batch, lim_value=0.5, )
 

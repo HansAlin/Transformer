@@ -48,16 +48,33 @@ class BatchNormalization(nn.Module):
 
 class FeedForwardBlock(nn.Module):
 
-  def __init__(self, d_model: int, d_ff: int, dropout: float = 0.1):
+  def __init__(self, d_model: int, d_ff: int, dropout: float = 0.1, activation='relu'):
     # d_ff is the hidden layer size
     super().__init__()
     self.linear_1 = nn.Linear(d_model, d_ff) # W1 and bias
     self.dropout = nn.Dropout(dropout)
     self.linear_2 = nn.Linear(d_ff, d_model) # W2 and bias
+    if activation == None:
+      self.activation_1 = nn .ReLU()
+      self.activation_2 = nn.ReLU()
+    elif activation == 'relu':
+      self.activation_1 = nn.ReLU() 
+      self.activation_2 = nn.ReLU() 
+    elif activation == 'gelu':
+      self.activation_1 = nn.GELU()
+      self.activation_2 = nn.GELU()  
 
   def forward(self, x):
-    # (batch_size, seq_len, d_model) --> (batch_size, seq_len, d_ff) --> (batch_size, seq_len, d_model)
-    return self.linear_2(self.dropout(torch.relu(self.linear_1(x))))
+    # (batch_size, seq_len, d_model) 
+    x = self.linear_1(x)
+    # (batch_size, seq_len, d_ff) 
+    x = self.activation_1(x)
+    x = self.dropout(x)
+    x = self.linear_2(x)
+    x = self.activation_2(x)
+    
+    # (batch_size, seq_len, d_model)
+    return x
 
 
 class InputEmbeddings(nn.Module):
@@ -206,14 +223,21 @@ class FinalBlock(nn.Module):
           dropout (float, optional): The dropout rate. Defaults to 0.1.
           out_put_size (int, optional): The size of the output. Defaults to 1.
   """
-  def __init__(self, d_model: int, seq_len: int, dropout: float = 0.1,  out_put_size: int = 1):
+  def __init__(self, d_model: int, seq_len: int, dropout: float = 0.1,  out_put_size: int = 1, forward_type='basic'):
     super().__init__()
-    self.linear_1 = nn.Linear(d_model, seq_len)
-    self.dropout = nn.Dropout(dropout)
-    self.linear_2 = nn.Linear(seq_len, out_put_size)
-    self.activation = nn.Sigmoid()
+    if forward_type == 'basic':
+      self.linear_1 = nn.Linear(d_model, seq_len)
+      self.dropout = nn.Dropout(dropout)
+      self.linear_2 = nn.Linear(seq_len, out_put_size)
+      self.activation = nn.Sigmoid()
+      self.forward_type = self.old_forward
+    elif forward_type == 'slim':
+      self.linear_1 = nn.Linear(d_model*seq_len, out_put_size)  
+      self.forward_type = self.new_forward
+    else:
+      raise ValueError(f"Unsupported forward type: {forward_type}")  
  
-  def forward(self, x):
+  def old_forward(self, x):
     #(batch_size, seq_len, d_model)
     x = self.linear_1(x)
     x = x.squeeze()
@@ -221,22 +245,25 @@ class FinalBlock(nn.Module):
     x = self.linear_2(x) 
     x = x.squeeze()
     x = self.activation(x)
+    x = self.dropout(x)
     # (batch_size, seq_len )
 
     return x
 
-# class FinalMultiBlock(nn.Module):
-#   def __init__(self, d_model: int, seq_len: int, dropout: float = 0.1):
-#     super().__init__()
-#     self.linear_1 = nn.Linear(d_model, 1)
-#     self.activation = nn.ReLU()
+  def new_forward(self, x):
+    # (batch_size, seq_len, d_model)
+    x = x.view(x.shape[0], -1)
+    # (batch_size, seq_len*d_model)
+    x = self.linear_1(x)
+    x = x.squeeze()
+    # (batch_size, out_put_size)
+    return x
 
-#   def forward(self, x):
-#     #(Batch, seq_len, d_model) --> ()
-#     x = self.linear_1(x)
-#     x = self.activation(x)
-#     x = x.squeeze()
-#     return x
+  def forward(self, x):
+    x = self.forward_type(x)
+    return x
+ 
+
 
 
 class MultiHeadAttentionBlock(nn.Module):
@@ -439,14 +466,14 @@ class Encoder(nn.Module):
 
 
 
-class ProjectionLayer(nn.Module):
-  def __init__(self, d_model: int, vocab_size: int) -> None:
-    super().__init__()
-    self.proj = nn.Linear(d_model, vocab_size)     
+# class ProjectionLayer(nn.Module):
+#   def __init__(self, d_model: int, vocab_size: int) -> None:
+#     super().__init__()
+#     self.proj = nn.Linear(d_model, vocab_size)     
         
-  def forward(self, x):
-    # (Batch, seq_len, d_model) --> (Batch, seq_len, vocab_size)
-    return torch.log_softmax(self.proj(x), dim=-1)
+#   def forward(self, x):
+#     # (Batch, seq_len, d_model) --> (Batch, seq_len, vocab_size)
+#     return torch.log_softmax(self.proj(x), dim=-1)
   
 
   
@@ -485,10 +512,8 @@ def build_encoder_transformer(config) -> EncoderTransformer:
   dropout=config['dropout']
   omega=config['omega']
   d_ff=config['d_ff']
-  if config['n_ant'] == 1:
-    output_size = 1
-  else:
-    output_size = 1 
+  output_size = config.get('output_size', 1)
+
   
   #########################################################
   # Create the input embeddings                           #
@@ -536,7 +561,8 @@ def build_encoder_transformer(config) -> EncoderTransformer:
   #########################################################
   # Create the final block                                #
   #########################################################
-  final_block = FinalBlock(d_model=d_model, seq_len=seq_len, dropout=dropout, out_put_size=output_size)
+  final_type = config.get('final_type', 'basic')
+  final_block = FinalBlock(d_model=d_model, seq_len=seq_len, dropout=dropout, out_put_size=output_size, forward_type=final_type)
 
   # Create the transformer
   encoder_transformer = EncoderTransformer(encoder=encoder,

@@ -35,8 +35,8 @@ def histogram(y_pred, y, config, bins=100, save_path=''):
     noise_weights = np.ones_like(y_pred_noise) / len(y_pred_noise)
 
     ax.set_title(f"Model {config['model_num']}")
-    ax.hist(y_pred_signal, bins=bins, label='Pred signal', weights=signal_wights)
-    ax.hist(y_pred_noise, bins=bins, label='Pred noise', weights=noise_weights)
+    ax.hist(y_pred_signal, bins=bins, label='Pred signal', weights=signal_wights, alpha=0.5)
+    ax.hist(y_pred_noise, bins=bins, label='Pred noise', weights=noise_weights, alpha=0.5)
     ax.set_yscale('log')
     ax.legend()
     ax.set_xlabel(r'noise $\leftrightarrow$ signal')
@@ -137,23 +137,28 @@ def plot_results(model_number, config, path=''):
   df = pd.read_pickle(path + 'dataframe.pkl')
 
   # Loss plot 
+  fig,ax = plt.subplots()
   plot_path = path + f'plot/' 
   isExist = os.path.exists(plot_path)
   if not isExist:
     os.makedirs(plot_path)
     print("The new directory is created!")
   loss_path = plot_path + f'model_{model_number}_loss_plot.png'  
-  df.plot(x='Epochs', y=['Train_loss','Val_loss'], kind='line', figsize=(7,7))
-  
-  plt.title("Loss")
+  ax.plot(df.Epochs, df.Train_loss, label='Training')
+  ax.plot(df.Epochs, df.Val_loss, label='Validation')
+  ax2 = ax.twinx()
+  ax2.plot(df.Epochs, df.lr, label='Learning rate', color='black')
+  ax.set_title("Loss and learning rate")
   plt.legend()
   plt.savefig(loss_path)
   plt.cla()
   plt.clf()
+
   # Accuracy plot
+  fig,ax = plt.subplots()
   acc_path = plot_path + f'model_{model_number}_{config["metric"]}_plot.png'
-  df.plot('Epochs', 'metric', label=config['metric'])
-  plt.title("Metric")
+  ax.plot(df.Epochs, df.metric, label=config['metric'])
+  ax.set_title("Metric")
   plt.ylim([0,1])
   plt.legend()
   plt.savefig(acc_path)
@@ -264,8 +269,8 @@ def plot_examples(data, config=None, save_path=''):
     ax[i].plot(data[:,i])
   plt.savefig(save_path)  
 
-def plot_performance(model_num, x_batch=None, y_batch=None,lim_value=0.2, data_path='/home/halin/Master/Transformer/Test/data/', model_path='/mnt/md0/halin/Models/', save_path=''):
-
+def plot_performance(config, x_batch=None, y_batch=None,lim_value=0.2, data_path='/home/halin/Master/Transformer/Test/data/', model_path='/mnt/md0/halin/Models/', save_path=''):
+  model_num = config['model_num']
   if x_batch == None and y_batch == None:
     x_test = torch.load(data_path + 'example_x_data.pt')
     y_test = torch.load(data_path + 'example_y_data.pt')
@@ -344,7 +349,8 @@ def plot_performance(model_num, x_batch=None, y_batch=None,lim_value=0.2, data_p
         ax[i].plot(x[:,i], color='grey')
         ax[i].plot(pred_y, label='Prediction')
         ax[i].plot(y, label='True signal')
-      plt.legend()
+      if config["data_type"] != "classic":
+        plt.legend()
       
       fig.suptitle(f"Model {config['model_num']} - {text} treshold: {lim_value}")
       if save_path == '':

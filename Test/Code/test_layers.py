@@ -11,6 +11,7 @@ from models.models import InputEmbeddings, LayerNormalization, FinalBlock, Multi
 from dataHandler.datahandler import get_data, prepare_data
 import torch
 
+
 # PATH = '/home/halin/Master/Transformer/Test/data/test_100_data.npy'
 
 # x_train, x_val, x_test, y_train, y_val, y_test = get_data(path=PATH)
@@ -41,6 +42,6 @@ print(f"Shape input to multi head: {output.shape}")
 output = multi_head(output, output, output, mask=None)
 print(f"Shape output from multi head: {output.shape}")
 
-final_layer = FinalBlock(d_model=512, seq_len=100)
+final_layer = FinalBlock(d_model=512, seq_len=256, out_put_size=1, forward_type='new')
 final_output = final_layer(output)
 print(f"Shape input: {final_output.shape}")

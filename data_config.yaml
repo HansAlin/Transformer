@@ -22,3 +22,5 @@ training:
   upsampling: 1
   start_frac: 0.3
   trigger_time: 200
+  test_frac: 0.1
+  val_frac: 0.1

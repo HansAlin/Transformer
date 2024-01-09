@@ -9,10 +9,8 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 import matplotlib.pyplot as plt
 from os.path import dirname, abspath, join
 import sys
-# Find code directory relative to our directory
-# THIS_DIR = dirname(__file__)
-# CODE_DIR = abspath(join(THIS_DIR, '..', ''))
-# sys.path.append(CODE_DIR)
+
+
 
 type(sys.path)
 for path in sys.path:
@@ -44,9 +42,9 @@ from plots.plots import plot_collections
 
 
 models_path = '/mnt/md0/halin/Models/'
-hyper_paramters = [256,512]
+hyper_paramters = [64]
 labels = {'hyper_parameters': hyper_paramters, 'name': 'Model size: (d_model)'}
-start_model_num = 11
+start_model_num = 13
 batch_size = 32
 epochs = 100
 test = False
@@ -62,14 +60,15 @@ for i, hyper_paramter in enumerate(hyper_paramters):
               'pre_trained': None,
               'embed_type': 'basic', # Posible options: 'relu_drop', 'gelu_drop', 'basic'
               'pos_enc_type':'Sinusoidal', # Posible options: 'Sinusoidal', 'Relative', 'None', 'Learnable'
-              'final_type': 'basic',
-              'loss_function': 'BCE', # No options yet
+              'final_type': 'slim', # Posible options: 'basic', 'slim'
+              'loss_function': 'BCEWithLogits', # Posible options: 'BCE', 'BCEWithLogits'
               'model_num': model_num,
               'seq_len': 256,
               'd_model': hyper_paramters[i], # Have to be dividable by h
               'd_ff': 64,
               'N': 2,
               'h': 2,
+              'output_size': 1,
               'dropout': 0.1,
               'num_epochs': epochs,
               'batch_size': batch_size,
@@ -84,6 +83,7 @@ for i, hyper_paramter in enumerate(hyper_paramters):
               "omega": 10000,
               "trained_noise":0,
               "trained_signal":0,
+              "data_type": "classic", # Possible options: 'classic', 'chunked'
               "n_ant":4,
               "metric":'Efficiency', # Posible options: 'Accuracy', 'Efficiency', 'Precision'
               "Accuracy":0,

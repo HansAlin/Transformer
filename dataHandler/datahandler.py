@@ -18,11 +18,11 @@ sys.path.append(CODE_DIR_1)
 CODE_DIR_2 = '/home/acoleman/work/rno-g/'
 sys.path.append(CODE_DIR_2)
 
-from NuRadioReco.utilities import units
+from NuRadioReco.utilities import units, fft
 
 from analysis_tools import data_locations
 from analysis_tools.config import GetConfig
-from analysis_tools.data_loaders import DatasetContinuousStreamStitchless
+from analysis_tools.data_loaders import DatasetContinuousStreamStitchless, DatasetSnapshot
 from analysis_tools.Filters import GetRMSNoise
 from analysis_tools.model_loaders import ConstructModelFromConfig, LoadModelFromConfig
 
@@ -126,22 +126,50 @@ def get_test_data(path=''):
 
   print(f"Shape: x_train {x_train.shape}, x_test {x_test.shape}, y_train {y_train.shape}, y_test {y_test.shape}")  
   return x_train, x_test, x_val, y_train, y_val, y_test
-def get_data_binary_class(data_config_path='/home/halin/Master/Transformer/data_config.yaml', random_seed=123, batch_size=62, test=False):
+def get_data_binary_class(data_config_path='/home/halin/Master/Transformer/data_config.yaml', seq_len=None, random_seed=123, batch_size=32, subset=False):
+ 
+  """ Most of the code is copied from https://github.com/colemanalan/nuradio-analysis/blob/main/trigger-dev/TrainCnn.py
+      
+      This function loads data from XXXX and returns train, test and validation data.
+      It needs a data_config_path to know where to look for parameters for the data
+
+      Arg:
+        data_config_path: path to data config file (yaml)
+        random_seed: random seed
+        batch_size: batch size
+        test: if True, only one file is loaded
+
+      Ret:
+        train_data, val_data, test_data
+
+  """
   config = GetConfig(data_config_path)
   band_flow = config["sampling"]["band"]["low"]
   band_fhigh = config["sampling"]["band"]["high"]
   sampling_rate = config["sampling"]["rate"]
-  wvf_length = config["input_length"]
+  if seq_len == None:
+    wvf_length = config["input_length"]
+  else:
+    wvf_length = seq_len  
 
   
   np_rng = np.random.default_rng(random_seed)
   use_beam = False
-  waveform_filenames = data_locations.PreTrigSignalFiles(config=config, nu="*", inter="?c", lgE="1?.??", beam=use_beam)
-  if test:
+  if subset:
     nFiles = 1
+    nu = "e"
+    inter = "cc"
+    lgE = "17.50"
   else:
-    nFiles = None  
+    nFiles = None 
+    nu = "*"
+    inter = "?c"
+    lgE = "1?.??"
+
+  waveform_filenames = data_locations.PreTrigSignalFiles(config=config, nu=nu, inter=inter, lgE=lgE, beam=use_beam) 
   background_filenames = data_locations.HighLowNoiseFiles("3.421", config=config, nFiles=nFiles)
+  for filename in waveform_filenames:
+    print(filename)
   if not len(background_filenames):
     background_filenames = data_locations.PhasedArrayNoiseFiles(config, beam=use_beam)
   if not len(background_filenames):
@@ -199,11 +227,142 @@ def get_data_binary_class(data_config_path='/home/halin/Master/Transformer/data_
   if np.any(nan_check):
       print("Found NAN WVF")
       index = np.argwhere(nan_check)
-      print(numpy.unique(index[:, 0]))
+      print(np.unique(index[:, 0])) #TODO original print(numpy.unique(index[:, 0]))
       print(index)
       exit()
 
+    
+  #######################
+  ## Background waveforms
+  #######################
 
+  print("\tReading in background")
+
+  print("\t\tPrecalculating RAM requirements")
+  total_len = 0
+  for filename in tqdm(background_filenames):
+      back_shape = np.load(filename, mmap_mode="r").shape
+      total_len += back_shape[0]
+
+  print(f"\t\tShape on disk is {(total_len, back_shape[1], back_shape[2])}")
+  back_shape = (total_len, back_shape[1], wvf_length)
+  print(f"\t\tWill load as {back_shape}")
+  background = np.zeros(back_shape, dtype=np.float32)
+
+  total_len = 0
+  for filename in tqdm(background_filenames):
+      this_dat = np.load(filename)
+      background[total_len : total_len + len(this_dat)] = this_dat[:, :, cut_low_bin:cut_high_bin]
+      total_len += len(this_dat)
+      del this_dat
+
+  assert total_len == len(background)
+  assert background.shape[1] == waveforms.shape[1]
+  print(
+      f"\t\tLoaded background data of shape {background.shape} --> {background.shape[0] * background.shape[-1] / sampling_rate / units.s:0.3f} s of data"
+  )
+  print(f"\t--->Read-in took {time.time() - t0:0.1f} seconds")
+      
+  #######################################################
+  ############## Renormalizing the data into units of SNR
+  #######################################################
+
+  std = np.std(background)
+  print(f"Will scale backround by 1 / {rms_noise / (1e-6 * units.volt):0.4f} uV")
+  print(f"FYI: the RMS noise of the backround is {std / (1e-6 * units.volt):0.4f} uV")
+  background /= rms_noise
+
+  #####################################################
+  ############## Permuting everything
+  #####################################################
+
+  print("Performing initial scramble")
+  p_data = np_rng.permutation(len(waveforms))
+  waveforms = waveforms[p_data]
+  p_background = np_rng.permutation(len(background))
+  background = background[p_background]
+
+  #plot_examples(background, waveforms, sampling_rate, config)
+
+  ###########################
+  ### Setting up data sets
+  ###########################
+
+
+  train_fraction = 1 - config['training']['test_frac'] - config['training']['val_frac']  # Fraction of waveforms to use for testing
+
+  n_antennas = waveforms.shape[1]
+
+  # Where to split the dataset into training/validation/testing
+  wwf_split_index = int(train_fraction * len(waveforms))
+  background_split_index = int(train_fraction * len(background))
+  val_wwf_split_index = int((train_fraction + config['training']['test_frac'])*len(waveforms))
+  val_background_split_index = int((train_fraction + config['training']['test_frac'])*len(background))
+
+  train_data = DatasetSnapshot(
+      waveforms=waveforms[:wwf_split_index],
+      backgrounds=background[:background_split_index],
+      n_features=n_antennas,
+      batch_size=batch_size,
+      np_rng=np_rng,
+  ) 
+  val_data = DatasetSnapshot(
+      waveforms=waveforms[wwf_split_index:val_wwf_split_index],
+      backgrounds=background[background_split_index:val_background_split_index],
+      n_features=n_antennas,
+      batch_size=batch_size,
+      np_rng=np_rng,
+  )
+  test_data = DatasetSnapshot(
+      waveforms=waveforms[val_wwf_split_index:],
+      backgrounds=background[val_background_split_index:],
+      n_features=n_antennas,
+      batch_size=batch_size,
+      np_rng=np_rng,
+  )
+  val_data.scramble_warn = False
+  test_data.scramble_warn = False
+  train_data.Scramble()
+  print("Data sets are of size:")
+  print("\tTraining:", len(waveforms[:wwf_split_index]))
+  print("\tValidation:", len(waveforms[wwf_split_index:val_wwf_split_index]))
+  print("\tTesting:", len(waveforms[val_wwf_split_index:]))
+
+  return train_data, val_data, test_data
+
+
+
+def plot_examples(background,waveforms,sampling_rate, config, output_plot_dir='/home/halin/Master/Transformer/Test/ModelsResults/test'):
+  n_events = 3
+  n_channels = background.shape[1]
+  ncols = 3
+  nrows = n_events * n_channels
+  fig, ax = plt.subplots(ncols=ncols, nrows=nrows, figsize=(ncols * 8, nrows * 3), gridspec_kw={"wspace": 0.2, "hspace": 0.0})
+
+  for ievent in range(n_events):
+      for ich in range(n_channels):
+          ax[ievent * n_channels + ich, 0].plot(waveforms[ievent, ich], label=f"Signal, evt{ievent+1}, ch{ich+1}")
+          ax[ievent * n_channels + ich, 1].plot(background[ievent, ich], label=f"Bkgd, evt{ievent+1}, ch{ich+1}")
+          ax[ievent * n_channels + ich, 0].legend()
+          ax[ievent * n_channels + ich, 1].legend()
+
+      spec = np.median(np.abs(fft.time2freq(waveforms[ievent], sampling_rate * config["training"]["upsampling"])), axis=0)
+      ax[ievent * n_channels, 2].plot(spec, color="k")
+      spec = np.median(np.abs(fft.time2freq(background[ievent], sampling_rate * config["training"]["upsampling"])), axis=0)
+      ax[ievent * n_channels, 2].plot(spec, color="r")
+      ax[ievent * n_channels, 2].set_yscale("log")
+
+
+  for i in range(len(ax)):
+      for j in range(len(ax[i])):
+          ax[i, j].tick_params(axis="both", which="both", direction="in")
+          ax[i, j].yaxis.set_ticks_position("both")
+          ax[i, j].xaxis.set_ticks_position("both")
+
+  example_plot_name = f"{output_plot_dir}/ExampleWaveforms.pdf"
+  print("Saving", example_plot_name)
+  fig.savefig(example_plot_name, bbox_inches="tight")
+  plt.close()
 
 def get_data(batch_size, seq_len, subset=True, data_config_path='/home/halin/Master/Transformer/data_config.yaml'):
   """

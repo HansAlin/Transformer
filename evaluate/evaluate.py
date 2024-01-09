@@ -41,6 +41,8 @@ def test_model(model, test_loader, device, config):
         x_test, y_test = batch
         y_test = y_test.squeeze() 
         outputs = model.encode(x_test,src_mask=None)
+        if config['loss_function'] == 'BCEWithLogits':
+          outputs = torch.sigmoid(outputs)
         y_pred.append(outputs.cpu().detach().numpy())
         y.append(y_test.cpu().detach().numpy()) 
         pred_round.append(outputs.cpu().detach().numpy().round())
@@ -52,6 +54,8 @@ def test_model(model, test_loader, device, config):
         x_test, y_test = x_test.to(device), y_test.to(device)
         y_test = y_test.squeeze() 
         outputs = model.encode(x_test,src_mask=None)
+        if config['loss_function'] == 'BCEWithLogits':
+          outputs = torch.sigmoid(outputs)
         y_pred.append(outputs.cpu().detach().numpy())
         y.append(y_test.cpu().detach().numpy()) 
         pred_round.append(outputs.cpu().detach().numpy().round())

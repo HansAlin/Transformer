@@ -2,6 +2,9 @@ import sys
 import torch
 import pickle
 import os
+from torchinfo import summary
+
+
 
 from os.path import dirname, abspath, join
 myhost = os.uname()[1]
@@ -24,9 +27,7 @@ sys.path.append(CODE_DIR)
 
 sys.path.append(CODE_DIR_1)
 type(sys.path)
-for path in sys.path:
-   print(path)
-
+import torch.nn as nn
 from models.models import build_encoder_transformer
 
 
@@ -42,6 +43,19 @@ else:
   state = torch.load(MODEL_PATH)
 out = model.load_state_dict(state['model_state_dict'])
 print(out)
+class ModelWrapper(nn.Module):
+    def __init__(self, model):
+        super(ModelWrapper, self).__init__()
+        self.model = model
+
+    def forward(self, x):
+        # Replace with the actual parameters your model needs
+        mask = None
+        return self.model.encoder(x, src_mask=None)
+
+wrapped_model = model.encoder
+summary(wrapped_model, input_size=(config['batch_size'], config['seq_len'], config['n_ant']), device=device.type)
+
 
 
 

@@ -101,32 +101,8 @@ def load_raw_data(data_path='/home/halin/Autoencoder/Data/',
 #               save_path='/home/hansalin/Code/Transformer/Test/data/data.npy'
 #               )
 
-def get_test_data(path=''):
-  """ This method loads test data from folder
-    Arg:
-      path: wher data is saved
-    Ret:
-      x_train, x_test, x_val, y_train, y_val, y_test
 
-  """
-  print("Loading data...")
-  
-  if path == '':
-    path = os.getcwd()
-    path = path + '/Test/data/' 
-    path = path + 'data.npy'  
-
-  with open(path, 'rb') as f:
-    x_train = np.load(f)
-    x_val = np.load(f)
-    x_test = np.load(f)
-    y_train = np.load(f)
-    y_val = np.load(f)
-    y_test = np.load(f)
-
-  print(f"Shape: x_train {x_train.shape}, x_test {x_test.shape}, y_train {y_train.shape}, y_test {y_test.shape}")  
-  return x_train, x_test, x_val, y_train, y_val, y_test
-def get_data_binary_class(data_config_path='/home/halin/Master/Transformer/data_config.yaml', seq_len=None, random_seed=123, batch_size=32, subset=False):
+def get_data_binary_class(data_config_path='/home/halin/Master/Transformer/data_config.yaml', seq_len=None, random_seed=123, batch_size=32, subset=False, save_test_set=False):
  
   """ Most of the code is copied from https://github.com/colemanalan/nuradio-analysis/blob/main/trigger-dev/TrainCnn.py
       
@@ -168,8 +144,7 @@ def get_data_binary_class(data_config_path='/home/halin/Master/Transformer/data_
 
   waveform_filenames = data_locations.PreTrigSignalFiles(config=config, nu=nu, inter=inter, lgE=lgE, beam=use_beam) 
   background_filenames = data_locations.HighLowNoiseFiles("3.421", config=config, nFiles=nFiles)
-  for filename in waveform_filenames:
-    print(filename)
+
   if not len(background_filenames):
     background_filenames = data_locations.PhasedArrayNoiseFiles(config, beam=use_beam)
   if not len(background_filenames):
@@ -299,6 +274,13 @@ def get_data_binary_class(data_config_path='/home/halin/Master/Transformer/data_
   val_wwf_split_index = int((train_fraction + config['training']['test_frac'])*len(waveforms))
   val_background_split_index = int((train_fraction + config['training']['test_frac'])*len(background))
 
+  if save_test_set:
+    save_path = '/home/halin/Master/Transformer/Test/data/'
+    print(f"Saving test set to {save_path}")
+    np.save(save_path + 'test_set_waves_binary_class.npy', waveforms[:200])
+    np.save(save_path + 'test_set_bkgd_binary_class.npy', background[:200])
+    
+
   train_data = DatasetSnapshot(
       waveforms=waveforms[:wwf_split_index],
       backgrounds=background[:background_split_index],
@@ -330,7 +312,47 @@ def get_data_binary_class(data_config_path='/home/halin/Master/Transformer/data_
 
   return train_data, val_data, test_data
 
+def get_test_data(path='/home/halin/Master/Transformer/Test/data/', n_antennas=4, batch_size=32, random_seed=123):
+  """ This method loads test data from folder
+    Arg:
+      path: wher data is saved
+    Ret:
+      x_train, x_test, x_val, y_train, y_val, y_test
 
+  """
+  print("Loading test data...")
+  
+  if path == '':
+    path = os.getcwd()
+    path = path + '/Test/data/' 
+
+  waves = np.load(path + 'test_set_waves_binary_class.npy' )
+  background = np.load(path + 'test_set_bkgd_binary_class.npy' )
+  np_rng = np.random.default_rng(random_seed)
+
+  train_data = DatasetSnapshot(
+      waveforms=waves[:160],
+      backgrounds=background[:160],
+      n_features=n_antennas,
+      batch_size=batch_size,
+      np_rng=np_rng,
+  ) 
+  val_data = DatasetSnapshot(
+      waveforms=waves[160:180],
+      backgrounds=background[160:180],
+      n_features=n_antennas,
+      batch_size=batch_size,
+      np_rng=np_rng,
+  )
+  test_data = DatasetSnapshot(
+      waveforms=waves[180:],
+      backgrounds=background[180:],
+      n_features=n_antennas,
+      batch_size=batch_size,
+      np_rng=np_rng,
+  )
+
+  return train_data, val_data, test_data
 
 def plot_examples(background,waveforms,sampling_rate, config, output_plot_dir='/home/halin/Master/Transformer/Test/ModelsResults/test'):
   n_events = 3
@@ -755,5 +777,25 @@ def save_example_data(save_path='/home/halin/Master/Transformer/Test/data/'):
       torch.save(y_data, save_path + 'example_y_data.pt')
       break
     count += 1
+
+def get_model_config(model_num, path='/mnt/md0/halin/Models/'):
+    CONFIG_PATH = path + f'model_{model_num}/config.txt'
+    with open(CONFIG_PATH, 'rb') as f:
+        config = pickle.load(f)
+    return config    
+
+def collect_config_to_df(model_numbers, model_path='/mnt/md0/halin/Models/', save_path=''):
+  df = pd.DataFrame()
+  counter = 0
+  for model_num in model_numbers:
+    config = get_model_config(model_num, model_path)
+    df = pd.concat([df, pd.DataFrame(config, index=[counter])])
+
+    if save_path == '':
+      df.to_pickle(model_path + 'collections/' + 'dataframe.pkl')
+    else:
+       df.to_pickle(save_path + 'dataframe.pkl')  
+    counter += 1
+  return df  
 
 

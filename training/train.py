@@ -20,37 +20,28 @@ from evaluate.evaluate import test_model, validate
 
 
 
-def training(configs, data_path, batch_size=32, channels=4, save_folder='', test=False):
-  if data_path == '':
+def training(configs, cuda_device, batch_size=32, channels=4, save_folder='', test=False):
+  if not test:
     data_type = configs[0].get('data_type', 'chunked')
     if data_type == 'chunked':
       train_loader, val_loader, test_loader = get_data(batch_size=batch_size, seq_len=configs[0]['seq_len'], subset=test)
     else:
       train_loader, val_loader, test_loader = get_data_binary_class(batch_size=batch_size, seq_len=configs[0]['seq_len'], subset=test)
   else:  
-    x_train, x_test, x_val, y_train, y_val, y_test = get_test_data(path=data_path)
-    if channels == 1:
-      train_loader, val_loader, test_loader, config['trained_noise'], config['trained_signal'] = prepare_data(x_train, x_val, x_test, y_train, y_val, y_test, batch_size)
-    else:
-      train_loader, val_loader, test_loader = prepare_data(x_train, x_val, x_test, y_train, y_val, y_test, batch_size, multi_channel=True)
-    
-    del x_train
-    del x_test
-    del x_val
-    del y_train
-    del y_test
-    del y_val
+    train_loader, val_loader, test_loader = get_test_data(batch_size=batch_size, n_antennas=channels)
+
 
   item = next(iter(train_loader))
   out_put_shape = item[0].shape[-2]
   print(f"Output shape: {out_put_shape}")
 
+  torch.cuda.set_device(cuda_device)
+  device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+  print(f"Using device: {device}, name of GPU: {torch.cuda.get_device_name(device=device)}")
+
   for config in configs:
-    df = pd.DataFrame([], 
-                            columns= ['Train_loss', 'Val_loss', 'metric', 'Epochs', 'lr'])
+    df = pd.DataFrame([], columns= ['Train_loss', 'Val_loss', 'metric', 'Epochs', 'lr'])
     
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")           
-    print(f"Using device: {device}, name of GPU: {torch.cuda.get_device_name(device=device)}")
     config['out_put_shape'] = out_put_shape
     if config['model_type'] == "base_encoder":
       model = build_encoder_transformer(config)
@@ -82,16 +73,13 @@ def training(configs, data_path, batch_size=32, channels=4, save_folder='', test
                                 factor=config['decreas_factor'],
                                 patience=4,
                                 verbose=True)
-    
-
-
+  
     model.to(device)
     
     initial_epoch = 0
     global_step = 0
 
-    
-    best_accuracy = 0
+    early_stop_count = 0
     min_val_loss = float('inf')
     total_time = time.time()
 
@@ -112,54 +100,26 @@ def training(configs, data_path, batch_size=32, channels=4, save_folder='', test
       #############################################
       # Training                                  #
       #############################################
-      if isinstance(train_loader, torch.utils.data.DataLoader):
-        #############################################
-        # Torch Dataloader                          #
-        #############################################
-        print("train_loader is a DataLoader")
-        num_of_bathes = int(len(train_loader.dataset)/batch_size)
-        for batch in test_loader:
-          print(f"Epoch {epoch + 1}/{config['num_epochs']} Batch {batch_num}/{num_of_bathes}", end="\r")
-          x_batch, y_batch = batch
-          x_batch, y_batch = x_batch.to(device), y_batch.to(device)
-          y_test = y_test.squeeze() 
+      print("train_loader is not a DataLoader")    
+      num_of_bathes = int(len(train_loader))
+      for istep in tqdm(range(len(train_loader))):
 
-          outputs = model.encode(x_batch, src_mask=None)
+        print(f"Epoch {epoch + 1}/{config['num_epochs']} Batch {batch_num}/{num_of_bathes}", end="\r")
+  
+        x_batch, y_batch = train_loader.__getitem__(istep)
+        x_batch, y_batch = x_batch.to(device), y_batch.to(device)
+        
+        outputs = model.encode(x_batch, src_mask=None)
 
-          loss = criterion(outputs, y_batch.squeeze())
+        loss = criterion(outputs, y_batch.squeeze())
 
-          loss.backward()
+        loss.backward()
 
-          optimizer.step()
-          optimizer.zero_grad()
+        optimizer.step()
+        optimizer.zero_grad()
 
-          train_loss.append(loss.item())
-          batch_num += 1
-
-      else:
-        #############################################
-        # Alan's Dataloader                         #
-        #############################################
-        print("train_loader is not a DataLoader")    
-        num_of_bathes = int(len(train_loader))
-        for istep in tqdm(range(len(train_loader))):
-
-          print(f"Epoch {epoch + 1}/{config['num_epochs']} Batch {batch_num}/{num_of_bathes}", end="\r")
-    
-          x_batch, y_batch = train_loader.__getitem__(istep)
-          x_batch, y_batch = x_batch.to(device), y_batch.to(device)
-          
-          outputs = model.encode(x_batch, src_mask=None)
-
-          loss = criterion(outputs, y_batch.squeeze())
-
-          loss.backward()
-
-          optimizer.step()
-          optimizer.zero_grad()
-
-          train_loss.append(loss.item())
-          batch_num += 1
+        train_loss.append(loss.item())
+        batch_num += 1
 
       print(f"\rEpoch {epoch + 1}/{config['num_epochs']} Done ", end="  ")
       
@@ -168,33 +128,20 @@ def training(configs, data_path, batch_size=32, channels=4, save_folder='', test
       #############################################
       model.eval()
       with torch.no_grad():
-        if isinstance(val_loader, torch.utils.data.DataLoader):
-          print("train_loader is a DataLoader")
-          for batch in val_loader:
-            x_batch, y_batch = batch
-            x_batch, y_batch = x_batch.to(device), y_batch.to(device)
-            outputs = model.encode(x_batch,src_mask=None)
-            loss = criterion(outputs, y_batch.squeeze())
-            
-            pred = outputs.round()
-            
 
-        else:
-            print("train_loader is not a DataLoader")
-       
-            for istep in tqdm(range(len(val_loader))):
+        for istep in tqdm(range(len(val_loader))):
 
-              x_batch, y_batch = val_loader.__getitem__(istep)
-              x_batch, y_batch = x_batch.to(device), y_batch.to(device)
-              outputs = model.encode(x_batch,src_mask=None)
-              loss = criterion(outputs, y_batch.squeeze())
-              if config['loss_function'] == 'BCEWithLogits':
-                outputs = torch.sigmoid(outputs)
-              pred = outputs.round()
-              met = validate(y_batch.cpu().detach().numpy(), pred.cpu().detach().numpy(), config['metric'])
-                
-              val_loss.append(loss.item())
-              metric.append(met)
+          x_batch, y_batch = val_loader.__getitem__(istep)
+          x_batch, y_batch = x_batch.to(device), y_batch.to(device)
+          outputs = model.encode(x_batch,src_mask=None)
+          loss = criterion(outputs, y_batch.squeeze())
+          if config['loss_function'] == 'BCEWithLogits':
+            outputs = torch.sigmoid(outputs)
+          pred = outputs.round()
+          met = validate(y_batch.cpu().detach().numpy(), pred.cpu().detach().numpy(), config['metric'])
+            
+          val_loss.append(loss.item())
+          metric.append(met)
 
       train_loss = np.mean(train_loss)
       val_loss = np.mean(val_loss)    
@@ -253,21 +200,18 @@ def training(configs, data_path, batch_size=32, channels=4, save_folder='', test
                                                                                              device=device, 
                                                                                              config=config)    
     print(f"Test efficiency: {config['Efficiency']:.4f}")
-    save_data(config, df, y_pred_data)
 
     histogram(y_pred_data['y_pred'], y_pred_data['y'], config)
-    plot_performance_curve([y_pred_data['y_pred']], [y_pred_data['y']], [config], curve='nr', x_lim=[0,1])
-    plot_performance_curve([y_pred_data['y_pred']], [y_pred_data['y']], [config], curve='roc')
+    nr_area = plot_performance_curve([y_pred_data['y_pred']], [y_pred_data['y']], [config], curve='nr', x_lim=[0,1])
+    config['nr_area'] = nr_area
+    roc_area = plot_performance_curve([y_pred_data['y_pred']], [y_pred_data['y']], [config], curve='roc')
+    config['roc_area'] = roc_area
     plot_results(config['model_num'], config)
 
-    if isinstance(train_loader, torch.utils.data.DataLoader):
-      dataiter = iter(train_loader)
-      x_batch, y_batch = dataiter.next()
-      data = x_batch.cpu().detach().numpy()
-    else:
-      x_batch, y_batch = train_loader.__getitem__(0)
-      data = x_batch.cpu().detach().numpy()
+
+    x_batch, y_batch = train_loader.__getitem__(0)
+    data = x_batch.cpu().detach().numpy()
       
     plot_examples(data, config=config)
-    plot_performance(config, x_batch=x_batch, y_batch=y_batch, lim_value=0.5, )
-
+    plot_performance(config, device, x_batch=x_batch, y_batch=y_batch, lim_value=0.5, )
+    save_data(config, df, y_pred_data)

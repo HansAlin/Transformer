@@ -2,7 +2,7 @@ import sys
 import torch
 import pickle
 import os
-from torchinfo import summary
+import ptflops
 
 
 

@@ -5,7 +5,9 @@ import pandas as pd
 import pickle
 import torch
 
+
 from models.models import build_encoder_transformer
+from dataHandler.datahandler import get_test_data, get_data_binary_class
 
 def histogram(y_pred, y, config, bins=100, save_path=''):
     """
@@ -45,7 +47,7 @@ def histogram(y_pred, y, config, bins=100, save_path=''):
 
 
 
-def plot_performance_curve(y_preds, ys, configs, bins=1000, save_path='', labels=None, x_lim=[0.8,1], window_pred=False, curve='roc', log_bins=False):
+def plot_performance_curve(y_preds, ys, configs, bins=1000, save_path='', text = '', labels=None, x_lim=[0.8,1], curve='roc', log_bins=False):
     """
             This function plots the noise reduction factor curve for a given model or models. Note that
             the y_pred, y and config must be a list of arrays and dicts respectively.
@@ -56,11 +58,14 @@ def plot_performance_curve(y_preds, ys, configs, bins=1000, save_path='', labels
                 configs (list of dicts): list of config dicts 
                 bins (int): number of bins in the histogram
                 savefig_path (str): path to save the plot, optional
+                text (str): text to add to the title, optional
+                labels (list of dicts): list of dicts with labels and hyper_parameters
+                x_lim (list): list of x limits, optional
+                curve (str): options: 'roc', 'nr'
+                log_bins (bool): if True, the bins are log spaced
+
     """
-    if window_pred:
-      text = 'per window'
-    else:
-      text = 'per timestep'  
+ 
     fig, ax = plt.subplots()
     length = len(y_preds)
 
@@ -73,7 +78,7 @@ def plot_performance_curve(y_preds, ys, configs, bins=1000, save_path='', labels
 
     if labels == None:
       if configs[0] != None:
-        ax.set_title(f"Model {configs[0]['model_num']}{text}")
+        ax.set_title(f"Model {configs[0]['model_num']} {text}")
       else:
         ax.set_title(f"Model Test")  
     else:
@@ -88,25 +93,14 @@ def plot_performance_curve(y_preds, ys, configs, bins=1000, save_path='', labels
         y_pred = y_preds[i]
         y = ys[i]
         config = configs[i]
-        if window_pred:
-          seq_len = config['seq_len']
-          y_pred = np.asarray(y_pred)
-          y = np.asarray(y)
-          y_pred = np.reshape(y_pred, (-1, seq_len))
-          
-          y = np.reshape(y, (-1, seq_len))
-          y_window = np.count_nonzero(y==1, axis=-1)
-          y = np.where(y_window > 0, 1, y_window)
-          nr_y_signal = np.count_nonzero(y==1)
-          nr_y_noise = np.count_nonzero(y == 0)
-        else:
-          nr_y_signal = np.count_nonzero(y==1)
-          nr_y_noise = np.count_nonzero(y == 0)
+
+        nr_y_signal = np.count_nonzero(y==1)
+        nr_y_noise = np.count_nonzero(y == 0)
 
         if curve == 'roc':
-          y, x = get_roc(y, y_pred,bins=bins, log_bins=log_bins)
+          x, y = get_roc(y, y_pred,bins=bins, log_bins=log_bins)
         elif curve == 'nr':  
-          x, y = get_noise_reduction(y, y_pred, bins, window_pred=window_pred, log_bins=log_bins)
+          x, y = get_noise_reduction(y, y_pred, bins, log_bins=log_bins)
 
         if labels == None:
           ax.plot(x, y)   
@@ -129,6 +123,8 @@ def plot_performance_curve(y_preds, ys, configs, bins=1000, save_path='', labels
     if save_path == '':
         save_path = config['model_path'] + 'plot/' + f'model_{config["model_num"]}_{curve}_{text.replace(" ", "_")}.png'
     plt.savefig(save_path)
+
+    return get_area_under_curve(x,y)
 
 def plot_results(model_number, config, path=''):
   if path == '':
@@ -269,11 +265,29 @@ def plot_examples(data, config=None, save_path=''):
     ax[i].plot(data[:,i])
   plt.savefig(save_path)  
 
-def plot_performance(config, x_batch=None, y_batch=None,lim_value=0.2, data_path='/home/halin/Master/Transformer/Test/data/', model_path='/mnt/md0/halin/Models/', save_path=''):
+def plot_performance(config, device, x_batch=None, y_batch=None,lim_value=0.2, model_path='/mnt/md0/halin/Models/', save_path=''):
+  """ This function plots the performance of a given model. If no data is given, the test data is used.
+      Args:
+        config (dict): config dict of the model
+        device (torch.device): device to use
+        x_batch (torch.tensor): batch of x data, optional
+        y_batch (torch.tensor): batch of y data, optional
+        lim_value (float): value to use as treshold
+        model_path (str): path to model, optional
+        save_path (str): path to save the plot, optional
+  
+  """
   model_num = config['model_num']
   if x_batch == None and y_batch == None:
-    x_test = torch.load(data_path + 'example_x_data.pt')
-    y_test = torch.load(data_path + 'example_y_data.pt')
+    train_data, val_data, test_data = get_data_binary_class(seq_len=config['seq_len'], 
+                                                            batch_size=config['batch_size'], 
+                                                            )
+    del train_data
+    del val_data
+    x_batch, y_batch = test_data.__getitem__(0)
+    x_test = x_batch
+    y_test = y_batch
+    
   else:
     x_test = x_batch
     y_test = y_batch
@@ -362,82 +376,120 @@ def plot_performance(config, x_batch=None, y_batch=None,lim_value=0.2, data_path
       plt.clf()
   return None
 
-def get_roc(y, y_pred, bins=1000, log_bins=False):
-  smask = y == 1
-  backround  = float(len(y[~smask]))
-  signal = float(len(y[smask]))
-  TPR = []
-  FPR = []
-  if log_bins:
-    binnings = np.logspace(np.log10(np.amin(y_pred)), np.log10(np.amax(y_pred)), num=bins)
-  else:
-    binnings = np.linspace(np.amin(y_pred), 0.99999, num=bins)  
-  for i, limit in enumerate(binnings):
+def get_roc(y_true, y_score, bins=100, log_bins=False):
+    """
+        This function calculates the ROC curve for a given model.
+        Args:
+            y_true (array like): array of y_true
+            y_score (array like): array of y_score
+            bins (int): number of bins in the histogram
+            log_bins (bool): if True, the bins are log spaced
+        Returns: fpr, tpr
+            fpr (array like): false positive rate
+            tpr (array like): true positive rate    
+        """
+    if log_bins:
+      binnings = np.logspace(np.log10(np.amin(y_score)), np.log10(np.amax(y_score)), num=bins)
+    else:
+      binnings = np.linspace(np.amin(y_score), 0.99999, num=bins)   
+
+    tpr = []
+    fpr = []
+
+    for threshold in binnings:
+        # Predict class labels based on the threshold
+        y_pred = np.where(y_score >= threshold, 1, 0)
+        
+        # Calculate True Positives (TP), False Positives (FP), True Negatives (TN), and False Negatives (FN)
+        TP = np.sum((y_pred == 1) & (y_true == 1))
+        FP = np.sum((y_pred == 1) & (y_true == 0))
+        TN = np.sum((y_pred == 0) & (y_true == 0))
+        FN = np.sum((y_pred == 0) & (y_true == 1))
+        
+        # Calculate TPR and FPR
+        if (TP + FN) == 0:
+          TPR = 0
+        else:  
+          TPR = TP / (TP + FN)
+
+        if (FP + TN) == 0:
+          FPR = 0
+        else:    
+          FPR = FP / (FP + TN)
+        
+        tpr.append(TPR)
+        fpr.append(FPR)
     
-    sub_arr = np.zeros_like(y_pred)
-    sub_arr[y_pred <= limit] = 0
-    sub_arr[y_pred > limit] = 1
-    #sub_arr = np.max(sub_arr, axis=-1)
-    true_pos = np.sum(np.logical_and(y == 1, sub_arr == 1))
-    false_pos = np.sum(np.logical_and(y == 0, sub_arr == 1))
-    true_neg = np.sum(np.logical_and( y == 0, sub_arr == 0))
-    false_neg = np.sum(np.logical_and(y == 1, sub_arr == 0))
-    # print(f"True pos: {true_pos}, False pos: {false_pos}, True neg: {true_neg}, False neg: {false_neg}")
-    if (true_pos + false_neg) == 0:
-      TPR.append(0)
-    else:  
-      TPR.append(true_pos/(true_pos + false_neg))
-    if (false_pos + true_neg) == 0:
-      FPR.append(0) 
-    else:   
-      FPR.append(false_pos/(false_pos + true_neg))
+    return fpr, tpr
 
-  return TPR, FPR
+def get_noise_reduction(y, y_pred, bins=1000,  log_bins=False):
+    """ 
+      This function calculates the noise reduction factor for a given model.
+      Args:
+          y (array like): array of y true values
+          y_pred (array like): array of y_pred models predictions
+          bins (int): number of bins in the histogram
+          log_bins (bool): if True, the bins are log spaced
+      Returns: TP, noise_reduction
+          TP (array like): true positive rate
+          noise_reduction (array like): noise reduction factor
+    """
+    smask = y == 1
+    n = len(y_pred)
 
-def get_noise_reduction(y, y_pred, bins=1000, window_pred=False, log_bins=False):
-  smask = y == 1
+    if log_bins:
+        binnings = np.logspace(np.log10(np.amin(y_pred)), np.log10(np.amax(y_pred)), num=bins)
+    else:
+        binnings = np.linspace(np.amin(y_pred), 0.99999, num=bins)
 
-  if log_bins:
-   binnings = np.logspace(np.log10(np.amin(y_pred)), np.log10(np.amax(y_pred)), num=bins)
-  else:
-    binnings = np.linspace(np.amin(y_pred), 0.99999, num=bins)
-  backround  = float(len(y[~smask]))
-  signal = float(len(y[smask]))
-  noise_reduction = []
-  TP = []
+    background = float(len(y[~smask]))
+    signal = float(len(y[smask]))
+
+    TP = np.zeros_like(binnings)
+    noise_reduction = np.zeros_like(binnings)
+
+    for i, limit in enumerate(binnings):
+       
+        pred_pos = (y_pred[smask] > limit).astype(int)
+        pred_neg = (y_pred[~smask] <= limit).astype(int)
+
+        nr_true_pos = np.sum(pred_pos)
+        nr_true_neg = np.sum(pred_neg)
+
+        TP[i] = nr_true_pos / signal if signal != 0 else 0
+        true_neg = nr_true_neg / background if background != 0 else 0
+
+        noise_reduction[i] = 1 / (1 - true_neg) if true_neg < 1 else background
+
+    return TP, noise_reduction
  
-  for i, limit in enumerate(binnings):
 
-    if window_pred:
-      sub_arr = np.zeros_like(y_pred)
-      sub_arr[y_pred <= limit] = 0
-      sub_arr[y_pred > limit] = 1
-      pred_per_window = np.max(sub_arr, axis=1)
+def get_area_under_curve(x,y):
+  """
+    This function calculates the area under a curve. 
+    And it can be used for both ROC and noise reduction factor curves.
+    Args:
+        x (array like): array of x values
+        y (array like): array of y values
+    Returns: area
+        area (float): area under the curve    
+  """
+  n = len(x)
 
-      pred_pos = ((pred_per_window[smask] > limit) == True).astype(int)
-      pred_neg = ((pred_per_window[~smask] <= limit) == True).astype(int)
+  y_max_value = np.amax(y)
+  # If max value is larger than 1, we assuming the data origin from a
+  # noise reduction curve, otherwise we assume it origin from a ROC curve
+  if y_max_value > 1:
+    x = np.append(x, 0)
+    y = np.append(y, y_max_value)
+    if x[0] > x[-1]:
+      x = x[::-1]
+      y = y[::-1]
 
-      nr_true_pos = np.sum(pred_pos)
-      nr_true_neg = np.sum(pred_neg)
-    else:
-      nr_true_pos = np.sum((y_pred[smask] > limit) == True)
-      nr_true_neg = np.sum((y_pred[~smask] <= limit) == True)
+  area = 0
+  for i in range(1,n):
+    delta_x = x[i] - x[i-1]
+    y_mean = (y[i] + y[i-1]) / 2
+    area += delta_x * y_mean
+  return np.abs(area)
 
-
-    if signal == 0:
-      true_pos = 0
-    else:  
-      true_pos = nr_true_pos/ signal
-    TP.append(true_pos)
-
-    if backround == 0:
-      true_neg = 0
-    else:  
-      true_neg = nr_true_neg / backround 
-
-    if (true_neg < 1):
-      noise_reduction.append(1 / (1 - true_neg))
-    else:
-      noise_reduction.append(backround)
-
-  return TP, noise_reduction      

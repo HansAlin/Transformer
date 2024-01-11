@@ -3,6 +3,7 @@ import numpy as np
 from tqdm import tqdm
 import pandas as pd
 
+
 def test_model(model, test_loader, device, config):
   """
   This function tests the model on the test set
@@ -35,30 +36,17 @@ def test_model(model, test_loader, device, config):
   pred_round = []
   with torch.no_grad():
     
-    if isinstance(test_loader, torch.utils.data.DataLoader):
-      print("train_loader is a DataLoader")
-      for batch in test_loader:
-        x_test, y_test = batch
-        y_test = y_test.squeeze() 
-        outputs = model.encode(x_test,src_mask=None)
-        if config['loss_function'] == 'BCEWithLogits':
-          outputs = torch.sigmoid(outputs)
-        y_pred.append(outputs.cpu().detach().numpy())
-        y.append(y_test.cpu().detach().numpy()) 
-        pred_round.append(outputs.cpu().detach().numpy().round())
-    else:
-      print("train_loader is not a DataLoader")
-      for istep in tqdm(range(len(test_loader))):
+    for istep in tqdm(range(len(test_loader))):
 
-        x_test, y_test = test_loader.__getitem__(istep)
-        x_test, y_test = x_test.to(device), y_test.to(device)
-        y_test = y_test.squeeze() 
-        outputs = model.encode(x_test,src_mask=None)
-        if config['loss_function'] == 'BCEWithLogits':
-          outputs = torch.sigmoid(outputs)
-        y_pred.append(outputs.cpu().detach().numpy())
-        y.append(y_test.cpu().detach().numpy()) 
-        pred_round.append(outputs.cpu().detach().numpy().round())
+      x_test, y_test = test_loader.__getitem__(istep)
+      x_test, y_test = x_test.to(device), y_test.to(device)
+      y_test = y_test.squeeze() 
+      outputs = model.encode(x_test,src_mask=None)
+      if config['loss_function'] == 'BCEWithLogits':
+        outputs = torch.sigmoid(outputs)
+      y_pred.append(outputs.cpu().detach().numpy())
+      y.append(y_test.cpu().detach().numpy()) 
+      pred_round.append(outputs.cpu().detach().numpy().round())
 
   y = np.asarray(y).flatten()
   y_pred = np.asarray(y_pred).flatten()

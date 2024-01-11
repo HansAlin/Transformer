@@ -11,12 +11,14 @@ sys.path.append(CODE_DIR_1)
 # for path in sys.path:
 #    print(path)
 from models.models import InputEmbeddings, LayerNormalization, FinalBlock, build_encoder_transformer
-from dataHandler.datahandler import get_data, prepare_data, find_hyperparameters
+from dataHandler.datahandler import get_data, prepare_data, find_hyperparameters, get_model_config
 # from training.train import test_model
-from plots.plots import plot_results, plot_weights, histogram, plot_performance_curve, plot_collections, plot_examples, plot_performance
+from plots.plots import get_area_under_curve, get_noise_reduction, get_roc, plot_performance_curve, histogram, plot_performance
 import torch
 import subprocess
 import pandas as pd
+import time
+import matplotlib.pyplot as plt
 
 
 # path = os.getcwd()
@@ -46,27 +48,27 @@ import pandas as pd
 ###################################################################
 #  Plot collections of noise reduction factors or roc             #
 ###################################################################
-models_path = '/mnt/md0/halin/Models/'
-models = [8,9,10,11]
-curve = 'roc'
-window_pred = False
-str_models = '_'.join(map(str, models))
-save_path = f'/home/halin/Master/Transformer/Test/ModelsResults/test/model_{str_models}_{curve}_window_pred_{str(window_pred)}.png'
+# models_path = '/mnt/md0/halin/Models/'
+# models = [8,9,10,11]
+# curve = 'roc'
+# window_pred = False
+# str_models = '_'.join(map(str, models))
+# save_path = f'/home/halin/Master/Transformer/Test/ModelsResults/test/model_{str_models}_{curve}_window_pred_{str(window_pred)}.png'
 
-parameter = 'd_model'
-hyper_parameters = find_hyperparameters(model_number=models, 
-                                        parameter=parameter,
-                                        models_path=models_path)
-labels = {'hyper_parameters': hyper_parameters, 'name': 'H parameter (d_model)'}
+# parameter = 'd_model'
+# hyper_parameters = find_hyperparameters(model_number=models, 
+#                                         parameter=parameter,
+#                                         models_path=models_path)
+# labels = {'hyper_parameters': hyper_parameters, 'name': 'H parameter (d_model)'}
 
-plot_collections(models, 
-                 labels, 
-                 save_path=save_path, 
-                 models_path=models_path,
-                 x_lim=[0,1],
-                 window_pred=window_pred,
-                 curve=curve,
-                 bins=1000)
+# plot_collections(models, 
+#                  labels, 
+#                  save_path=save_path, 
+#                  models_path=models_path,
+#                  x_lim=[0,1],
+#                  window_pred=window_pred,
+#                  curve=curve,
+#                  bins=1000)
 
 ###################################################################
 # Plot performance of a model                                     #
@@ -110,11 +112,42 @@ plot_collections(models,
 #                        save_path=save_path, x_lim=[0,1], curve='roc')
 
 ###################################################################
-# Plot curves                                                     #
+# Plot single curves                                                     #
 ###################################################################
-# model_nums = [5,6,7]
-# models_path = '/mnt/md0/halin/Models/'
+# model_num = 13
+# model_path = '/mnt/md0/halin/Models/'
+# df = pd.read_pickle(model_path + f'model_{model_num}/y_pred_data.pkl')
+# y = df['y'].to_numpy()
+# y_pred = df['y_pred'].to_numpy()
+# cuda_device = 1 # If running performance plot
 
+# plot_performance_curve(y_preds=[y_pred], 
+#                        ys=[y], 
+#                        configs=[get_model_config(model_num=model_num)], 
+#                        save_path='', 
+#                        x_lim=[0,1], 
+#                        curve='roc',
+#                        log_bins=False)
+# plot_performance_curve(y_preds=[y_pred], 
+#                        ys=[y], 
+#                        configs=[get_model_config(model_num=model_num)], 
+#                        save_path='', 
+#                        x_lim=[0,1], 
+#                        curve='nr',
+#                        log_bins=False)
+# histogram(y_pred=y_pred,
+#           y=y,
+#            config=get_model_config(model_num=model_num),
+#              )
+# torch.cuda.set_device(cuda_device)
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# print(f"Using device: {device}, name of GPU: {torch.cuda.get_device_name(device=device)}")
+# plot_performance(config=get_model_config(model_num=model_num), device=device, lim_value=0.5)
+
+###################################################################
+# Plot multi curves                                               #
+###################################################################
+# model_nums = [13]
 # window_pred = False
 # bins = 100
 # save_path = ''
@@ -129,13 +162,38 @@ plot_collections(models,
 #                     curve='nr',
 #                     bins=bins,
 #                     log_bins=True)
-#     plot_collections([model_num], 
-#                     labels, 
-#                     save_path=save_path, 
-#                     models_path=models_path,
-#                     x_lim=[0,1],
-#                     window_pred=window_pred,
-#                     curve='roc',
-#                     bins=bins,
-#                     log_bins=True)
-#     plot_performance(model_num=model_num, lim_value=0.5)
+    # plot_collections([model_num], 
+    #                 labels, 
+    #                 save_path=save_path, 
+    #                 models_path=models_path,
+    #                 x_lim=[0,1],
+    #                 window_pred=window_pred,
+    #                 curve='roc',
+    #                 bins=bins,
+    #                 log_bins=True)
+
+###################################################################
+# Get area under curve                                            #
+###################################################################
+model_num = 13
+model_path = '/mnt/md0/halin/Models/'
+df = pd.read_pickle(model_path + f'model_{model_num}/y_pred_data.pkl')
+y_true = df['y'].to_numpy()
+y_pred = df['y_pred'].to_numpy()
+
+start_time = time.time()
+x, y = get_roc(y_true, y_pred, bins=1000, log_bins=False)
+print(f"Time noise: {time.time() - start_time:.2f} s")
+plt.plot(x, y)
+plt.yscale('log')
+plt.savefig('/home/halin/Master/Transformer/Test/ModelsResults/test/roc.png')
+start_time = time.time()
+area = get_area_under_curve(x, y)
+print(f"Time noise: {time.time() - start_time:.2f} s")
+print(f'Noise area: {area:.4f}')
+start_time = time.time()
+auc = np.trapz(y, x)
+print(f"Time noise: {time.time() - start_time:.2f} s")
+print(f'Noise auc: {auc:.4f}')
+
+

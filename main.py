@@ -42,12 +42,13 @@ from plots.plots import plot_collections
 
 
 models_path = '/mnt/md0/halin/Models/'
-hyper_paramters = [64]
+hyper_paramters = [256]
 labels = {'hyper_parameters': hyper_paramters, 'name': 'Model size: (d_model)'}
-start_model_num = 13
+start_model_num = 0
 batch_size = 32
-epochs = 100
-test = False
+epochs = 10
+test = True
+cuda_device = 1
 
 model_num = start_model_num
 models = []
@@ -96,12 +97,9 @@ for i, hyper_paramter in enumerate(hyper_paramters):
             }
   configs.append(config)
   model_num += 1
-#'/Test/data/test_100_data.npy'
 
-  PATH = ''  
-# /mnt/md0/halin/Models/
 training(configs=configs, 
-         data_path=PATH, 
+         cuda_device=cuda_device,
          batch_size=configs[0]['batch_size'], 
          channels=configs[0]['n_ant'],
          save_folder=models_path,

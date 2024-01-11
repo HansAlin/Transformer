@@ -14,13 +14,13 @@ import sys
 import time
 from tqdm import tqdm
 
-from models.models import build_encoder_transformer, get_n_params, set_max_split_size_mb 
+from models.models import build_encoder_transformer
 from dataHandler.datahandler import save_data, save_model, create_model_folder
-from evaluate.evaluate import test_model, validate
+from evaluate.evaluate import test_model, validate, get_energy, get_MMac
 
 
 
-def training(configs, cuda_device, batch_size=32, channels=4, save_folder='', test=False):
+def training(configs, cuda_device, batch_size=32, channels=4, model_folder='', test=False):
   if not test:
     data_type = configs[0].get('data_type', 'chunked')
     if data_type == 'chunked':
@@ -38,20 +38,42 @@ def training(configs, cuda_device, batch_size=32, channels=4, save_folder='', te
   torch.cuda.set_device(cuda_device)
   device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
   print(f"Using device: {device}, name of GPU: {torch.cuda.get_device_name(device=device)}")
-
+  
   for config in configs:
     df = pd.DataFrame([], columns= ['Train_loss', 'Val_loss', 'metric', 'Epochs', 'lr'])
-    
+    config['power'] = get_energy(cuda_device)
     config['out_put_shape'] = out_put_shape
     if config['model_type'] == "base_encoder":
       model = build_encoder_transformer(config)
+
+      if config['inherit_model'] != None:
+
+        new_state_dic = model.state_dict()
+        old_state = torch.load(model_folder + f"model_{config['inherit_model']}/saved_model/model_{config['inherit_model']}.pth")
+        
+        for name, param in old_state.items():
+          if name not in new_state_dic:
+            print(f"Parameter {name} not in model")
+            continue
+          if new_state_dic[name].shape != param.shape:
+            print(f"Parameter {name} not in model")
+            continue
+          new_state_dic[name].copy_(param)  
+
+        model.load_state_dict(new_state_dic)
+        config['global_epoch'] = config['current_epoch']
+        
+        config['current_epoch'] = 0
+      else:
+        config['global_epoch'] = 0  
+
     else:
       print("No model found")
       return None
     
     
-    config['num_parms'] = get_n_params(model)
-    config['model_path'] = create_model_folder(config['model_num'], path=save_folder)
+    config['MACs'], config['num_parms'] = get_MMac(model, batch_size=batch_size,  seq_len=config['seq_len'], channels=channels)
+    config['model_path'] = create_model_folder(config['model_num'], path=model_folder)
     
     print(f"Number of paramters: {config['num_parms']}") 
     writer = SummaryWriter(config['model_path'] + '/trainingdata')
@@ -77,7 +99,7 @@ def training(configs, cuda_device, batch_size=32, channels=4, save_folder='', te
     model.to(device)
     
     initial_epoch = 0
-    global_step = 0
+    
 
     early_stop_count = 0
     min_val_loss = float('inf')
@@ -160,7 +182,7 @@ def training(configs, cuda_device, batch_size=32, channels=4, save_folder='', te
       df = pd.concat([df, temp_df], ignore_index=True)
       # TODO maybe use best_val_loss instead of best_accuracy
       if val_loss < min_val_loss:
-        save_model(model, optimizer, config, global_step)
+        save_model(model, optimizer, config, epoch)
       save_data(config, df)
 
       ############################################
@@ -185,7 +207,8 @@ def training(configs, cuda_device, batch_size=32, channels=4, save_folder='', te
         print("Early stopping!")
         break
       
-      global_step += 1
+      config['global_epoch'] += 1
+      config['power'] = ((config['current_epoch'])*config['power'] + get_energy(cuda_device))/(config['current_epoch'] + 1)
 
     ###########################################
     # Training done                           #
@@ -193,8 +216,10 @@ def training(configs, cuda_device, batch_size=32, channels=4, save_folder='', te
     writer.close()   
     total_training_time = time.time() - total_time   
     print(f"Total time: {total_training_time} s")
-    config['pre_trained'] = True
+    config['trained'] = True
     config['training_time'] = total_training_time
+    config['energy'] = config['power']*total_training_time
+
     y_pred_data, config['Accuracy'], config['Efficiency'], config['Precission'] = test_model(model=model, 
                                                                                              test_loader=test_loader,
                                                                                              device=device, 

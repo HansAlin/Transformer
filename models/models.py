@@ -1,6 +1,7 @@
 import torch 
 import torch.nn as nn
 import math
+from typing import List
 
 
 # From https://github.com/hkproj/pytorch-transformer/blob/main/model.py
@@ -262,9 +263,6 @@ class FinalBlock(nn.Module):
   def forward(self, x):
     x = self.forward_type(x)
     return x
- 
-
-
 
 class MultiHeadAttentionBlock(nn.Module):
   def __init__(self, d_model: int, h: int, dropout: float = 0.1, max_relative_position = 10, relative_positional_encoding: bool = False):
@@ -478,18 +476,29 @@ class Encoder(nn.Module):
 
   
 class EncoderTransformer(nn.Module):
-  def __init__(self, encoder: Encoder, 
-               src_embed: InputEmbeddings, 
-               src_pos: PositionalEncoding,
-               final_block: FinalBlock) -> None:
+  def __init__(self, encoders: List[Encoder], 
+               src_embed: List[InputEmbeddings], 
+               src_pos: List[PositionalEncoding],
+               final_block: FinalBlock
+               ) -> None:
     super().__init__()
-    self.encoder = encoder
-    self.src_embed = src_embed
-    self.src_pos = src_pos
-    self.final_block = final_block
+
+    if len(encoders) > 1:
+      for i, encoder in enumerate(encoders):
+        setattr(self, f'encoder_{i+1}', encoder)
+        setattr(self, f'src_embed_{i+1}', src_embed[i])
+        setattr(self, f'src_pos_{i+1}', src_pos[i])
+      self.final_block = final_block
+      self.encode_type = self.bypass_encode
+    else:
+      self.encoder = encoders[0]
+      self.src_embed = src_embed[0]
+      self.src_pos = src_pos[0]
+      self.final_block = final_block
+      self.encode_type = self.non_bypass_encode
 
 
-  def encode(self, src, src_mask=None):
+  def non_bypass_encode(self, src, src_mask=None):
     # (batch_size, seq_len, d_model)
     src = self.src_embed(src)
 
@@ -499,6 +508,24 @@ class EncoderTransformer(nn.Module):
 
     src = self.final_block(src)
     return src
+  
+  def bypass_encode(self, src, src_mask=None):
+    # (batch_size, seq_len, d_model)
+    src_slices = src.split(1, dim=-1)
+    # (batch_size, seq_len, 1) x n_ant
+    src_embeds = [getattr(self, f'src_embed_{i+1}')(src_slice) for i, src_slice in enumerate(src_slices)]
+    src_poss = [getattr(self, f'src_pos_{i+1}')(src_embed) for i, src_embed in enumerate(src_embeds)]
+    src_encoders = [getattr(self, f'encoder_{i+1}')(src_pos, src_mask) for i, src_pos in enumerate(src_poss)]
+
+
+    src = torch.cat(src_encoders, dim=-1)
+
+    src = self.final_block(src)
+
+    return src
+
+  def encode(self, src, src_mask=None):
+    return self.encode_type(src, src_mask)
   
 
  
@@ -513,59 +540,87 @@ def build_encoder_transformer(config) -> EncoderTransformer:
   omega=config['omega']
   d_ff=config['d_ff']
   output_size = config.get('output_size', 1)
-
+  by_pass = config.get('by_pass', False)
   
   #########################################################
   # Create the input embeddings                           #
   #########################################################    
+  embed_config = {
+      'relu_drop': ('relu', dropout),
+      'gelu_drop': ('gelu', dropout),
+      'basic': ('none', 0)
+  }
+
   embed_type = config.get('embed_type', 'relu_drop')
 
-  if embed_type == 'relu_drop':
-      activation = 'relu' 
-      emb_drop = dropout  
-  elif embed_type == 'gelu_drop':
-      activation = 'gelu'
-      emb_drop = dropout
-  elif embed_type == 'basic':
-      activation = 'none'
-      emb_drop = 0
+  if embed_type in embed_config:
+      activation, emb_drop = embed_config[embed_type]
   else:
       raise ValueError(f"Unsupported Embedding type: {embed_type}")
 
-  src_embed = InputEmbeddings(d_model=d_model, channels=config['n_ant'], dropout=emb_drop, activation=activation)
+  
+  if by_pass:
+    num_embeddings = config['n_ant']
+    channels = 1
+  else:
+    channels = config['n_ant']
+    num_embeddings = 1  
+ 
+  src_embed = [InputEmbeddings(d_model=d_model, channels=channels, dropout=emb_drop, activation=activation) for _ in range(num_embeddings)]
   
   #########################################################
   # Create the positional encodings                       #
-  #########################################################
-  if config['pos_enc_type'] == 'Sinusoidal':
-    src_pos = PositionalEncoding(d_model=d_model, dropout=dropout, seq_len=seq_len, omega=omega)
-  elif config['pos_enc_type'] == 'None' or config['pos_enc_type'] == 'Relative':
-    src_pos = nn.Identity()  
-  elif config['pos_enc_type'] == 'Learnable':
-    src_pos = LearnablePositionalEncoding(d_model=d_model)  
-  else:
-    raise ValueError(f"Unsupported positional encoding type: {config['pos_enc_type']}")  
+  pos_enc_config = {
+      'Sinusoidal': lambda: PositionalEncoding(d_model=d_model, dropout=dropout, seq_len=seq_len, omega=omega),
+      'None': lambda: nn.Identity(),
+      'Relative': lambda: nn.Identity(),
+      'Learnable': lambda: LearnablePositionalEncoding(d_model=d_model)
+  }
 
-  # Create the encoder layers
-  encoder_blocks = []
-  for _ in range(N):
-    if config['pos_enc_type'] == 'Relative':
-      encoder_self_attention_block = MultiHeadAttentionBlock(d_model, h, dropout, max_relative_position=100, relative_positional_encoding=True)
-    encoder_self_attention_block = MultiHeadAttentionBlock(d_model, h, dropout)
-    feed_forward_block = FeedForwardBlock(d_model, d_ff, dropout)
-    encoder_block = EncoderBlock(encoder_self_attention_block, feed_forward_block, dropout)
-    encoder_blocks.append(encoder_block)
-  # Create the encoder and decoder
-  encoder = Encoder(nn.ModuleList(encoder_blocks), normalization='layer')
+  pos_enc_type = config['pos_enc_type']
+
+  if pos_enc_type in pos_enc_config:
+      src_pos_func = pos_enc_config[pos_enc_type]
+  else:
+      raise ValueError(f"Unsupported positional encoding type: {pos_enc_type}")
+
+  num_embeddings = config['n_ant'] if by_pass else 1
+
+  src_pos = [src_pos_func() for _ in range(num_embeddings)]
+
+  #########################################################
+  # Create the encoder layers                             #
+  #########################################################
+  num_encoders = config['n_ant'] if by_pass else 1
+
+  encoders = []
+  
+  for _ in range(num_encoders):
+    encoder_blocks = []
+    for _ in range(N):
+      if config['pos_enc_type'] == 'Relative':
+        encoder_self_attention_block = MultiHeadAttentionBlock(d_model, h, dropout, max_relative_position=100, relative_positional_encoding=True)
+      else:
+        encoder_self_attention_block = MultiHeadAttentionBlock(d_model, h, dropout)
+
+      feed_forward_block = FeedForwardBlock(d_model, d_ff, dropout)
+      encoder_block = EncoderBlock(encoder_self_attention_block, feed_forward_block, dropout)
+      encoder_blocks.append(encoder_block)
+    encoders.append(Encoder(nn.ModuleList(encoder_blocks), normalization='layer'))
+    
 
   #########################################################
   # Create the final block                                #
   #########################################################
   final_type = config.get('final_type', 'basic')
-  final_block = FinalBlock(d_model=d_model, seq_len=seq_len, dropout=dropout, out_put_size=output_size, forward_type=final_type)
+  if by_pass:
+    factor = 4
+  else:
+    factor = 1  
+  final_block = FinalBlock(d_model=d_model*factor, seq_len=seq_len, dropout=dropout, out_put_size=output_size, forward_type=final_type)
 
   # Create the transformer
-  encoder_transformer = EncoderTransformer(encoder=encoder,
+  encoder_transformer = EncoderTransformer(encoders=encoders,
                                            src_embed=src_embed,
                                            src_pos= src_pos, 
                                            final_block=final_block)
@@ -587,26 +642,53 @@ def get_n_params(model):
     pp += nn
   return pp    
 
-def set_max_split_size_mb(model, max_split_size_mb):
+# def set_max_split_size_mb(model, max_split_size_mb):
+#     """
+#     Set the max_split_size_mb parameter in PyTorch to avoid fragmentation.
+
+#     Args:
+#         model (torch.nn.Module): The PyTorch model.
+#         max_split_size_mb (int): The desired value for max_split_size_mb in megabytes.
+#     """
+#     for param in model.parameters():
+#         param.requires_grad = False  # Disable gradient calculation to prevent unnecessary memory allocations
+
+#     # Dummy forward pass to initialize the memory allocator
+#     dummy_input = torch.randn(32, 100,1)
+#     model.encoder(dummy_input, mask=None)
+
+#     # Get the current memory allocator state
+#     allocator = torch.cuda.memory._get_memory_allocator()
+
+#     # Update max_split_size_mb in the memory allocator
+#     allocator.set_max_split_size(max_split_size_mb * 1024 * 1024)
+
+#     for param in model.parameters():
+#         param.requires_grad = True  # Re-enable gradient calculation for training
+
+class ModelWrapper(nn.Module):
     """
-    Set the max_split_size_mb parameter in PyTorch to avoid fragmentation.
-
-    Args:
-        model (torch.nn.Module): The PyTorch model.
-        max_split_size_mb (int): The desired value for max_split_size_mb in megabytes.
+      This code was provided by Copilot AI.
+      This wrapper makes it possible to use get_model_complexity_info() from 
+      ptflops. It is not possible to use the function directly on the model
+      because the get_model_complexity_info() adds a dimention.
+      Args:
+          model (torch.nn.Module): The PyTorch model.
+          batch_size (int): The batch size.
+          seq_len (int): The length of the sequence.
+          channels (int): The number of channels in the input.
+      Returns:
+          The model with the wrapper.    
     """
-    for param in model.parameters():
-        param.requires_grad = False  # Disable gradient calculation to prevent unnecessary memory allocations
+    def __init__(self, model, batch_size=1,  seq_len=256, channels=4):
+        super().__init__()
+        self.model = model
+        self.batch_size = batch_size
+        self.seq_len = seq_len
+        self.channels = channels
 
-    # Dummy forward pass to initialize the memory allocator
-    dummy_input = torch.randn(32, 100,1)
-    model.encoder(dummy_input, mask=None)
 
-    # Get the current memory allocator state
-    allocator = torch.cuda.memory._get_memory_allocator()
-
-    # Update max_split_size_mb in the memory allocator
-    allocator.set_max_split_size(max_split_size_mb * 1024 * 1024)
-
-    for param in model.parameters():
-        param.requires_grad = True  # Re-enable gradient calculation for training
+    def forward(self, x):
+        # Reshape the input to the correct shape
+        x = x.view(self.batch_size, self.seq_len, self.channels)
+        return self.model.encode(x, src_mask=None)

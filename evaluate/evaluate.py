@@ -2,6 +2,10 @@ import torch
 import numpy as np
 from tqdm import tqdm
 import pandas as pd
+import subprocess
+from ptflops import get_model_complexity_info
+from models.models import ModelWrapper
+
 
 
 def test_model(model, test_loader, device, config):
@@ -94,3 +98,67 @@ def validate(y, y_pred, metric='Accuracy'):
 
 
   return metric
+
+
+def get_gpu_info():
+    try:
+        _output_to_list = lambda x: x.split('\n')[:-1]
+
+        command = "nvidia-smi --query-gpu=index,name,utilization.gpu,memory.total,memory.used,memory.free,power.draw --format=csv"
+        gpu_info = subprocess.check_output(command.split(), universal_newlines=True)
+        gpu_info = _output_to_list(gpu_info)
+
+        # the first line is the header
+        gpu_info = gpu_info[1:]
+
+        gpu_info = [x.split(', ') for x in gpu_info]
+        gpu_info = [[int(x[0]), x[1], float(x[2].split(' ')[0]), x[3], x[4], x[5], x[6]] for x in gpu_info]
+
+        return gpu_info
+    except Exception as e:
+        print(f"Error: {e}")
+        return None
+
+
+def get_energy(device_number):
+    gpu_info = get_gpu_info()
+    if gpu_info is None:
+        return None
+    try:
+        energy = gpu_info[device_number][-1]
+        energy = float(energy.split(' ')[0])
+        return energy
+    except Exception as e:
+        print(f"Error: {e}")
+        return None
+    
+def get_MMac(model, batch_size=1,  seq_len=256, channels=4):
+  """
+    This code was provided by Copilot AI
+    This function calculates the number of multiply-accumulate operations (MACs)
+    and the number of parameters in a model. The model must take (batch_size, seq_len, channels) as input 
+    and not the more common (1, batch_size, channels, seq_len) format.
+    Args:
+      model: The model to calculate the MACs and parameters for.
+      batch_size: The batch size to use for the model.
+      seq_len: The sequence length to use for the model.
+      channels: The number of channels to use for the model.
+
+    Returns: macs, params
+      macs: The number of MACs in the model.
+      params: The number of parameters in the model.
+
+  """
+  wrapped_model = ModelWrapper(model, batch_size=batch_size,  seq_len=seq_len, channels=channels)
+
+  # Specify the input size of your model
+  # This should match the input size your model expects
+  input_size = (batch_size,seq_len, channels)  # example input size
+
+  # Calculate FLOPs
+  macs, params = get_model_complexity_info(wrapped_model, input_size, as_strings=False,
+                                          print_per_layer_stat=False, verbose=False)
+  print('{:<30}  {:<8}'.format('Computational complexity: ', macs))
+  print('{:<30}  {:<8}'.format('Number of parameters: ', params))
+  
+  return macs, params    

@@ -13,7 +13,7 @@ sys.path.append(CODE_DIR_1)
 from models.models import InputEmbeddings, LayerNormalization, FinalBlock, build_encoder_transformer
 from dataHandler.datahandler import get_data, prepare_data, find_hyperparameters, get_model_config
 # from training.train import test_model
-from plots.plots import get_area_under_curve, get_noise_reduction, get_roc, plot_performance_curve, histogram, plot_performance
+from plots.plots import get_area_under_curve, get_noise_reduction, get_roc, plot_performance_curve, histogram, plot_performance, plot_collections
 import torch
 import subprocess
 import pandas as pd
@@ -48,27 +48,26 @@ import matplotlib.pyplot as plt
 ###################################################################
 #  Plot collections of noise reduction factors or roc             #
 ###################################################################
-# models_path = '/mnt/md0/halin/Models/'
-# models = [8,9,10,11]
-# curve = 'roc'
-# window_pred = False
-# str_models = '_'.join(map(str, models))
-# save_path = f'/home/halin/Master/Transformer/Test/ModelsResults/test/model_{str_models}_{curve}_window_pred_{str(window_pred)}.png'
+models_path = '/mnt/md0/halin/Models/'
+models = [13,14]
+curve = 'nr'
 
-# parameter = 'd_model'
-# hyper_parameters = find_hyperparameters(model_number=models, 
-#                                         parameter=parameter,
-#                                         models_path=models_path)
-# labels = {'hyper_parameters': hyper_parameters, 'name': 'H parameter (d_model)'}
+str_models = '_'.join(map(str, models))
+save_path = f'/home/halin/Master/Transformer/Test/ModelsResults/test/model_{str_models}_{curve}.png'
 
-# plot_collections(models, 
-#                  labels, 
-#                  save_path=save_path, 
-#                  models_path=models_path,
-#                  x_lim=[0,1],
-#                  window_pred=window_pred,
-#                  curve=curve,
-#                  bins=1000)
+parameter = 'd_model'
+hyper_parameters = find_hyperparameters(model_number=models, 
+                                        parameter=parameter,
+                                        models_path=models_path)
+labels = {'hyper_parameters': hyper_parameters, 'name': 'H parameter (d_model)'}
+
+plot_collections(models, 
+                 labels, 
+                 save_path=save_path, 
+                 models_path=models_path,
+                 x_lim=[0.8,1],
+                 curve=curve,
+                 bins=1000)
 
 ###################################################################
 # Plot performance of a model                                     #
@@ -172,28 +171,5 @@ import matplotlib.pyplot as plt
     #                 bins=bins,
     #                 log_bins=True)
 
-###################################################################
-# Get area under curve                                            #
-###################################################################
-model_num = 13
-model_path = '/mnt/md0/halin/Models/'
-df = pd.read_pickle(model_path + f'model_{model_num}/y_pred_data.pkl')
-y_true = df['y'].to_numpy()
-y_pred = df['y_pred'].to_numpy()
-
-start_time = time.time()
-x, y = get_roc(y_true, y_pred, bins=1000, log_bins=False)
-print(f"Time noise: {time.time() - start_time:.2f} s")
-plt.plot(x, y)
-plt.yscale('log')
-plt.savefig('/home/halin/Master/Transformer/Test/ModelsResults/test/roc.png')
-start_time = time.time()
-area = get_area_under_curve(x, y)
-print(f"Time noise: {time.time() - start_time:.2f} s")
-print(f'Noise area: {area:.4f}')
-start_time = time.time()
-auc = np.trapz(y, x)
-print(f"Time noise: {time.time() - start_time:.2f} s")
-print(f'Noise auc: {auc:.4f}')
 
 

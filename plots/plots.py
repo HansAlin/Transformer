@@ -114,6 +114,8 @@ def plot_performance_curve(y_preds, ys, configs, bins=1000, save_path='', text =
     if curve == 'roc':
       ax.set_xlabel('False positive rate')
       ax.set_ylabel('True positive rate')
+      ax.set_ylim([0.8,1])
+      ax.set_xscale('log')
     elif curve == 'nr':
       ax.set_xlabel('True positive rate') 
       ax.set_ylabel(f'Noise reduction factor (nr. noise {nr_y_noise})')
@@ -246,7 +248,6 @@ def plot_collections(models, labels, bins=100, save_path='', models_path='Test/M
                         labels=labels,
                         x_lim=x_lim,
                         bins=bins,
-                        window_pred=window_pred,
                         curve=curve,
                         log_bins=log_bins)
 

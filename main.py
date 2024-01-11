@@ -42,30 +42,32 @@ from plots.plots import plot_collections
 
 
 models_path = '/mnt/md0/halin/Models/'
-hyper_paramters = [256]
-labels = {'hyper_parameters': hyper_paramters, 'name': 'Model size: (d_model)'}
-start_model_num = 0
+hyper_paramters = [64]
+hyper_param_key = 'd_model'
+labels = {'hyper_parameters': hyper_paramters, 'name': 'Model size: ({hyper_param_key}})'}
+start_model_num = 666
 batch_size = 32
-epochs = 10
+epochs = 5
 test = True
-cuda_device = 1
+cuda_device = 2
 
 model_num = start_model_num
-models = []
+
 configs = []
-for i, hyper_paramter in enumerate(hyper_paramters):
-  models.append(model_num)
+for i in range(len(hyper_paramters)):
+
   config = {'model_name': "Attention is all you need",
             'model_type': "base_encoder",
               'model':None,
-              'pre_trained': None,
+              'inherit_model': None, # The model to inherit from
               'embed_type': 'basic', # Posible options: 'relu_drop', 'gelu_drop', 'basic'
+              'by_pass': False, # If channels are passed separatly through the model
               'pos_enc_type':'Sinusoidal', # Posible options: 'Sinusoidal', 'Relative', 'None', 'Learnable'
               'final_type': 'slim', # Posible options: 'basic', 'slim'
               'loss_function': 'BCEWithLogits', # Posible options: 'BCE', 'BCEWithLogits'
               'model_num': model_num,
               'seq_len': 256,
-              'd_model': hyper_paramters[i], # Have to be dividable by h
+              'd_model': 64, # Have to be dividable by h
               'd_ff': 64,
               'N': 2,
               'h': 2,
@@ -78,6 +80,7 @@ for i, hyper_paramter in enumerate(hyper_paramters):
               "num_parms":0,
               "data_path":'',
               "current_epoch":0,
+              "global_epoch":0,
               "model_path":'',
               "test_acc":0,
               "early_stop":7,
@@ -90,11 +93,27 @@ for i, hyper_paramter in enumerate(hyper_paramters):
               "Accuracy":0,
               "Efficiency":0,
               "Precission":0,
-              "FP":0,
-              "FN":0,
-
+              "trained": False
 
             }
+  
+  # Copy the config from the model to inherit from
+  if config['inherit_model'] != None:
+    inherit_model = config['inherit_model']
+    old_config = dh.get_model_config(inherit_model)
+    config = old_config
+    config['model_num'] = model_num
+    config['model_path'] = ''
+    config['inherit_model'] = inherit_model
+    config['num_epochs'] = epochs
+    config['Accuracy'] = 0
+    config['Efficiency'] = 0
+    config['Precission'] = 0
+    config['training_time'] = 0
+
+  # Update the hyper parameter
+  config[hyper_param_key] = hyper_paramters[i]
+
   configs.append(config)
   model_num += 1
 
@@ -102,13 +121,7 @@ training(configs=configs,
          cuda_device=cuda_device,
          batch_size=configs[0]['batch_size'], 
          channels=configs[0]['n_ant'],
-         save_folder=models_path,
+         model_folder=models_path,
          test=test,)
 
 
-  
-  
-# if len(hyper_paramters) > 1:
-#   plot_collections(models, labels, models_path=models_path, curve='nr', window_pred=False, bins=1000, x_lim=[0,1])
-#   plot_collections(models, labels, models_path=models_path, curve='nr', window_pred=True, bins=1000, x_lim=[0,1])  
-#   plot_collections(models, labels, models_path=models_path, curve='roc', window_pred=False, bins=1000, x_lim=[0,1])

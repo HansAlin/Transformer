@@ -132,7 +132,7 @@ def get_energy(device_number):
         print(f"Error: {e}")
         return None
     
-def get_MMac(model, batch_size=1,  seq_len=256, channels=4):
+def get_MMac(model, batch_size=1,  seq_len=256, channels=4, verbose=False):
   """
     This code was provided by Copilot AI
     This function calculates the number of multiply-accumulate operations (MACs)
@@ -158,7 +158,8 @@ def get_MMac(model, batch_size=1,  seq_len=256, channels=4):
   # Calculate FLOPs
   macs, params = get_model_complexity_info(wrapped_model, input_size, as_strings=False,
                                           print_per_layer_stat=False, verbose=False)
-  print('{:<30}  {:<8}'.format('Computational complexity: ', macs))
-  print('{:<30}  {:<8}'.format('Number of parameters: ', params))
+  if verbose:
+    print('{:<30}  {:<8}'.format('Computational complexity: ', macs))
+    print('{:<30}  {:<8}'.format('Number of parameters: ', params))
   
   return macs, params    

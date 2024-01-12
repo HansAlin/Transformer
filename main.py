@@ -9,7 +9,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 import matplotlib.pyplot as plt
 from os.path import dirname, abspath, join
 import sys
-
+import argparse
 
 
 type(sys.path)
@@ -25,6 +25,7 @@ import dataHandler.datahandler as dh
 import models.models as md
 from training.train import training
 from plots.plots import plot_collections
+from model_configs.config import get_config
 
 # TODO implement loading and saving of model
 # TODO Implement train, val, test set use pytorch randomsplit()
@@ -40,88 +41,63 @@ from plots.plots import plot_collections
 # TODO Scheck if scheduler works!
 # TODO secure no model gets overwritten when running a new model
 
-
-models_path = '/mnt/md0/halin/Models/'
-hyper_paramters = [64]
-hyper_param_key = 'd_model'
-labels = {'hyper_parameters': hyper_paramters, 'name': 'Model size: ({hyper_param_key}})'}
-start_model_num = 666
-batch_size = 32
-epochs = 5
-test = True
-cuda_device = 2
-
-model_num = start_model_num
-
-configs = []
-for i in range(len(hyper_paramters)):
-
-  config = {'model_name': "Attention is all you need",
-            'model_type': "base_encoder",
-              'model':None,
-              'inherit_model': None, # The model to inherit from
-              'embed_type': 'basic', # Posible options: 'relu_drop', 'gelu_drop', 'basic'
-              'by_pass': False, # If channels are passed separatly through the model
-              'pos_enc_type':'Sinusoidal', # Posible options: 'Sinusoidal', 'Relative', 'None', 'Learnable'
-              'final_type': 'slim', # Posible options: 'basic', 'slim'
-              'loss_function': 'BCEWithLogits', # Posible options: 'BCE', 'BCEWithLogits'
-              'model_num': model_num,
-              'seq_len': 256,
-              'd_model': 64, # Have to be dividable by h
-              'd_ff': 64,
-              'N': 2,
-              'h': 2,
-              'output_size': 1,
-              'dropout': 0.1,
-              'num_epochs': epochs,
-              'batch_size': batch_size,
-              "learning_rate": 1e-3,
-              "decreas_factor": 0.5,
-              "num_parms":0,
-              "data_path":'',
-              "current_epoch":0,
-              "global_epoch":0,
-              "model_path":'',
-              "test_acc":0,
-              "early_stop":7,
-              "omega": 10000,
-              "trained_noise":0,
-              "trained_signal":0,
-              "data_type": "classic", # Possible options: 'classic', 'chunked'
-              "n_ant":4,
-              "metric":'Efficiency', # Posible options: 'Accuracy', 'Efficiency', 'Precision'
-              "Accuracy":0,
-              "Efficiency":0,
-              "Precission":0,
-              "trained": False
-
-            }
+def main(start_model_num, batch_size, epochs, test, cuda_device, config_number): 
+  models_path = '/mnt/md0/halin/Models/'
+  hyper_paramters = [4,8,16]
+  hyper_param_key = 'h'
+  labels = {'hyper_parameters': hyper_paramters, 'name': 'Number of heads: ({hyper_param_key}})'}
   
-  # Copy the config from the model to inherit from
-  if config['inherit_model'] != None:
-    inherit_model = config['inherit_model']
-    old_config = dh.get_model_config(inherit_model)
-    config = old_config
+  if start_model_num == None:
+    start_model_num = input("Enter start model number: ")
+    start_model_num = int(start_model_num)
+  model_num = start_model_num
+
+  configs = []
+  for i in range(len(hyper_paramters)):
+
+    old_config = get_config(config_number)
+    config = old_config.copy()
+    config['batch_size'] = batch_size
     config['model_num'] = model_num
-    config['model_path'] = ''
-    config['inherit_model'] = inherit_model
-    config['num_epochs'] = epochs
-    config['Accuracy'] = 0
-    config['Efficiency'] = 0
-    config['Precission'] = 0
-    config['training_time'] = 0
+    config['num_epochs'] = epochs 
+    
+    # Copy the config from the model to inherit from
+    if config['inherit_model'] != None:
+      inherit_model = config['inherit_model']
+      old_config = dh.get_model_config(inherit_model)
+      config = old_config.copy()
+      config['model_num'] = model_num
+      config['model_path'] = ''
+      config['inherit_model'] = inherit_model
+      config['num_epochs'] = epochs
+      config['Accuracy'] = 0
+      config['Efficiency'] = 0
+      config['Precission'] = 0
+      config['training_time'] = 0
 
-  # Update the hyper parameter
-  config[hyper_param_key] = hyper_paramters[i]
+    # Update the hyper parameter
+    config[hyper_param_key] = hyper_paramters[i]
 
-  configs.append(config)
-  model_num += 1
+    configs.append(config)
+    model_num += 1
 
-training(configs=configs, 
-         cuda_device=cuda_device,
-         batch_size=configs[0]['batch_size'], 
-         channels=configs[0]['n_ant'],
-         model_folder=models_path,
-         test=test,)
+  training(configs=configs, 
+          cuda_device=cuda_device,
+          batch_size=configs[0]['batch_size'], 
+          channels=configs[0]['n_ant'],
+          model_folder=models_path,
+          test=test,)
+  
+
+if __name__ == "__main__":
+  parser = argparse.ArgumentParser()
+  parser.add_argument('--start_model_num', help='Check for no interference', type=int)
+  parser.add_argument('--batch_size', type=int, help='Default 32', default=32)
+  parser.add_argument('--epochs', type=int, help='Default 100', default=100)
+  parser.add_argument('--test', type=bool, help='Default False', default=False)
+  parser.add_argument('--cuda_device', type=int,help='Default 0', default=0)
+  parser.add_argument('--config_number', type=int,help='Default 1', default=1)
+  args = parser.parse_args()
+  main(args.start_model_num, args.batch_size, args.epochs, args.test, args.cuda_device, args.config_number)
 
 

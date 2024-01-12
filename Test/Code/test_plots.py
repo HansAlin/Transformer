@@ -49,10 +49,11 @@ import matplotlib.pyplot as plt
 #  Plot collections of noise reduction factors or roc             #
 ###################################################################
 models_path = '/mnt/md0/halin/Models/'
-models = [13,14]
+models = [0,13,14,15]
 curve = 'nr'
 
 str_models = '_'.join(map(str, models))
+#save_path = f"/mnt/md0/halin/Models/collections/{str_models}_{curve}.png"
 save_path = f'/home/halin/Master/Transformer/Test/ModelsResults/test/model_{str_models}_{curve}.png'
 
 parameter = 'd_model'

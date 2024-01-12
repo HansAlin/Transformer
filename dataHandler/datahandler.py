@@ -693,7 +693,7 @@ def save_model(trained_model, optimizer, config, global_step):
 
 
 
-def save_data(config, df, y_pred_data=None):
+def save_data(config, df=None, y_pred_data=None):
 
   path = config['model_path']
 
@@ -704,6 +704,7 @@ def save_data(config, df, y_pred_data=None):
   with open(path + 'text_config.txt', 'w') as data:
     for key, value in config.items():
       data.write('%s: %s\n' % (key, value))
+
   if df is not None:  
     df.to_pickle(path + 'dataframe.pkl')
 
@@ -797,5 +798,21 @@ def collect_config_to_df(model_numbers, model_path='/mnt/md0/halin/Models/', sav
        df.to_pickle(save_path + 'dataframe.pkl')  
     counter += 1
   return df  
+
+def get_predictions(model_number, model_path='/mnt/md0/halin/Models/'):
+  """ This function loads the predictions from a model
+      Arg:
+        model_number: model number
+        model_path: path to model (optional)
+      Return: y, y_pred
+        y: true labels
+        y_pred: predicted labels
+       
+  """
+  path = model_path + f'model_{model_number}/'
+  y_pred_data = pd.read_pickle(path + 'y_pred_data.pkl')
+  y = y_pred_data['y'].to_numpy()
+  y_pred = y_pred_data['y_pred'].to_numpy()
+  return y, y_pred
 
 

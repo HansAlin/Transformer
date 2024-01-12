@@ -44,6 +44,7 @@ def histogram(y_pred, y, config, bins=100, save_path=''):
     ax.set_xlabel(r'noise $\leftrightarrow$ signal')
     plt.savefig(save_path + f"model_{config['model_num']}_histogram.png")
     plt.clf()
+    plt.close()
 
 
 
@@ -125,6 +126,7 @@ def plot_performance_curve(y_preds, ys, configs, bins=1000, save_path='', text =
     if save_path == '':
         save_path = config['model_path'] + 'plot/' + f'model_{config["model_num"]}_{curve}_{text.replace(" ", "_")}.png'
     plt.savefig(save_path)
+    plt.close()
 
     return get_area_under_curve(x,y)
 
@@ -151,6 +153,7 @@ def plot_results(model_number, config, path=''):
   plt.savefig(loss_path)
   plt.cla()
   plt.clf()
+  plt.close()
 
   # Accuracy plot
   fig,ax = plt.subplots()
@@ -162,6 +165,7 @@ def plot_results(model_number, config, path=''):
   plt.savefig(acc_path)
   plt.cla()
   plt.clf()
+  plt.close()
 
 def plot_weights(model, config, save_path='', block='self_attention_block', quiet=True):
   """
@@ -212,8 +216,8 @@ def plot_weights(model, config, save_path='', block='self_attention_block', quie
   if save_path == '':
     save_path = config['model_path'] + f'plot/model_{config["model_num"]}_{block}_weights.png'
   plt.savefig(save_path)
-#   writer.add_histogram('weights', weight)
-#   writer.close()  
+  plt.close()
+
 
 def plot_collections(models, labels, bins=100, save_path='', models_path='Test/ModelsResults/', x_lim=[0.8,1], window_pred=False, curve='roc', log_bins=False): 
   y_pred = []
@@ -264,7 +268,8 @@ def plot_examples(data, config=None, save_path=''):
   fig, ax = plt.subplots(4,1, figsize=(10,10))
   for i in range(4):
     ax[i].plot(data[:,i])
-  plt.savefig(save_path)  
+  plt.savefig(save_path)
+  plt.close()  
 
 def plot_performance(config, device, x_batch=None, y_batch=None,lim_value=0.2, model_path='/mnt/md0/halin/Models/', save_path=''):
   """ This function plots the performance of a given model. If no data is given, the test data is used.
@@ -375,6 +380,7 @@ def plot_performance(config, device, x_batch=None, y_batch=None,lim_value=0.2, m
       plt.savefig(path)
       count += 1
       plt.clf()
+      plt.close()
   return None
 
 def get_roc(y_true, y_score, bins=100, log_bins=False):

@@ -43,8 +43,8 @@ from model_configs.config import get_config
 
 def main(start_model_num, batch_size, epochs, test, cuda_device, config_number): 
   models_path = '/mnt/md0/halin/Models/'
-  hyper_paramters = [4,8,16]
-  hyper_param_key = 'h'
+  hyper_paramters = [128,256,512]
+  hyper_param_key = 'd_ff'
   labels = {'hyper_parameters': hyper_paramters, 'name': 'Number of heads: ({hyper_param_key}})'}
   
   if start_model_num == None:

@@ -13,7 +13,7 @@ config_1 =   config = {'model_name': "Attention is all you need",
               'd_model': 128, # Have to be dividable by h
               'd_ff': 64,
               'N': 2,
-              'h': 2,
+              'h': 16,
               'output_size': 1,
               'dropout': 0.1,
               'num_epochs': None,

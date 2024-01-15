@@ -11,9 +11,9 @@ sys.path.append(CODE_DIR_1)
 # for path in sys.path:
 #    print(path)
 from models.models import InputEmbeddings, LayerNormalization, FinalBlock, build_encoder_transformer
-from dataHandler.datahandler import get_data, prepare_data, find_hyperparameters, get_model_config
+from dataHandler.datahandler import get_data, prepare_data, find_hyperparameters, get_model_config, collect_config_to_df
 # from training.train import test_model
-from plots.plots import get_area_under_curve, get_noise_reduction, get_roc, plot_performance_curve, histogram, plot_performance, plot_collections
+from plots.plots import get_area_under_curve, get_noise_reduction, get_roc, plot_performance_curve, histogram, plot_performance, plot_collections, plot_table
 import torch
 import subprocess
 import pandas as pd
@@ -48,27 +48,46 @@ import matplotlib.pyplot as plt
 ###################################################################
 #  Plot collections of noise reduction factors or roc             #
 ###################################################################
+# models_path = '/mnt/md0/halin/Models/'
+# models = [16,17,18]
+# curve = 'nr'
+# parameter = 'h'
+# bins = 10000
+
+# str_models = '_'.join(map(str, models))
+# #save_path = f"/mnt/md0/halin/Models/collections/{str_models}_{curve}.png"
+# save_path = f'/home/halin/Master/Transformer/Test/presentation/model_{str_models}_{curve}.png'
+
+
+# hyper_parameters = find_hyperparameters(model_number=models, 
+#                                         parameter=parameter,
+#                                         models_path=models_path)
+# labels = {'hyper_parameters': hyper_parameters, 'name': f'Model num.,  {parameter}'}
+
+# plot_collections(models, 
+#                  labels, 
+#                  save_path=save_path, 
+#                  models_path=models_path,
+#                  x_lim=[0.8,1],
+#                  curve=curve,
+#                  bins=bins)
+# df = collect_config_to_df(model_numbers=models, save_path='/home/halin/Master/Transformer/Test/ModelsResults/collections/')
+# keys = ['model_num', 'embed_type', 'pos_enc_type', 'loss_function', 'seq_len', 'd_model', 'd_ff', 'N', 'h', "num_parms", "current_epoch", 'nr_area', 'roc_area', 'MACs', 'energy']
+# for key in keys:
+#     if key not in df.columns:
+#         df[key] = np.nan
+# print(df[keys])
+
+###################################################################
+# Plot tabel of hyperparameters                                   #
+###################################################################
 models_path = '/mnt/md0/halin/Models/'
-models = [0,13,14,15]
-curve = 'nr'
-
+models = [16,17,18]
 str_models = '_'.join(map(str, models))
-#save_path = f"/mnt/md0/halin/Models/collections/{str_models}_{curve}.png"
-save_path = f'/home/halin/Master/Transformer/Test/ModelsResults/test/model_{str_models}_{curve}.png'
-
-parameter = 'd_model'
-hyper_parameters = find_hyperparameters(model_number=models, 
-                                        parameter=parameter,
-                                        models_path=models_path)
-labels = {'hyper_parameters': hyper_parameters, 'name': 'H parameter (d_model)'}
-
-plot_collections(models, 
-                 labels, 
-                 save_path=save_path, 
-                 models_path=models_path,
-                 x_lim=[0.8,1],
-                 curve=curve,
-                 bins=1000)
+save_path = f'/home/halin/Master/Transformer/Test/presentation/model_{str_models}_table.png'
+df = collect_config_to_df(model_numbers=models, save_path=save_path)
+keys = ['model_num', 'd_model', 'd_ff', 'N', 'h', "num_parms", "current_epoch", 'nr_area', 'roc_area', 'MACs', 'training_time']
+plot_table(df, keys, save_path=save_path)
 
 ###################################################################
 # Plot performance of a model                                     #

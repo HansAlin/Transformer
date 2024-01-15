@@ -106,7 +106,7 @@ def plot_performance_curve(y_preds, ys, configs, bins=1000, save_path='', text =
         if labels == None:
           ax.plot(x, y)   
         else:
-            ax.plot(x, y, label=labels['hyper_parameters'][i])
+            ax.plot(x, y, label=f" {config['model_num']},     " + str(labels['hyper_parameters'][i]))
         
             
     if labels != None:
@@ -499,4 +499,56 @@ def get_area_under_curve(x,y):
     y_mean = (y[i] + y[i-1]) / 2
     area += delta_x * y_mean
   return np.abs(area)
+
+def plot_table(df, keys, save_path=''):
+  """ This function plots a table of the dataframe df
+      Args:
+        df (pd.DataFrame): dataframe to plot
+        keys (list): list of keys that are being ploted
+  """ 
+
+  for key in keys:
+    if key not in df.columns:
+        df[key] = np.nan
+
+  df = df[keys]
+  df = change_format_units(df)
+  
+  fig, ax = plt.subplots(figsize=(12, 4))
+  ax.axis('off')
+  ax.axis('tight')
+  ax.table(cellText=df.values, colLabels=df.columns, loc='center', cellLoc = 'center', fontsize=16)
+  fig.tight_layout()
+  plt.savefig(save_path)
+  plt.close()
+  df.to_csv(save_path.replace('.png', '.csv'), index=False)
+  
+def change_format(value, digits=2):
+  return '{:.{digits}e}'.format(value, digits=digits)  
+
+def change_energy_units(value):
+  changed_value = value/3600/1000
+  return f'{changed_value:.2e} kWh'
+
+def change_format_units(df):
+  """ This function changes the format of the dataframe df
+      to make it more readable:
+
+      Args: 
+        df (pd.DataFrame): dataframe to change format of
+
+  """
+
+  if 'MACs' in df.columns:
+    df.loc[:,'MACs'] = df['MACs'].apply(lambda x: change_format(x, digits=2))
+  if 'num_parms' in df.columns:
+    df.loc[:,'num_parms'] = df['num_parms'].apply(lambda x: change_format(x, digits=2))
+  if 'energy' in df.columns:  
+    df.loc[:,'energy'] = df['energy'].apply(lambda x: change_energy_units(x))
+  if 'roc_area' in df.columns:
+    df.loc[:,'roc_area'] = df['roc_area'].apply(lambda x: change_format(x, digits=4))
+  if 'nr_area' in df.columns:
+    df.loc[:,'nr_area'] = df['nr_area'].apply(lambda x: change_format(x, digits=2))  
+
+  return df  
 

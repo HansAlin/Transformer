@@ -227,9 +227,9 @@ def training(configs, cuda_device, batch_size=32, channels=4, model_folder='', t
     print(f"Test efficiency: {config['Efficiency']:.4f}")
 
     histogram(y_pred_data['y_pred'], y_pred_data['y'], config)
-    nr_area = plot_performance_curve([y_pred_data['y_pred']], [y_pred_data['y']], [config], curve='nr', x_lim=[0,1])
+    nr_area = plot_performance_curve([y_pred_data['y_pred']], [y_pred_data['y']], [config], curve='nr', x_lim=[0,1], bins=10000)
     config['nr_area'] = nr_area
-    roc_area = plot_performance_curve([y_pred_data['y_pred']], [y_pred_data['y']], [config], curve='roc')
+    roc_area = plot_performance_curve([y_pred_data['y_pred']], [y_pred_data['y']], [config], curve='roc', bins=10000)
     config['roc_area'] = roc_area
     plot_results(config['model_num'], config)
 

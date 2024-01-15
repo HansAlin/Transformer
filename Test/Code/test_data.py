@@ -25,7 +25,11 @@ from plots.plots import get_area_under_curve, get_noise_reduction, get_roc
 # df = collect_config_to_df(model_numbers=[2,3,4,5,6,7,8,9,10,11,12], save_path='/home/halin/Master/Transformer/Test/ModelsResults/collections/')
 # print(df[['model_num', 'embed_type', 'pos_enc_type', 'loss_function', 'seq_len', 'd_model', 'd_ff', 'N', 'h', "num_parms", "current_epoch", 'Accuracy', 'Efficiency', 'Precission']])
 
-model_numbers = [13,14,15]
+
+###################################################################
+# Add data to config file                                         #
+###################################################################
+model_numbers = [13,14,15,16,17,18]
 print('{:<20} {:>10} {:>10} {:>10} {:>20}'.format('Model number', 'MACs', 'Params', 'ROC area', 'Noise reduction area'))
 for model_number in model_numbers:
     config = get_model_config(model_num=model_number)
@@ -35,7 +39,7 @@ for model_number in model_numbers:
                 seq_len=config['seq_len'], 
                 channels=config['n_ant'])
     y_true, y_pred = get_predictions(model_number=model_number)
-    x, y = get_roc(y_true, y_pred, bins=1000)
+    x, y = get_roc(y_true, y_pred, bins=10000)
     roc_area = get_area_under_curve(x, y)
     x, y = get_noise_reduction(y_true, y_pred, bins=1000)
     nr_area = get_area_under_curve(x, y)

@@ -785,17 +785,18 @@ def get_model_config(model_num, path='/mnt/md0/halin/Models/'):
         config = pickle.load(f)
     return config    
 
-def collect_config_to_df(model_numbers, model_path='/mnt/md0/halin/Models/', save_path=''):
+def collect_config_to_df(model_numbers, model_path='/mnt/md0/halin/Models/', save_path='', save=False):
   df = pd.DataFrame()
   counter = 0
   for model_num in model_numbers:
     config = get_model_config(model_num, model_path)
     df = pd.concat([df, pd.DataFrame(config, index=[counter])])
 
-    if save_path == '':
-      df.to_pickle(model_path + 'collections/' + 'dataframe.pkl')
-    else:
-       df.to_pickle(save_path + 'dataframe.pkl')  
+    if save:
+      if save_path == '':
+        df.to_pickle(model_path + 'collections/' + 'dataframe.pkl')
+      else:
+        df.to_pickle(save_path + 'dataframe.pkl')  
     counter += 1
   return df  
 

@@ -4,32 +4,33 @@ import math
 from typing import List
 
 
-# From https://github.com/hkproj/pytorch-transformer/blob/main/model.py
+# 
 class LayerNormalization(nn.Module):
-  """This layer nomalize the features over the d_model dimension according 
+  """From https://github.com/hkproj/pytorch-transformer/blob/main/model.py
+      This layer nomalize the features over the d_model dimension according 
       to the paper "Attention is all you need".
   """
-  def __init__(self, eps: float = 10**-6) -> None:
+  def __init__(self, features: int, eps: float = 10**-6) -> None:
     super().__init__()
     self.eps = eps
-    self.alpha = nn.Parameter(torch.ones(1))
-    self.bias = nn.Parameter(torch.zeros(1))
-    # TODO might send in features instaed of just set size
-    # to 1
+    self.alpha = nn.Parameter(torch.ones(features))
+    self.bias = nn.Parameter(torch.zeros(features))
   
 
   def forward(self, x):
     """Normalize over the d_model dimension.
     
     """
+    # (batch_size, seq_len, d_model)
     mean = x.mean(dim = -1, keepdim=True) # (b, seq_len, 1)
     std = x.std(dim = -1, keepdim=True) # (b, seq_len, 1)
     x = self.alpha * (x - mean) / (std + self.eps) + self.bias
 
-    # (B, seq_len, d_model)
+    # (batch_size, seq_len, d_model)
     return x
   
 class BatchNormalization(nn.Module): 
+  #TODO Check whether this is correct implemented 
   """Instead of normalizing the features over the layers as in "Attention is all you need"
   this class normalizes the features over the batch dimension.
   
@@ -72,6 +73,7 @@ class FeedForwardBlock(nn.Module):
     x = self.activation_1(x)
     x = self.dropout(x)
     x = self.linear_2(x)
+    # TODO mvts_transformer does not have this activation function
     x = self.activation_2(x)
     
     # (batch_size, seq_len, d_model)
@@ -401,27 +403,41 @@ class MultiHeadAttentionBlock(nn.Module):
     return x
   
 class ResidualConnection(nn.Module):
-  def __init__(self, dropout: float = 0.1, normalization='layer'):
+  """ This layer adds the residual connection from sublayer to the input.
+      It also appies a 
+  """
+  def __init__(self, features: int, dropout: float = 0.1, normalization='layer'):
     super().__init__()
     self.dropout = nn.Dropout(dropout)
     if normalization == 'layer':
-      self.norm = LayerNormalization()
+      self.norm = LayerNormalization(features=features)
     else:
       self.norm = BatchNormalization()  
     
 
   def forward(self, x, sublayer):
     # There are other ways to add the residual connection
-    # For example, you can add it sublayer(x) and then apply the normalization
-    # but this is the way Jamil did it.
+    # For example, you can add it sublayer(x) and then apply the normalization.
+
+    # (batch_size, seq_len, d_model)
+
+    # This is how mvts_transformer does it
+    out = sublayer(x)
+    x = x + self.dropout(out)
+    x = self.norm(x)
+
+    # This is how Jamil does it
     # out = self.norm(x)
     # out = sublayer(out)
     # out = self.dropout(out)
-    # # (b , seq_len, d_model)
-    return x + self.dropout(sublayer(self.norm(x)))
+    # x = x + out
+
+    # (batch_size , seq_len, d_model)
+    return x
   
 class EncoderBlock(nn.Module):
   def __init__(self, 
+               features: int,
                self_attention_block: MultiHeadAttentionBlock,
                feed_forward_block: FeedForwardBlock, 
                dropout: float = 0.1,
@@ -429,7 +445,7 @@ class EncoderBlock(nn.Module):
     super().__init__()
     self.self_attention_block = self_attention_block
     self.feed_forward_block =  feed_forward_block
-    self.residual_connections = nn.ModuleList([ResidualConnection(dropout, normalization) for _ in range(2)])
+    self.residual_connections = nn.ModuleList([ResidualConnection(features, dropout, normalization) for _ in range(2)])
 
     # self.residual_1 = ResidualConnection(dropout)
     # self.residual_2 = ResidualConnection(dropout)
@@ -447,11 +463,11 @@ class EncoderBlock(nn.Module):
     return x  
   
 class Encoder(nn.Module):
-  def __init__(self, layers: nn.ModuleList, normalization='layer') -> None:
+  def __init__(self, features: int, layers: nn.ModuleList, normalization='layer') -> None:
     super().__init__()
     self.layers = layers
     if normalization == 'layer':
-      self.norm = LayerNormalization()
+      self.norm = LayerNormalization(features=features)
     else:
       self.norm = BatchNormalization()  
     
@@ -604,9 +620,14 @@ def build_encoder_transformer(config) -> EncoderTransformer:
         encoder_self_attention_block = MultiHeadAttentionBlock(d_model, h, dropout)
 
       feed_forward_block = FeedForwardBlock(d_model, d_ff, dropout)
-      encoder_block = EncoderBlock(encoder_self_attention_block, feed_forward_block, dropout)
+      encoder_block = EncoderBlock(features=d_model, 
+                                   self_attention_block=encoder_self_attention_block, 
+                                   feed_forward_block=feed_forward_block, 
+                                   dropout=dropout)
       encoder_blocks.append(encoder_block)
-    encoders.append(Encoder(nn.ModuleList(encoder_blocks), normalization='layer'))
+    encoders.append(Encoder(features=d_model,
+                            layers=nn.ModuleList(encoder_blocks), 
+                            normalization='layer'))
     
 
   #########################################################

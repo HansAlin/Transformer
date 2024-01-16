@@ -413,6 +413,8 @@ def get_roc(y_true, y_score, bins=100, log_bins=False):
         TN = np.sum((y_pred == 0) & (y_true == 0))
         FN = np.sum((y_pred == 0) & (y_true == 1))
         
+
+
         # Calculate TPR and FPR
         if (TP + FN) == 0:
           TPR = 0
@@ -470,6 +472,11 @@ def get_noise_reduction(y, y_pred, bins=1000,  log_bins=False):
 
     return TP, noise_reduction
  
+def get_NSE_AT_NRF(TP, noise_reduction, number_of_noise=1e5):
+
+  index = np.argmax(noise_reduction >= number_of_noise)
+  nse = TP[index]
+  return nse
 
 def get_area_under_curve(x,y):
   """

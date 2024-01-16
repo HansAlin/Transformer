@@ -29,7 +29,7 @@ from plots.plots import get_area_under_curve, get_noise_reduction, get_roc, get_
 ###################################################################
 # Add data to config file                                         #
 ###################################################################
-model_numbers = [13,14,15,16,17,18,19,20]
+model_numbers = [21]
 bins = 10000
 print('{:<20} {:>10} '.format('Model number', 'NSE_AT_100KNRF'))
 for model_number in model_numbers:

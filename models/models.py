@@ -73,8 +73,10 @@ class FeedForwardBlock(nn.Module):
     x = self.activation_1(x)
     x = self.dropout(x)
     x = self.linear_2(x)
+
     # TODO mvts_transformer does not have this activation function
-    x = self.activation_2(x)
+    # and it does not seem so many others have it either
+    # x = self.activation_2(x)
     
     # (batch_size, seq_len, d_model)
     return x
@@ -225,22 +227,26 @@ class FinalBlock(nn.Module):
           seq_len (int): The length of the sequence.
           dropout (float, optional): The dropout rate. Defaults to 0.1.
           out_put_size (int, optional): The size of the output. Defaults to 1.
+          forward_type (str, optional): The type of the forward pass. Defaults to 'basic'.
   """
   def __init__(self, d_model: int, seq_len: int, dropout: float = 0.1,  out_put_size: int = 1, forward_type='basic'):
     super().__init__()
     if forward_type == 'basic':
-      self.linear_1 = nn.Linear(d_model, seq_len)
+      self.linear_1 = nn.Linear(d_model, out_put_size)
       self.dropout = nn.Dropout(dropout)
       self.linear_2 = nn.Linear(seq_len, out_put_size)
       self.activation = nn.Sigmoid()
-      self.forward_type = self.old_forward
+      self.forward_type = self.basic_forward
     elif forward_type == 'slim':
       self.linear_1 = nn.Linear(d_model*seq_len, out_put_size)  
-      self.forward_type = self.new_forward
+      self.forward_type = self.slim_forward
+    elif forward_type == 'maxpool':  
+      self.maxpool = nn.AdaptiveAvgPool2d((1, 1))
+      self.forward_type = self.maxpool_forward
     else:
       raise ValueError(f"Unsupported forward type: {forward_type}")  
  
-  def old_forward(self, x):
+  def basic_forward(self, x):
     #(batch_size, seq_len, d_model)
     x = self.linear_1(x)
     x = x.squeeze()
@@ -249,11 +255,11 @@ class FinalBlock(nn.Module):
     x = x.squeeze()
     x = self.activation(x)
     x = self.dropout(x)
-    # (batch_size, seq_len )
+    # (batch_size)
 
     return x
 
-  def new_forward(self, x):
+  def slim_forward(self, x):
     # (batch_size, seq_len, d_model)
     x = x.view(x.shape[0], -1)
     # (batch_size, seq_len*d_model)
@@ -261,6 +267,14 @@ class FinalBlock(nn.Module):
     x = x.squeeze()
     # (batch_size, out_put_size)
     return x
+  
+  def maxpool_forward(self, x):
+    # (batch_size, seq_len, d_model)
+    x = self.maxpool(x)
+    # (batch_size, 1,)
+    x = x.squeeze()
+    # (batch_size)
+    return
 
   def forward(self, x):
     x = self.forward_type(x)
@@ -275,6 +289,7 @@ class MultiHeadAttentionBlock(nn.Module):
     assert d_model % h == 0, "d_model must be divisible by h"
     self.d_h = d_model // h
 
+    # TODO its an option to have biases or not in the linear layers
     self.W_q = nn.Linear(d_model, d_model) # W_q and bias
     self.W_k = nn.Linear(d_model, d_model) # W_k and bias
     self.W_v = nn.Linear(d_model, d_model) # W_v and bias

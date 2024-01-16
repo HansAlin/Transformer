@@ -64,7 +64,10 @@ def plot_performance_curve(y_preds, ys, configs, bins=1000, save_path='', text =
                 x_lim (list): list of x limits, optional
                 curve (str): options: 'roc', 'nr'
                 log_bins (bool): if True, the bins are log spaced
-
+            Returns: area, nse
+                area (float): area under the curve for both noise reduction factor and roc
+                nse (float): noise reduction factor at 100k noise only for noise reduction factor curve
+                              for roc curve, nse is None
     """
  
     fig, ax = plt.subplots()
@@ -100,8 +103,11 @@ def plot_performance_curve(y_preds, ys, configs, bins=1000, save_path='', text =
 
         if curve == 'roc':
           x, y = get_roc(y, y_pred,bins=bins, log_bins=log_bins)
+          nse = None
+    
         elif curve == 'nr':  
           x, y = get_noise_reduction(y, y_pred, bins, log_bins=log_bins)
+          nse = get_NSE_AT_NRF(TP=x, noise_reduction=y,  number_of_noise=100000)
 
         if labels == None:
           ax.plot(x, y)   
@@ -128,7 +134,7 @@ def plot_performance_curve(y_preds, ys, configs, bins=1000, save_path='', text =
     plt.savefig(save_path)
     plt.close()
 
-    return get_area_under_curve(x,y)
+    return get_area_under_curve(x,y), nse
 
 def plot_results(model_number, config, path=''):
   if path == '':
@@ -473,11 +479,36 @@ def get_noise_reduction(y, y_pred, bins=1000,  log_bins=False):
     return TP, noise_reduction
  
 def get_NSE_AT_NRF(TP, noise_reduction, number_of_noise=1e5):
-
+  """ 
+    This function calculates the noise reduction factor at a given number of noise
+    Args:
+        TP (array like): array of true positive values
+        noise_reduction (array like): array of noise reduction values
+        number_of_noise (int): number of noise to calculate the noise reduction factor at
+    Returns: nse
+        nse (float): noise reduction factor at number_of_noise
+  """
+  TP = ensure_numpy_array(TP)
+  noise_reduction = ensure_numpy_array(noise_reduction)
   index = np.argmax(noise_reduction >= number_of_noise)
   nse = TP[index]
   return nse
 
+
+def ensure_numpy_array(variable):
+    """ From ChatGPT
+    This function ensures that the input is a numpy array.
+    Args:
+        variable (list or numpy array): input variable  
+    Returns: variable
+    """
+    if isinstance(variable, list):
+        return np.array(variable)
+    elif isinstance(variable, np.ndarray):
+        return variable
+    else:
+        raise ValueError("Input should be a list or a numpy array.")
+    
 def get_area_under_curve(x,y):
   """
     This function calculates the area under a curve. 

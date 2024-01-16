@@ -50,7 +50,7 @@ import matplotlib.pyplot as plt
 #  Plot collections of noise reduction factors or roc             #
 ###################################################################
 models_path = '/mnt/md0/halin/Models/'
-models = [13,14,15,16,17,18,19,20]
+models = [13,14,15,16,17,18,19,20,21]
 curve = 'nr'
 parameter = 'model_num'
 bins = 10000

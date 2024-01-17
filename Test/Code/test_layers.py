@@ -33,7 +33,7 @@ config  = {'model_name': "Attention is all you need",
               'embed_type': 'basic', # Posible options: 'relu_drop', 'gelu_drop', 'basic'
               'by_pass': False, # If channels are passed separatly through the model
               'pos_enc_type':'Sinusoidal', # Posible options: 'Sinusoidal', 'Relative', 'None', 'Learnable'
-              'final_type': 'maxpool', # Posible options: 'basic', 'slim'
+              'final_type': 'maxpool', # Posible options: 'basic', 'slim', 'maxpool
               'loss_function': 'BCEWithLogits', # Posible options: 'BCE', 'BCEWithLogits'
               'model_num': None,
               'seq_len': 256,

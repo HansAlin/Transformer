@@ -1,3 +1,6 @@
+# History: 
+# Date        model
+# 2024-01-15: 24    'final_type' is 'maxpool' instead of 'slim'
 
 config_1 =   config = {'model_name': "Attention is all you need",
             'model_type': "base_encoder",
@@ -6,7 +9,7 @@ config_1 =   config = {'model_name': "Attention is all you need",
               'embed_type': 'basic', # Posible options: 'relu_drop', 'gelu_drop', 'basic'
               'by_pass': False, # If channels are passed separatly through the model
               'pos_enc_type':'Sinusoidal', # Posible options: 'Sinusoidal', 'Relative', 'None', 'Learnable'
-              'final_type': 'slim', # Posible options: 'basic', 'slim'
+              'final_type': 'maxpool', # Posible options: 'basic', 'slim', 'maxpool'
               'loss_function': 'BCEWithLogits', # Posible options: 'BCE', 'BCEWithLogits'
               'model_num': None,
               'seq_len': 256,

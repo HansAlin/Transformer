@@ -163,3 +163,13 @@ def get_MMac(model, batch_size=1,  seq_len=256, channels=4, verbose=False):
     print('{:<30}  {:<8}'.format('Number of parameters: ', params))
   
   return macs, params    
+
+
+def count_parameters(model):
+  """ Originaly from Copilot AI
+  Counts the number of parameters in a model and prints the result."""
+  for name, param in model.named_parameters():
+      print(f'Layer: {name} | Size: {param.size()} | Number of Parameters: {param.numel()}')
+  total_params = sum(p.numel() for p in model.parameters())
+  print(f'\nTotal Number of Parameters: {total_params}')
+

@@ -274,7 +274,7 @@ class FinalBlock(nn.Module):
     # (batch_size, 1,)
     x = x.squeeze()
     # (batch_size)
-    return
+    return x
 
   def forward(self, x):
     x = self.forward_type(x)

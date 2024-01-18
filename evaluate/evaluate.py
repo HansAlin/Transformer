@@ -165,11 +165,77 @@ def get_MMac(model, batch_size=1,  seq_len=256, channels=4, verbose=False):
   return macs, params    
 
 
-def count_parameters(model):
+def count_parameters(model, verbose=False):
   """ Originaly from Copilot AI
-  Counts the number of parameters in a model and prints the result."""
+  Counts the number of parameters in a model and prints the result.
+  Args:
+    model: The model to count the parameters of.
+    verbose: Whether to print the number of parameters or not.
+    
+    Returns:
+        dict: A dictionary containing the following keys:
+            - 'total_param': The total number of parameters in the model.
+            - 'total_trainable_param': The total number of trainable parameters in the model.
+            - 'encoder_param': The number of parameters in the encoder.
+            - 'src_embed_param': The number of parameters in the source embedding.
+            - 'final_param': The number of parameters in the final layer.
+            - 'buf_param': The number of parameters in the buffer.
+
+    Example:
+      results = count_parameters(model)\n
+      param_1 = results['total_param']\n
+      param_2 = results['total_trainable_param']\n
+      param_3 = results['encoder_param']\n
+      param_4 = results['src_embed_param']\n
+      param_5 = results['final_param']\n
+      param_6 = results['buf_param']\n
+
+    """
+  
+  total_param = 0
+  total_trainable_param = 0  
+  encoder_param = 0
+  src_embed_param = 0
+  final_param = 0
+  buf_param = 0 
   for name, param in model.named_parameters():
-      print(f'Layer: {name} | Size: {param.size()} | Number of Parameters: {param.numel()}')
-  total_params = sum(p.numel() for p in model.parameters())
-  print(f'\nTotal Number of Parameters: {total_params}')
+    if param.requires_grad:
+      if verbose:
+        print(f"Trainable layer: {name} | Size: {param.size()} | Number of Parameters: {param.numel()}")
+      total_trainable_param += param.numel()
+           
+    else:
+      if verbose:
+        print(f"Non-trainable layer: {name} | Size: {param.size()} | Number of Parameters: {param.numel()}")
+
+    total_param += param.numel()  
+    if 'encoder' in name:
+      encoder_param += param.numel()
+    elif 'src_embed' in name:
+       src_embed_param += param.numel()
+    elif 'final' in name:
+      final_param += param.numel() 
+
+
+  for name, buf in model.named_buffers():
+    if verbose:
+      print(f"Buffer: {name} | Size: {buf.size()} | Number of Parameters: {buf.numel()}")
+    total_param += buf.numel()
+    buf_param += buf.numel()
+  if verbose:
+    print(f'\nTotal Encoder Parameters: {encoder_param}')
+    print(f'\nTotal src_embed Parameters: {src_embed_param}')
+    print(f'\nTotal final Parameters: {final_param}')
+    print(f'\nTotal Buffer Parameters: {buf_param}')  
+    print(f'\nTotal Trainable Number of Parameters: {total_trainable_param}')
+    print(f'\nTotal Number of Parameters: {total_param}')
+
+  return {
+        'total_param': total_param,
+        'total_trainable_param': total_trainable_param,
+        'encoder_param': encoder_param,
+        'src_embed_param': src_embed_param,
+        'final_param': final_param,
+        'buf_param': buf_param
+    }
 

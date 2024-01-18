@@ -12,9 +12,9 @@ import sys
 import argparse
 
 
-type(sys.path)
-for path in sys.path:
-   print(path)
+# type(sys.path)
+# for path in sys.path:
+#    print(path)
 
 import os
 myhost = os.uname()[1]
@@ -41,15 +41,34 @@ from model_configs.config import get_config
 # TODO Scheck if scheduler works!
 # TODO secure no model gets overwritten when running a new model
 
-def main(start_model_num, batch_size, epochs, test, cuda_device, config_number): 
+def main(start_model_num, batch_size, epochs, test, cuda_device, config_number, inherit_model): 
   models_path = '/mnt/md0/halin/Models/'
-  hyper_paramters = [1, 4, 8]
-  hyper_param_key = 'N'
-  labels = {'hyper_parameters': hyper_paramters, 'name': 'Number of heads: ({hyper_param_key}})'}
+
+  hyper_paramters = [64, 128, 256]
+  hyper_param_key = 'd_ff'
+  labels = {'hyper_parameters': hyper_paramters, 'name': 'Encoder type: ({hyper_param_key}})'}
   
   if start_model_num == None:
     start_model_num = input("Enter start model number: ")
+    check_path = models_path + f"model_{start_model_num}"
+
+    if check_directory_exists(check_path):
+        print("File exists")
+        over_write = input("Do you want to overwrite the model? (y/n): ")
+        if over_write == 'y':
+          print("Overwriting model")
+        else:
+          print("Not overwriting model")
+          sys.exit()  
+    else:
+      print('Model not exisiting')
+ 
     start_model_num = int(start_model_num)
+ 
+  while hyper_param_key not in get_config(config_number):
+    hyper_param_key = input("Enter hyper parameter key: ")
+    hyper_param_key = str(hyper_param_key)   
+  
   model_num = start_model_num
 
   configs = []
@@ -62,8 +81,7 @@ def main(start_model_num, batch_size, epochs, test, cuda_device, config_number):
     config['num_epochs'] = epochs 
     
     # Copy the config from the model to inherit from
-    if config['inherit_model'] != None:
-      inherit_model = config['inherit_model']
+    if inherit_model != None:
       old_config = dh.get_model_config(inherit_model)
       config = old_config.copy()
       config['model_num'] = model_num
@@ -88,16 +106,20 @@ def main(start_model_num, batch_size, epochs, test, cuda_device, config_number):
           model_folder=models_path,
           test=test,)
   
+def check_directory_exists(file_path):
+    return os.path.isdir(file_path)  
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser()
   parser.add_argument('--start_model_num', help='Check for no interference', type=int)
-  parser.add_argument('--batch_size', type=int, help='Default 32', default=32)
+  parser.add_argument('--batch_size', type=int, help='Default 32', default=64)
   parser.add_argument('--epochs', type=int, help='Default 100', default=100)
   parser.add_argument('--test', type=bool, help='Default False', default=False)
   parser.add_argument('--cuda_device', type=int,help='Default 0', default=0)
   parser.add_argument('--config_number', type=int,help='Default 1', default=1)
+  parser.add_argument('--inherit_model', type=int,help='Default 18', default=None)
+  
   args = parser.parse_args()
-  main(args.start_model_num, args.batch_size, args.epochs, args.test, args.cuda_device, args.config_number)
+  main(args.start_model_num, args.batch_size, args.epochs, args.test, args.cuda_device, args.config_number, args.inherit_model)
 
 

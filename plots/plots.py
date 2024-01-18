@@ -107,7 +107,7 @@ def plot_performance_curve(y_preds, ys, configs, bins=1000, save_path='', text =
     
         elif curve == 'nr':  
           x, y = get_noise_reduction(y, y_pred, bins, log_bins=log_bins)
-          nse = get_NSE_AT_NRF(TP=x, noise_reduction=y,  number_of_noise=100000)
+          nse = get_NSE_AT_NRF(TP=x, noise_reduction=y,  number_of_noise=10000)
 
         if labels == None:
           ax.plot(x, y)   
@@ -551,18 +551,32 @@ def plot_table(df, keys, save_path=''):
 
   df = df[keys]
   df = change_format_units(df)
-  
-  fig, ax = plt.subplots(figsize=(12, 4))
+  # Add white spaces around the keys
+  df.columns = df.columns.str.pad(10, side='both')
+  fig, ax = plt.subplots(figsize=(20, 4))
   ax.axis('off')
   ax.axis('tight')
-  ax.table(cellText=df.values, colLabels=df.columns, loc='center', cellLoc = 'center', fontsize=16)
+  table = ax.table(cellText=df.values, colLabels=df.columns, loc='center', cellLoc = 'center')
+
+  # Add colors and so
+  table.auto_set_font_size(False)
+  table.set_fontsize(16)
+  table.scale(1.5, 1.5)
+  table.auto_set_column_width(col=list(range(len(df.columns))))
+  for (row, col), cell in table.get_celld().items():
+      if (row == 0):
+        cell.set_facecolor('darkgrey')
+      if (row % 2 == 0) and (row != 0):
+        cell.set_facecolor('lightgrey')
+  plt.title('Hyperparameters', fontsize=20, pad=2)      
+
   fig.tight_layout()
   plt.savefig(save_path)
   plt.close()
   df.to_csv(save_path.replace('.png', '.csv'), index=False)
   
-def change_format(value, digits=2):
-  return '{:.{digits}e}'.format(value, digits=digits)  
+def change_format(value, digits=2, format="e"):
+  return '{:.{digits}{format}}'.format(value, digits=digits, format=format)  
 
 def change_energy_units(value):
   changed_value = value/3600/1000
@@ -587,6 +601,11 @@ def change_format_units(df):
     df.loc[:,'roc_area'] = df['roc_area'].apply(lambda x: change_format(x, digits=4))
   if 'nr_area' in df.columns:
     df.loc[:,'nr_area'] = df['nr_area'].apply(lambda x: change_format(x, digits=2))  
+  if 'NSE_AT_10KNRF' in df.columns:
+    df.loc[:,'NSE_AT_10KNRF'] = df['NSE_AT_10KNRF'].apply(lambda x: change_format(x, digits=3))
+  if 'training_time' in df.columns:
+    df.loc[:,'training_time'] = df['training_time']/3600
+    df.loc[:,'training_time'] = df['training_time'].apply(lambda x: change_format(x, digits=1, format='f'))
 
   return df  
 

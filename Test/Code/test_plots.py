@@ -49,15 +49,15 @@ import matplotlib.pyplot as plt
 ###################################################################
 #  Plot collections of noise reduction factors or roc             #
 ###################################################################
-models_path = '/mnt/md0/halin/Models/'
-models = [13,14,15,16,17,18,19,20,21]
-curve = 'nr'
-parameter = 'model_num'
-bins = 10000
+# models_path = '/mnt/md0/halin/Models/'
+models = [13,14,15,16,17,18,19,20,21,22]
+# curve = 'nr'
+# parameter = 'model_num'
+# bins = 10000
 
-str_models = '_'.join(map(str, models))
-#save_path = f"/mnt/md0/halin/Models/collections/{str_models}_{curve}.png"
-save_path = f'/home/halin/Master/Transformer/Test/presentation/model_{str_models}_{curve}.png'
+# str_models = '_'.join(map(str, models))
+# #save_path = f"/mnt/md0/halin/Models/collections/{str_models}_{curve}.png"
+# save_path = f'/home/halin/Master/Transformer/Test/presentation/model_{str_models}_{curve}.png'
 
 
 # hyper_parameters = find_hyperparameters(model_number=models, 
@@ -69,27 +69,27 @@ save_path = f'/home/halin/Master/Transformer/Test/presentation/model_{str_models
 #                  labels, 
 #                  save_path=save_path, 
 #                  models_path=models_path,
-#                  x_lim=[0.8,1],
+#                  x_lim=[0.9,1],
 #                  curve=curve,
 #                  bins=bins)
-df = collect_config_to_df(model_numbers=models, save_path='/home/halin/Master/Transformer/Test/ModelsResults/collections/', save=False)
-df = df.sort_values('NSE_AT_100KNRF', ascending=False)
-keys = ['model_num', 'd_model', 'd_ff', 'N', 'h', "num_parms", "current_epoch", 'NSE_AT_100KNRF']
-for key in keys:
-    if key not in df.columns:
-        df[key] = np.nan
-print(df[keys])
+# df = collect_config_to_df(model_numbers=models, save_path='/home/halin/Master/Transformer/Test/ModelsResults/collections/', save=False)
+# df = df.sort_values('NSE_AT_10KNRF', ascending=False)
+# keys = ['model_num', 'd_model', 'd_ff', 'N', 'h', "num_param", "current_epoch", 'NSE_AT_10KNRF']
+# for key in keys:
+#     if key not in df.columns:
+#         df[key] = np.nan
+# print(df[keys])
 
 ###################################################################
 # Plot tabel of hyperparameters                                   #
 ###################################################################
-# models_path = '/mnt/md0/halin/Models/'
-# models = [16,17,18]
-# str_models = '_'.join(map(str, models))
-# save_path = f'/home/halin/Master/Transformer/Test/presentation/model_{str_models}_table.png'
-# df = collect_config_to_df(model_numbers=models, save_path=save_path)
-# keys = ['model_num', 'd_model', 'd_ff', 'N', 'h', "num_parms", "current_epoch", 'nr_area', 'roc_area', 'MACs', 'training_time']
-# plot_table(df, keys, save_path=save_path)
+models_path = '/mnt/md0/halin/Models/'
+
+str_models = '_'.join(map(str, models))
+save_path = f'/home/halin/Master/Transformer/Test/presentation/model_{str_models}_table.png'
+df = collect_config_to_df(model_numbers=models, save_path=save_path)
+keys = ['model_num', 'd_model', 'd_ff', 'N', 'h', "num_param", "pos_param", 'input_param', 'encoder_param', 'final_param', 'MACs', 'training_time']
+plot_table(df, keys, save_path=save_path)
 
 ###################################################################
 # Plot performance of a model                                     #

@@ -1,5 +1,5 @@
 
-shared_weights: True
+
 input_length: 256
 n_ant: 4
 

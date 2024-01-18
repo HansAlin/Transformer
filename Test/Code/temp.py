@@ -1,57 +1,77 @@
-def forward(self, query, key, value, mask = None):
-        #query = [batch size, query len, hid dim]
-        #key = [batch size, key len, hid dim]
-        #value = [batch size, value len, hid dim]
-        batch_size = query.shape[0]
-        len_k = key.shape[1]
-        len_q = query.shape[1]
-        len_v = value.shape[1]
 
-        query = self.fc_q(query)
-        key = self.fc_k(key)
-        value = self.fc_v(value)
+# Other code
 
-        r_q1 = query.view(batch_size, -1, self.n_heads, self.head_dim).permute(0, 2, 1, 3)
-        r_k1 = key.view(batch_size, -1, self.n_heads, self.head_dim).permute(0, 2, 1, 3)
-        attn1 = torch.matmul(r_q1, r_k1.permute(0, 1, 3, 2)) 
+class EncoderTransformer(nn.Module):
+  def __init__(self, encoders: List[nn.Module], 
+               src_embed: List[InputEmbeddings], 
+               src_pos: List[PositionalEncoding],
+               final_block: FinalBlock,
+               encoding_type: str = 'vanilla'
+               ) -> None:
+    super().__init__()
+
+    if encoding_type == 'vanilla':
+      self.encoder = encoders[0]
+      self.src_embed = src_embed
+      self.src_pos = src_pos[0]
+      self.final_block = final_block
+      self.encode_type = self.vanilla_encode
+    
+    else:
+      raise ValueError(f"Unsupported encoding type: {encoding_type}")
+
+  def vanilla_encode(self, src, src_mask=None):
+    # (batch_size, seq_len, channels)
+    src = self.src_embed(src)  # --> (batch_size, seq_len, d_model)
+    src = self.src_pos(src) # --> (batch_size, seq_len, d_model)
+
+    src = self.encoder(src)[0] # --> (batch_size, seq_len, d_model)
+
+    src = self.final_block(src)
+
+    return src
+
+  def encode(self, src, src_mask=None):
+    return self.encode_type(src, src_mask)
+  
+class VanillaEncoderBlock(nn.Module):
+  def __init__(self, d_model: int, h: int, d_ff: int, dropout: float = 0.1, activation='relu'):
+    super().__init__()
+    self.self_attention_block = MultiheadAttention(d_model, h, dropout)
+    self.feed_forward_block = FeedForwardBlock(d_model, d_ff, dropout, activation)
+    self.residual_connections = nn.ModuleList([ResidualConnection(d_model, dropout) for _ in range(2)])
+    self.dropout_1 = nn.Dropout(dropout)
+    self.dropout_2 = nn.Dropout(dropout)
+    self.norm_1 = LayerNormalization(d_model)
+    self.norm_2 = LayerNormalization(d_model)
 
 
-        # Relative positional encodings are computed for query and key, 
-        # resulting in r_q2 and r_k2.
-        # The dot product of r_q2 and r_k2 gives the relative attention scores attn2.
-        r_q2 = query.permute(1, 0, 2).contiguous().view(len_q, batch_size*self.n_heads, self.head_dim)
-        r_k2 = self.relative_position_k(len_q, len_k)
-        attn2 = torch.matmul(r_q2, r_k2.transpose(1, 2)).transpose(0, 1)
-        attn2 = attn2.contiguous().view(batch_size, self.n_heads, len_q, len_k)
-        attn = (attn1 + attn2) / self.scale
+  def forward(self, x, src_mask, src_key_padding_mask=None):
+    # (batch_size, seq_len, d_model)
+    # Multi head attention block
+    x2 = self.self_attention_block(x, x, x, src_mask, src_key_padding_mask)[0] # --> (batch_size, seq_len, d_model)
+    # Residual connection and normalization
+    x = x + self.dropout_1(x2) # --> (batch_size, seq_len, d_model)
+    x = self.norm_1(x) # --> (batch_size, seq_len, d_model)
+    # Feed forward block
+    x2 = self.feed_forward_block(x) # --> (batch_size, seq_len, d_model)
+    # Residual connection and normalization
+    x = x + self.dropout_2(x2) # --> (batch_size, seq_len, d_model)
+    x = self.norm_2(x) # --> (batch_size, seq_len, d_model)
 
-        if mask is not None:
-            attn = attn.masked_fill(mask == 0, -1e10)
+    return x  
+  
 
-        attn = self.dropout(torch.softmax(attn, dim = -1))
+# other code
+  
+vanilla_layer = VanillaEncoderBlock(d_model, h, d_ff, dropout, activation='relu')
+encoders = [nn.TransformerEncoder(vanilla_layer, num_layers=N)]    
 
-        #attn = [batch size, n heads, query len, key len]
-        r_v1 = value.view(batch_size, -1, self.n_heads, self.head_dim).permute(0, 2, 1, 3)
-        weight1 = torch.matmul(attn, r_v1)
-        r_v2 = self.relative_position_v(len_q, len_v)
-        weight2 = attn.permute(2, 0, 1, 3).contiguous().view(len_q, batch_size*self.n_heads, len_k)
-        weight2 = torch.matmul(weight2, r_v2)
-        weight2 = weight2.transpose(0, 1).contiguous().view(batch_size, self.n_heads, len_q, self.head_dim)
+encoder_transformer = EncoderTransformer(encoders=encoders,
+                                           src_embed=src_embed,
+                                           src_pos= src_pos, 
+                                           final_block=final_block,
+                                           encoding_type=encoding_type)
 
-        x = weight1 + weight2
-        
-        #x = [batch size, n heads, query len, head dim]
-        
-        x = x.permute(0, 2, 1, 3).contiguous()
-        
-        #x = [batch size, query len, n heads, head dim]
-        
-        x = x.view(batch_size, -1, self.hid_dim)
-        
-        #x = [batch size, query len, hid dim]
-        
-        x = self.fc_o(x)
-        
-        #x = [batch size, query len, hid dim]
-        
-        return x
+# other code
+

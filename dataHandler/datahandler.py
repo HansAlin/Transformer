@@ -277,8 +277,8 @@ def get_data_binary_class(data_config_path='/home/halin/Master/Transformer/data_
   if save_test_set:
     save_path = '/home/halin/Master/Transformer/Test/data/'
     print(f"Saving test set to {save_path}")
-    np.save(save_path + 'test_set_waves_binary_class.npy', waveforms[:200])
-    np.save(save_path + 'test_set_bkgd_binary_class.npy', background[:200])
+    np.save(save_path + f'test_set_waves_binary_class_b_{batch_size}_s_{seq_len}.npy', waveforms[:200])
+    np.save(save_path + f'test_set_bkgd_binary_class_b_{batch_size}_s_{seq_len}.npy', background[:200])
     
 
   train_data = DatasetSnapshot(
@@ -312,7 +312,7 @@ def get_data_binary_class(data_config_path='/home/halin/Master/Transformer/data_
 
   return train_data, val_data, test_data
 
-def get_test_data(path='/home/halin/Master/Transformer/Test/data/', n_antennas=4, batch_size=32, random_seed=123):
+def get_test_data(path='/home/halin/Master/Transformer/Test/data/', n_antennas=4, batch_size=32, seq_len=256, random_seed=123):
   """ This method loads test data from folder
     Arg:
       path: wher data is saved
@@ -326,8 +326,8 @@ def get_test_data(path='/home/halin/Master/Transformer/Test/data/', n_antennas=4
     path = os.getcwd()
     path = path + '/Test/data/' 
 
-  waves = np.load(path + 'test_set_waves_binary_class.npy' )
-  background = np.load(path + 'test_set_bkgd_binary_class.npy' )
+  waves = np.load(path + f'test_set_waves_binary_class_b_{batch_size}_s_{seq_len}.npy' )
+  background = np.load(path + f'test_set_bkgd_binary_class_b_{batch_size}_s_{seq_len}.npy' )
   np_rng = np.random.default_rng(random_seed)
 
   train_data = DatasetSnapshot(

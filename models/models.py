@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import math
 from typing import List
+from torch.nn.modules import MultiheadAttention, Linear, Dropout, BatchNorm1d, TransformerEncoderLayer
 
 
 # 
@@ -93,21 +94,25 @@ class InputEmbeddings(nn.Module):
       activation (str, optional): The activation function. Defaults to 'relu'.
   
   """
-  def __init__(self, d_model: int, dropout: float = 0.1, channels: int = 4, activation='relu'):
+  def __init__(self, d_model: int, dropout: float = 0.1, channels: int = 4, embed_type='lin_relu_drop'):
     super().__init__()
     self.d_model = d_model
-    self.embedding = nn.Linear(channels, d_model)
-    self.dropout = nn.Dropout(dropout)
-    
-    activations = {
-        'relu': nn.ReLU(),
-        'gelu': nn.GELU(),
-        'none': nn.Identity(),  
-        }
-    try:
-      self.activation = activations[activation]
-    except KeyError:
-      raise KeyError(f"{activation} is not a valid activation function. Choose between {activations.keys()}")  
+
+    if embed_type == 'lin_relu_drop':
+      self.embedding = nn.Linear(channels, d_model)
+      self.activation = nn.ReLU()
+      self.dropout = nn.Dropout(dropout)
+    elif embed_type == 'lin_gelu_drop':
+      self.embedding = nn.Linear(channels, d_model)
+      self.activation = nn.GELU()
+      self.dropout = nn.Dropout(dropout)
+    elif embed_type == 'linear':
+      self.embedding = nn.Linear(channels, d_model)
+      self.activation = nn.Identity()
+      self.dropout = nn.Dropout(0)    
+    else:
+      raise ValueError(f"Unsupported embed type: {embed_type}")
+
 
 
   def forward(self, x):
@@ -229,20 +234,22 @@ class FinalBlock(nn.Module):
           out_put_size (int, optional): The size of the output. Defaults to 1.
           forward_type (str, optional): The type of the forward pass. Defaults to 'basic'.
   """
-  def __init__(self, d_model: int, seq_len: int, dropout: float = 0.1,  out_put_size: int = 1, forward_type='basic'):
+  def __init__(self, d_model: int, seq_len: int, dropout: float = 0.1,  out_put_size: int = 1, forward_type='double_linear'):
     super().__init__()
-    if forward_type == 'basic':
+    if forward_type == 'double_linear':
       self.linear_1 = nn.Linear(d_model, out_put_size)
       self.dropout = nn.Dropout(dropout)
       self.linear_2 = nn.Linear(seq_len, out_put_size)
-      self.activation = nn.Sigmoid()
       self.forward_type = self.basic_forward
-    elif forward_type == 'slim':
+
+    elif forward_type == 'single_linear':
       self.linear_1 = nn.Linear(d_model*seq_len, out_put_size)  
       self.forward_type = self.slim_forward
-    elif forward_type == 'maxpool':  
-      self.maxpool = nn.AdaptiveAvgPool2d((1, 1))
-      self.forward_type = self.maxpool_forward
+
+    elif forward_type == 'average_pool':  
+      self.average_pool = nn.AdaptiveAvgPool2d((1, 1))
+      self.forward_type = self.average_forward
+
     else:
       raise ValueError(f"Unsupported forward type: {forward_type}")  
  
@@ -268,9 +275,10 @@ class FinalBlock(nn.Module):
     # (batch_size, out_put_size)
     return x
   
-  def maxpool_forward(self, x):
+  def average_forward(self, x):
     # (batch_size, seq_len, d_model)
-    x = self.maxpool(x)
+    x =  x.unsqueeze(0)
+    x = self.average_pool(x)
     # (batch_size, 1,)
     x = x.squeeze()
     # (batch_size)
@@ -431,6 +439,7 @@ class ResidualConnection(nn.Module):
     
 
   def forward(self, x, sublayer):
+    #TODO change this code so it becomes more similar to the vanilla encoder
     # There are other ways to add the residual connection
     # For example, you can add it sublayer(x) and then apply the normalization.
 
@@ -477,6 +486,60 @@ class EncoderBlock(nn.Module):
     x = self.residual_connections[1](x, self.feed_forward_block)
     return x  
   
+class VanillaEncoderBlock(nn.Module):
+  def __init__(self, d_model: int, h: int, d_ff: int, dropout: float = 0.1):
+    super().__init__()
+    self.self_attention_block = MultiheadAttention(d_model, h, dropout)
+    self.dropout_1 = nn.Dropout(dropout)
+    self.dropout_2 = nn.Dropout(dropout)
+    self.norm_1 = LayerNormalization(d_model)
+    self.norm_2 = LayerNormalization(d_model)
+    self.feed_forward_block = FeedForwardBlock(d_model, d_ff, dropout)
+
+  def forward(self, x, src_mask, src_key_padding_mask=None):
+    # (batch_size, seq_len, d_model)
+    # Multi head attention block
+    x = x.permute(1, 0, 2) # --> (seq_len, batch_size, d_model)
+    x2  = self.self_attention_block(x, x, x, attn_mask=src_mask, key_padding_mask=src_key_padding_mask)[0]# --> (seq_len, batch_size, d_model)
+    # Residual connection and normalization
+    x = x + self.dropout_1(x2) # --> (seq_len, batch_size, d_model)
+    x = x.permute(1, 0, 2) # --> (batch_size, seq_len, d_model)
+    x = self.norm_1(x) # --> (batch_size, seq_len, d_model)
+    # Feed forward block
+    x2 = self.feed_forward_block(x) # --> (batch_size, seq_len, d_model)
+    # Residual connection and normalization
+    x = x + self.dropout_2(x2) # --> (batch_size, seq_len, d_model)
+    x = self.norm_2(x) # --> (batch_size, seq_len, d_model)
+
+    return x
+               
+class VanillaEncoderTransformer(nn.Module):
+  def __init__(self, encoders: nn.Module, 
+              src_embed: List[InputEmbeddings], 
+               src_pos: List[PositionalEncoding],   
+               final_block: FinalBlock,
+               ) -> None:
+    super().__init__()
+
+    self.encoder = encoders
+    self.src_embed = src_embed[0]
+    self.src_pos = src_pos[0]
+    self.final_block = final_block
+
+  def encode(self, src, src_mask=None, src_key_padding_mask=None): 
+    # (batch_size, seq_len, d_model)
+    src = self.src_embed(src)
+
+    src = self.src_pos(src)
+
+    src = self.encoder(src, src_mask, src_key_padding_mask)
+
+    src = self.final_block(src)
+
+    return src 
+    
+
+
 class Encoder(nn.Module):
   def __init__(self, features: int, layers: nn.ModuleList, normalization='layer') -> None:
     super().__init__()
@@ -507,29 +570,41 @@ class Encoder(nn.Module):
 
   
 class EncoderTransformer(nn.Module):
-  def __init__(self, encoders: List[Encoder], 
+  def __init__(self, encoders: List[nn.Module], 
                src_embed: List[InputEmbeddings], 
                src_pos: List[PositionalEncoding],
-               final_block: FinalBlock
+               final_block: FinalBlock,
+               encoding_type: str = 'normal'
                ) -> None:
     super().__init__()
 
-    if len(encoders) > 1:
+    if encoding_type == 'bypass':
       for i, encoder in enumerate(encoders):
         setattr(self, f'encoder_{i+1}', encoder)
         setattr(self, f'src_embed_{i+1}', src_embed[i])
         setattr(self, f'src_pos_{i+1}', src_pos[i])
       self.final_block = final_block
       self.encode_type = self.bypass_encode
-    else:
+
+    elif encoding_type == 'none':
+      self.src_embed = src_embed[0]
+      self.src_pos = src_pos[0]
+      self.final_block = final_block
+      self.encode_type = self.non_encode
+
+    elif encoding_type == 'normal':
       self.encoder = encoders[0]
       self.src_embed = src_embed[0]
       self.src_pos = src_pos[0]
       self.final_block = final_block
-      self.encode_type = self.non_bypass_encode
+      self.encode_type = self.normal_encode
+
+    
+    else:
+      raise ValueError(f"Unsupported encoding type: {encoding_type}")
 
 
-  def non_bypass_encode(self, src, src_mask=None):
+  def normal_encode(self, src, src_mask=None):
     # (batch_size, seq_len, d_model)
     src = self.src_embed(src)
 
@@ -540,6 +615,15 @@ class EncoderTransformer(nn.Module):
     src = self.final_block(src)
     return src
   
+  def non_encode(self, src, src_mask=None):
+    # (batch_size, seq_len, d_model)
+    src = self.src_embed(src)
+
+    src = self.src_pos(src)
+
+    src = self.final_block(src)
+    return src
+
   def bypass_encode(self, src, src_mask=None):
     # (batch_size, seq_len, d_model)
     src_slices = src.split(1, dim=-1)
@@ -547,7 +631,6 @@ class EncoderTransformer(nn.Module):
     src_embeds = [getattr(self, f'src_embed_{i+1}')(src_slice) for i, src_slice in enumerate(src_slices)]
     src_poss = [getattr(self, f'src_pos_{i+1}')(src_embed) for i, src_embed in enumerate(src_embeds)]
     src_encoders = [getattr(self, f'encoder_{i+1}')(src_pos, src_mask) for i, src_pos in enumerate(src_poss)]
-
 
     src = torch.cat(src_encoders, dim=-1)
 
@@ -558,10 +641,7 @@ class EncoderTransformer(nn.Module):
   def encode(self, src, src_mask=None):
     return self.encode_type(src, src_mask)
   
-
- 
-
-def build_encoder_transformer(config) -> EncoderTransformer:
+def build_encoder_transformer(config): #-> EncoderTransformer:
 
   seq_len=config['seq_len']
   d_model=config['d_model']
@@ -571,36 +651,26 @@ def build_encoder_transformer(config) -> EncoderTransformer:
   omega=config['omega']
   d_ff=config['d_ff']
   output_size = config.get('output_size', 1)
-  by_pass = config.get('by_pass', False)
-  
-  #########################################################
-  # Create the input embeddings                           #
-  #########################################################    
-  embed_config = {
-      'relu_drop': ('relu', dropout),
-      'gelu_drop': ('gelu', dropout),
-      'basic': ('none', 0)
-  }
-
-  embed_type = config.get('embed_type', 'relu_drop')
-
-  if embed_type in embed_config:
-      activation, emb_drop = embed_config[embed_type]
-  else:
-      raise ValueError(f"Unsupported Embedding type: {embed_type}")
-
-  
-  if by_pass:
+  encoder_type = config.get('encoder_type', 'normal')
+  if encoder_type == 'bypass':
+    by_pass = True
     num_embeddings = config['n_ant']
     channels = 1
   else:
+    by_pass = False 
     channels = config['n_ant']
     num_embeddings = 1  
- 
-  src_embed = [InputEmbeddings(d_model=d_model, channels=channels, dropout=emb_drop, activation=activation) for _ in range(num_embeddings)]
+  
+
+  #########################################################
+  # Create the input embeddings                           #
+  #########################################################    
+
+  src_embed = [InputEmbeddings(d_model=d_model, channels=channels, dropout=config['dropout'], embed_type=config['embed_type']) for _ in range(num_embeddings)]
   
   #########################################################
   # Create the positional encodings                       #
+  #########################################################
   pos_enc_config = {
       'Sinusoidal': lambda: PositionalEncoding(d_model=d_model, dropout=dropout, seq_len=seq_len, omega=omega),
       'None': lambda: nn.Identity(),
@@ -622,33 +692,43 @@ def build_encoder_transformer(config) -> EncoderTransformer:
   #########################################################
   # Create the encoder layers                             #
   #########################################################
-  num_encoders = config['n_ant'] if by_pass else 1
+  encoding_type = config.get('encoder_type', 'normal')
+  if encoding_type == 'normal' or encoding_type == 'bypass':
 
-  encoders = []
-  
-  for _ in range(num_encoders):
-    encoder_blocks = []
-    for _ in range(N):
-      if config['pos_enc_type'] == 'Relative':
-        encoder_self_attention_block = MultiHeadAttentionBlock(d_model, h, dropout, max_relative_position=100, relative_positional_encoding=True)
-      else:
-        encoder_self_attention_block = MultiHeadAttentionBlock(d_model, h, dropout)
+    num_encoders = config['n_ant'] if by_pass else 1
 
-      feed_forward_block = FeedForwardBlock(d_model, d_ff, dropout)
-      encoder_block = EncoderBlock(features=d_model, 
-                                   self_attention_block=encoder_self_attention_block, 
-                                   feed_forward_block=feed_forward_block, 
-                                   dropout=dropout)
-      encoder_blocks.append(encoder_block)
-    encoders.append(Encoder(features=d_model,
-                            layers=nn.ModuleList(encoder_blocks), 
-                            normalization='layer'))
+    encoders = []
+    
+    for _ in range(num_encoders):
+      encoder_blocks = []
+      for _ in range(N):
+        if config['pos_enc_type'] == 'Relative':
+          encoder_self_attention_block = MultiHeadAttentionBlock(d_model, h, dropout, max_relative_position=100, relative_positional_encoding=True)
+        else:
+          encoder_self_attention_block = MultiHeadAttentionBlock(d_model, h, dropout)
+
+        feed_forward_block = FeedForwardBlock(d_model, d_ff, dropout)
+        encoder_block = EncoderBlock(features=d_model, 
+                                    self_attention_block=encoder_self_attention_block, 
+                                    feed_forward_block=feed_forward_block, 
+                                    dropout=dropout)
+        encoder_blocks.append(encoder_block)
+      encoders.append(Encoder(features=d_model,
+                              layers=nn.ModuleList(encoder_blocks), 
+                              normalization='layer'))
+  elif encoding_type == 'none':
+    encoders = [None]
+  elif encoding_type == 'vanilla':
+    vanilla_layer = VanillaEncoderBlock(d_model, h, d_ff, dropout)
+    encoders = nn.TransformerEncoder(vanilla_layer, num_layers=N)
+  else:
+    raise ValueError(f"Unsupported encoding type: {encoding_type}")        
     
 
   #########################################################
   # Create the final block                                #
   #########################################################
-  final_type = config.get('final_type', 'basic')
+  final_type = config.get('final_type', 'double_linear')
   if by_pass:
     factor = 4
   else:
@@ -656,10 +736,17 @@ def build_encoder_transformer(config) -> EncoderTransformer:
   final_block = FinalBlock(d_model=d_model*factor, seq_len=seq_len, dropout=dropout, out_put_size=output_size, forward_type=final_type)
 
   # Create the transformer
-  encoder_transformer = EncoderTransformer(encoders=encoders,
+  if encoding_type == 'vanilla':
+    encoder_transformer = VanillaEncoderTransformer(encoders=encoders,
+                                                    src_embed=src_embed,
+                                                    src_pos= src_pos, 
+                                                    final_block=final_block)
+  else:
+    encoder_transformer = EncoderTransformer(encoders=encoders,
                                            src_embed=src_embed,
                                            src_pos= src_pos, 
-                                           final_block=final_block)
+                                           final_block=final_block,
+                                           encoding_type=encoding_type)
 
   # Initialize the parameters
   for p in encoder_transformer.parameters():
@@ -678,29 +765,7 @@ def get_n_params(model):
     pp += nn
   return pp    
 
-# def set_max_split_size_mb(model, max_split_size_mb):
-#     """
-#     Set the max_split_size_mb parameter in PyTorch to avoid fragmentation.
 
-#     Args:
-#         model (torch.nn.Module): The PyTorch model.
-#         max_split_size_mb (int): The desired value for max_split_size_mb in megabytes.
-#     """
-#     for param in model.parameters():
-#         param.requires_grad = False  # Disable gradient calculation to prevent unnecessary memory allocations
-
-#     # Dummy forward pass to initialize the memory allocator
-#     dummy_input = torch.randn(32, 100,1)
-#     model.encoder(dummy_input, mask=None)
-
-#     # Get the current memory allocator state
-#     allocator = torch.cuda.memory._get_memory_allocator()
-
-#     # Update max_split_size_mb in the memory allocator
-#     allocator.set_max_split_size(max_split_size_mb * 1024 * 1024)
-
-#     for param in model.parameters():
-#         param.requires_grad = True  # Re-enable gradient calculation for training
 
 class ModelWrapper(nn.Module):
     """
@@ -727,4 +792,8 @@ class ModelWrapper(nn.Module):
     def forward(self, x):
         # Reshape the input to the correct shape
         x = x.view(self.batch_size, self.seq_len, self.channels)
-        return self.model.encode(x, src_mask=None)
+        src_mask = None #torch.zeros(self.batch_size, self.seq_len, self.seq_len)
+        return self.model.encode(x, src_mask=src_mask)
+    
+
+

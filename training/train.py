@@ -16,7 +16,7 @@ from tqdm import tqdm
 
 from models.models import build_encoder_transformer
 from dataHandler.datahandler import save_data, save_model, create_model_folder
-from evaluate.evaluate import test_model, validate, get_energy, get_MMac
+from evaluate.evaluate import test_model, validate, get_energy, get_MMac, count_parameters
 
 
 
@@ -28,7 +28,7 @@ def training(configs, cuda_device, batch_size=32, channels=4, model_folder='', t
     else:
       train_loader, val_loader, test_loader = get_data_binary_class(batch_size=batch_size, seq_len=configs[0]['seq_len'], subset=test)
   else:  
-    train_loader, val_loader, test_loader = get_test_data(batch_size=batch_size, n_antennas=channels)
+    train_loader, val_loader, test_loader = get_test_data(batch_size=batch_size, seq_len=configs[0]['seq_len'], n_antennas=channels)
 
 
   item = next(iter(train_loader))
@@ -72,10 +72,14 @@ def training(configs, cuda_device, batch_size=32, channels=4, model_folder='', t
       return None
     
     
-    config['MACs'], config['num_parms'] = get_MMac(model, batch_size=batch_size,  seq_len=config['seq_len'], channels=channels)
+    config['MACs'], config['num_param'] = get_MMac(model, batch_size=batch_size,  seq_len=config['seq_len'], channels=channels)
     config['model_path'] = create_model_folder(config['model_num'], path=model_folder)
-    
-    print(f"Number of paramters: {config['num_parms']}") 
+    results = count_parameters(model, verbose=False)
+    config['encoder_param'] = results['encoder_param']
+    config['input_param'] = results['src_embed_param']
+    config['final_param'] = results['final_param']
+    config['pos_param'] = results['buf_param']
+    print(f"Number of paramters: {config['num_param']} input: {config['input_param']} encoder: {config['encoder_param']} final: {config['final_param']} pos: {config['pos_param']}")
     writer = SummaryWriter(config['model_path'] + '/trainingdata')
     print(f"Follow on tensorboard: python3 -m tensorboard.main --logdir={config['model_path']}trainingdata")
     #  python3 -m tensorboard.main --logdir=/mnt/md0/halin/Models/model_1/trainingdata
@@ -229,7 +233,7 @@ def training(configs, cuda_device, batch_size=32, channels=4, model_folder='', t
     histogram(y_pred_data['y_pred'], y_pred_data['y'], config)
     nr_area, nse = plot_performance_curve([y_pred_data['y_pred']], [y_pred_data['y']], [config], curve='nr', x_lim=[0,1], bins=10000)
     config['nr_area'] = nr_area
-    config['NSE_AT_100KNRF'] = nse
+    config['NSE_AT_10KNRF'] = nse
     roc_area, _ = plot_performance_curve([y_pred_data['y_pred']], [y_pred_data['y']], [config], curve='roc', bins=10000)
     config['roc_area'] = roc_area
     plot_results(config['model_num'], config)

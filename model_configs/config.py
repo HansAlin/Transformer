@@ -1,29 +1,35 @@
 # History: 
 # Date        model
 # 2024-01-15: 24    'final_type' is 'maxpool' instead of 'slim'
+# 2024-01-16: 24 changed 'num_parms' to 'num_param'
+# 2024-01-16: 24 added 'encoder_type' which makes it possible skip the encoder
+# 2024-01-18: 25 removed 'bypass' that is now incorporated in 'encoder_type'
+# 2024-01-18: 25 changed final_type to avergae_pool
+# 2024-01-18: Changed old values to new values on models
+# 2024-01-18: Changed seq_len to 128
 
-config_1 =   config = {'model_name': "Attention is all you need",
+config_1 = {'model_name': "Attention is all you need",
             'model_type': "base_encoder",
               'model':None,
               'inherit_model': None, # The model to inherit from
-              'embed_type': 'basic', # Posible options: 'relu_drop', 'gelu_drop', 'basic'
-              'by_pass': False, # If channels are passed separatly through the model
+              'encoder_type': 'vanilla', # Posible options: 'normal', 'none', 'bypass', 'vanilla'
+              'embed_type': 'linear', # Posible options: 'lin_relu_drop', 'lin_gelu_drop', 'linear', 
               'pos_enc_type':'Sinusoidal', # Posible options: 'Sinusoidal', 'Relative', 'None', 'Learnable'
-              'final_type': 'maxpool', # Posible options: 'basic', 'slim', 'maxpool'
+              'final_type':  'average_pool', # Posible options: 'double_linear', 'single_linear', 'average_pool'
               'loss_function': 'BCEWithLogits', # Posible options: 'BCE', 'BCEWithLogits'
               'model_num': None,
-              'seq_len': 256,
+              'seq_len': 128,
               'd_model': 128, # Have to be dividable by h
               'd_ff': 64,
-              'N': 2,
+              'N': 4,
               'h': 16,
               'output_size': 1,
               'dropout': 0.1,
               'num_epochs': None,
-              'batch_size': None,
+              'batch_size': 64,
               "learning_rate": 1e-3,
               "decreas_factor": 0.5,
-              "num_parms":0,
+              "num_param":0,
               'MACs':0,
               "data_path":'',
               "current_epoch":0,

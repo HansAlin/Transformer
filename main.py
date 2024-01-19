@@ -43,12 +43,16 @@ from model_configs.config import get_config
 
 def main(start_model_num, batch_size, epochs, test, cuda_device, config_number, inherit_model): 
   models_path = '/mnt/md0/halin/Models/'
-
-  hyper_paramters = [64, 128, 256]
-  hyper_param_key = 'd_ff'
+  # 'double_linear', 'single_linear', 'seq_average_linear'
+  hyper_paramters = [512]
+  hyper_param_key = 'd_model'
   labels = {'hyper_parameters': hyper_paramters, 'name': 'Encoder type: ({hyper_param_key}})'}
   
   if start_model_num == None:
+    if test:
+      print("Test mode")
+    else:
+      print("Training mode") 
     start_model_num = input("Enter start model number: ")
     check_path = models_path + f"model_{start_model_num}"
 

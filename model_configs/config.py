@@ -12,17 +12,17 @@ config_1 = {'model_name': "Attention is all you need",
             'model_type': "base_encoder",
               'model':None,
               'inherit_model': None, # The model to inherit from
-              'encoder_type': 'vanilla', # Posible options: 'normal', 'none', 'bypass', 'vanilla'
+              'encoder_type': 'normal', # Posible options: 'normal', 'none', 'bypass', 'vanilla'
               'embed_type': 'linear', # Posible options: 'lin_relu_drop', 'lin_gelu_drop', 'linear', 
               'pos_enc_type':'Sinusoidal', # Posible options: 'Sinusoidal', 'Relative', 'None', 'Learnable'
-              'final_type':  'average_pool', # Posible options: 'double_linear', 'single_linear', 'average_pool'
+              'final_type':  'seq_average_linear', # Posible options: 'double_linear', 'single_linear', 'seq_average_linear'
               'loss_function': 'BCEWithLogits', # Posible options: 'BCE', 'BCEWithLogits'
               'model_num': None,
               'seq_len': 128,
-              'd_model': 128, # Have to be dividable by h
+              'd_model': 64, # Have to be dividable by h
               'd_ff': 64,
-              'N': 4,
-              'h': 16,
+              'N': 2,
+              'h': 2,
               'output_size': 1,
               'dropout': 0.1,
               'num_epochs': None,
@@ -40,7 +40,7 @@ config_1 = {'model_name': "Attention is all you need",
               "omega": 10000,
               "trained_noise":0,
               "trained_signal":0,
-              "data_type": "classic", # Possible options: 'classic', 'chunked'
+              "data_type": "trigger", # Possible options: 'trigger', 'chunked'
               "n_ant":4,
               "metric":'Efficiency', # Posible options: 'Accuracy', 'Efficiency', 'Precision'
               "Accuracy":0,
@@ -61,3 +61,5 @@ def get_config(num):
         return config
     else:
         return None
+    
+

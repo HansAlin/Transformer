@@ -30,8 +30,8 @@ import torch
 config = get_config(1)
 
 model = build_encoder_transformer(config)
-input_data = torch.ones((32, 256, 4))
-mac = get_MMac(model=model, batch_size=32, seq_len=256, channels=4)
+input_data = torch.ones((config['batch_size'], config['seq_len'], 4))
+
 output = model.encode(input_data, src_mask=None)
 print(f"Shape output from model: {output.shape}")
 print(f"MACs: {mac}")

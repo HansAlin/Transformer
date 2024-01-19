@@ -25,7 +25,7 @@ from plots.plots import get_area_under_curve, get_noise_reduction, get_roc, get_
 # train_data, val_data, test_data = get_test_data()
 # df = collect_config_to_df(model_numbers=[2,3,4,5,6,7,8,9,10,11,12], save_path='/home/halin/Master/Transformer/Test/ModelsResults/collections/')
 # print(df[['model_num', 'embed_type', 'pos_enc_type', 'loss_function', 'seq_len', 'd_model', 'd_ff', 'N', 'h', "num_parms", "current_epoch", 'Accuracy', 'Efficiency', 'Precission']])
-get_data_binary_class(seq_len=256, batch_size=32, subset=True, save_test_set=True)
+#get_data_binary_class(seq_len=256, batch_size=32, subset=True, save_test_set=True)
 def change_key(dict_obj, old_key, new_key):
     dict_obj[new_key] = dict_obj.pop(old_key)
 
@@ -33,23 +33,29 @@ def add_key_if_not_exists(dict_obj, key, value):
     if key not in dict_obj:
         dict_obj[key] = value
 
-###################################################################
-# Add data to config file                                         #
-###################################################################
-# model_numbers = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,16,17,18,19,20,21,22,23,24]
+# ###################################################################
+# # Add data to config file                                         #
+# ###################################################################
+# model_numbers = [1,2]#[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,16,17,18,19,20,21,22,23,24,25]
 # bins = 10000
 # print('{:<20} {:>20} {:>20} {:>20} '.format('Model number', 'Encoder type','Embed type',  'Final type' ))
 # for model_number in model_numbers:
 #     config = get_model_config(model_num=model_number)
-#     #model = build_encoder_transformer(config)
+#     model = build_encoder_transformer(config)
+#     # results = count_parameters(model, verbose=False)
+#     # config['encoder_param'] = results['encoder_param']
+#     # config['input_param'] = results['src_embed_param']
+#     # config['final_param'] = results['final_param']
+#     # config['pos_param'] = results['buf_param']
+#     # config['num_param'] = results['total_trainable_param']
 #     # macs, params = get_MMac(model=model, 
 #     #             batch_size=config['batch_size'], 
 #     #             seq_len=config['seq_len'], 
 #     #             channels=config['n_ant'])
-#     # y_true, y_pred = get_predictions(model_number=model_number)
+#     y_true, y_pred = get_predictions(model_number=model_number)
 #     # # x, y = get_roc(y_true, y_pred, bins=10000)
 #     # # roc_area = get_area_under_curve(x, y)
-#     # x, y = get_noise_reduction(y_true, y_pred, bins=bins)
+#     x, y = get_noise_reduction(y_true, y_pred, bins=bins)
 #     # nr_area = get_area_under_curve(x, y)
 #     # config['MACs'] = macs
 #     # config['num_parms'] = params
@@ -64,12 +70,36 @@ def add_key_if_not_exists(dict_obj, key, value):
 #     # config['input_param'] = results['src_embed_param']
 #     # config['final_param'] = results['final_param']
 #     # config['pos_param'] = results['buf_param']
-#     add_key_if_not_exists(config, 'encoder_type', 'normal')
+#     add_key_if_not_exists(config, 'data_type', 'chunked')
+#     if config['data_type'] == 'classic':
+#         config['data_type'] = 'trigger'
+      
 
 #     print('{:<20} {:>20} {:>20} {:>20}  '.format(model_number, config['encoder_type'], config['embed_type'], config['final_type']))        
 
-#     # save_data(config)
-    
+#     save_data(config)
+
+###################################################################
+# Print config file                                               #
+###################################################################
+model_num = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,16,17,18,19,20,21,22,23,24,25]   
+col_1 = 'model_num'
+col_2 = 'encoder_type'
+col_3 = 'embed_type'
+col_4 = 'final_type' 
+col_5 = 'num_param'
+col_6 = 'encoder_param'
+col_7 = 'input_param'
+col_8 = 'final_param'
+col_9 = 'seq_len'
+col_10 = 'd_model'
+col_11 = 'd_ff'
+col_12 = 'N'
+col_13 = 'h' 
+col_14 = 'data_type'
+col_15 = 'NSE_AT_10KNRF'
+df = collect_config_to_df(model_numbers=model_num, save_path='/home/halin/Master/Transformer/Test/ModelsResults/collections/', save=False)
+print(df[[col_1, col_2, col_3, col_4, col_5, col_6, col_7, col_8, col_9, col_10, col_11, col_12, col_13, col_14, col_15]])
 
 
 

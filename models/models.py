@@ -45,7 +45,7 @@ class BatchNormalization(nn.Module):
     self.batch_norm = nn.BatchNorm1d(d_model, eps=eps)
 
   def forward(self, x):
-    #   
+    # TODO check whether this is correct implemented reshape? 
     return self.batch_norm(x)
   
 
@@ -240,33 +240,32 @@ class FinalBlock(nn.Module):
       self.linear_1 = nn.Linear(d_model, out_put_size)
       self.dropout = nn.Dropout(dropout)
       self.linear_2 = nn.Linear(seq_len, out_put_size)
-      self.forward_type = self.basic_forward
+      self.forward_type = self.double_linear_forward
 
     elif forward_type == 'single_linear':
       self.linear_1 = nn.Linear(d_model*seq_len, out_put_size)  
-      self.forward_type = self.slim_forward
+      self.forward_type = self.single_linear_forward
 
-    elif forward_type == 'average_pool':  
-      self.average_pool = nn.AdaptiveAvgPool2d((1, 1))
+    elif forward_type == 'seq_average_linear':  
+      self.linear = nn.Linear(seq_len, out_put_size)
       self.forward_type = self.average_forward
 
     else:
       raise ValueError(f"Unsupported forward type: {forward_type}")  
  
-  def basic_forward(self, x):
+  def double_linear_forward(self, x):
     #(batch_size, seq_len, d_model)
     x = self.linear_1(x)
     x = x.squeeze()
     x = self.dropout(x)
     x = self.linear_2(x) 
     x = x.squeeze()
-    x = self.activation(x)
     x = self.dropout(x)
     # (batch_size)
 
     return x
 
-  def slim_forward(self, x):
+  def single_linear_forward(self, x):
     # (batch_size, seq_len, d_model)
     x = x.view(x.shape[0], -1)
     # (batch_size, seq_len*d_model)
@@ -277,10 +276,11 @@ class FinalBlock(nn.Module):
   
   def average_forward(self, x):
     # (batch_size, seq_len, d_model)
-    x =  x.unsqueeze(0)
-    x = self.average_pool(x)
-    # (batch_size, 1,)
+    x =  x.mean(dim=2) # --> (batch_size, seq_len, out_put_size)
+    x = self.linear(x) # --> (batch_size, out_put_size, 1)
+
     x = x.squeeze()
+
     # (batch_size)
     return x
 
@@ -485,6 +485,48 @@ class EncoderBlock(nn.Module):
     x = self.residual_connections[0](x, lambda x: self.self_attention_block(x, x, x, src_mask))
     x = self.residual_connections[1](x, self.feed_forward_block)
     return x  
+  
+# class EncoderBlock(nn.Module):
+#   def __init__(self,
+#                d_model: int,
+#                self_attention_block: MultiHeadAttentionBlock,
+#                feed_forward_block: FeedForwardBlock, 
+#                dropout: float = 0.1,
+#                normalization='layer'):
+#     super().__init__()  
+#     self.self_attention_block = self_attention_block
+#     self.feed_forward_block =  feed_forward_block
+#     if normalization == 'layer':
+#       self.norm_1 = LayerNormalization(d_model)
+#       self.norm_2 = LayerNormalization(d_model)
+#     elif normalization == 'batch': 
+#       self.norm_1 = BatchNormalization(d_model)
+#       self.norm_2 = BatchNormalization(d_model) 
+#     else:
+#       raise ValueError(f"Unsupported normalization: {normalization}")
+    
+#     self.dropout_1 = nn.Dropout(dropout)
+#     self.dropout_2 = nn.Dropout(dropout)
+
+#   def forward(self, x, src_mask):
+#     # (batch_size, seq_len, d_model)
+    
+#     x2  = self.self_attention_block(x, x, x, src_mask)
+
+#     # Residual connection and normalization
+#     x = x + self.dropout_1(x2)
+#     x = self.norm_1(x)
+
+#     x2 = self.feed_forward_block(x)
+#     # Residual connection and normalization
+#     x = x + self.dropout_2(x2)
+#     x = self.norm_2(x)
+
+#     # (batch_size, seq_len, d_model)
+#     return x
+
+
+
   
 class VanillaEncoderBlock(nn.Module):
   def __init__(self, d_model: int, h: int, d_ff: int, dropout: float = 0.1):

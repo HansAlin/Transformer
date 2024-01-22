@@ -44,8 +44,8 @@ from model_configs.config import get_config
 def main(start_model_num, batch_size, epochs, test, cuda_device, config_number, inherit_model): 
   models_path = '/mnt/md0/halin/Models/'
   # 'double_linear', 'single_linear', 'seq_average_linear'
-  hyper_paramters = [512]
-  hyper_param_key = 'd_model'
+  hyper_paramters = [2]
+  hyper_param_key = 'h'
   labels = {'hyper_parameters': hyper_paramters, 'name': 'Encoder type: ({hyper_param_key}})'}
   
   if start_model_num == None:
@@ -96,6 +96,7 @@ def main(start_model_num, batch_size, epochs, test, cuda_device, config_number, 
       config['Efficiency'] = 0
       config['Precission'] = 0
       config['training_time'] = 0
+      
 
     # Update the hyper parameter
     config[hyper_param_key] = hyper_paramters[i]

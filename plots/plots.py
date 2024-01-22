@@ -1,4 +1,6 @@
 import matplotlib.pyplot as plt
+import matplotlib.style as style
+style.use('seaborn-colorblind')
 import numpy as np
 import os
 import pandas as pd
@@ -129,6 +131,7 @@ def plot_performance_curve(y_preds, ys, configs, bins=1000, save_path='', text =
       ax.set_yscale('log')
       ax.set_xlim(x_lim)
     ax.grid()
+    style.use('seaborn-colorblind')
     if save_path == '':
         save_path = config['model_path'] + 'plot/' + f'model_{config["model_num"]}_{curve}_{text.replace(" ", "_")}.png'
     plt.savefig(save_path)
@@ -548,12 +551,13 @@ def plot_table(df, keys, save_path=''):
   for key in keys:
     if key not in df.columns:
         df[key] = np.nan
-
+  num_of_rows = len(df)
+  fig_hight = 0.6 * num_of_rows
   df = df[keys]
   df = change_format_units(df)
   # Add white spaces around the keys
   df.columns = df.columns.str.pad(10, side='both')
-  fig, ax = plt.subplots(figsize=(20, 4))
+  fig, ax = plt.subplots(figsize=(16, fig_hight))
   ax.axis('off')
   ax.axis('tight')
   table = ax.table(cellText=df.values, colLabels=df.columns, loc='center', cellLoc = 'center')
@@ -568,7 +572,9 @@ def plot_table(df, keys, save_path=''):
         cell.set_facecolor('darkgrey')
       if (row % 2 == 0) and (row != 0):
         cell.set_facecolor('lightgrey')
-  plt.title('Hyperparameters', fontsize=20, pad=2)      
+  plt.title('Hyperparameters', fontsize=20, pad=2)  
+  ax.title.set_position([.5, 1.02])   
+  plt.subplots_adjust(left=0.025, bottom=0, right=0.975, top=0.9) 
 
   fig.tight_layout()
   plt.savefig(save_path)
@@ -602,7 +608,7 @@ def change_format_units(df):
   if 'nr_area' in df.columns:
     df.loc[:,'nr_area'] = df['nr_area'].apply(lambda x: change_format(x, digits=2))  
   if 'NSE_AT_10KNRF' in df.columns:
-    df.loc[:,'NSE_AT_10KNRF'] = df['NSE_AT_10KNRF'].apply(lambda x: change_format(x, digits=3))
+    df.loc[:,'NSE_AT_10KNRF'] = df['NSE_AT_10KNRF'].apply(lambda x: change_format(x, digits=3, format='f'))
   if 'training_time' in df.columns:
     df.loc[:,'training_time'] = df['training_time']/3600
     df.loc[:,'training_time'] = df['training_time'].apply(lambda x: change_format(x, digits=1, format='f'))

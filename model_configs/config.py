@@ -20,7 +20,7 @@ config_1 = {'model_name': "Attention is all you need",
               'model_num': None,
               'seq_len': 128,
               'd_model': 64, # Have to be dividable by h
-              'd_ff': 64,
+              'd_ff': 512,
               'N': 2,
               'h': 2,
               'output_size': 1,

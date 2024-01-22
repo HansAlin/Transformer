@@ -50,9 +50,9 @@ import matplotlib.pyplot as plt
 #  Plot collections of noise reduction factors or roc             #
 ###################################################################
 models_path = '/mnt/md0/halin/Models/'
-models = [23,25]
+models = [111,108,112]
 curve = 'nr'
-parameter = 'model_num'
+parameter = 'N'
 bins = 10000
 
 str_models = '_'.join(map(str, models))
@@ -69,12 +69,12 @@ plot_collections(models,
                  labels, 
                  save_path=save_path, 
                  models_path=models_path,
-                 x_lim=[0.9,1],
+                 x_lim=[0.8,1],
                  curve=curve,
                  bins=bins)
 df = collect_config_to_df(model_numbers=models, save_path='/home/halin/Master/Transformer/Test/ModelsResults/collections/', save=False)
 df = df.sort_values('NSE_AT_10KNRF', ascending=False)
-keys = ['model_num', 'd_model', 'd_ff', 'N', 'h', "num_param", "current_epoch", 'NSE_AT_10KNRF']
+keys = ['model_num', 'd_model', 'd_ff', 'N', 'h', 'input_param','encoder_param', 'final_param', 'NSE_AT_10KNRF', 'training_time']
 for key in keys:
     if key not in df.columns:
         df[key] = np.nan
@@ -83,13 +83,13 @@ print(df[keys])
 ###################################################################
 # Plot tabel of hyperparameters                                   #
 ###################################################################
-# models_path = '/mnt/md0/halin/Models/'
+models_path = '/mnt/md0/halin/Models/'
 
-# str_models = '_'.join(map(str, models))
-# save_path = f'/home/halin/Master/Transformer/Test/presentation/model_{str_models}_table.png'
-# df = collect_config_to_df(model_numbers=models, save_path=save_path)
-# keys = ['model_num', 'd_model', 'd_ff', 'N', 'h', "num_param", "pos_param", 'input_param', 'encoder_param', 'final_param', 'MACs', 'training_time']
-# plot_table(df, keys, save_path=save_path)
+str_models = '_'.join(map(str, models))
+save_path = f'/home/halin/Master/Transformer/Test/presentation/model_{str_models}_table.png'
+df = collect_config_to_df(model_numbers=models, save_path=save_path)
+# keys = ['model_num', 'd_model', 'd_ff', 'N', 'h', "num_param", "pos_param", 'input_param', 'encoder_param', 'final_param', 'NSE_AT_10KNRF' ]
+plot_table(df, keys, save_path=save_path)
 
 ###################################################################
 # Plot performance of a model                                     #

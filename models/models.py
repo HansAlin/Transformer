@@ -276,8 +276,8 @@ class FinalBlock(nn.Module):
   
   def average_forward(self, x):
     # (batch_size, seq_len, d_model)
-    x =  x.mean(dim=2) # --> (batch_size, seq_len, out_put_size)
-    x = self.linear(x) # --> (batch_size, out_put_size, 1)
+    x =  x.mean(dim=2) # --> (batch_size, seq_len)
+    x = self.linear(x) # --> (batch_size, 1)
 
     x = x.squeeze()
 

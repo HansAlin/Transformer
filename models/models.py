@@ -247,7 +247,7 @@ class FinalBlock(nn.Module):
       self.forward_type = self.single_linear_forward
 
     elif forward_type == 'seq_average_linear':  
-      self.linear = nn.Linear(seq_len, out_put_size)
+      self.linear = nn.Linear(d_model, out_put_size) #TODO check whether this is correct seq_len
       self.forward_type = self.average_forward
 
     else:
@@ -276,7 +276,7 @@ class FinalBlock(nn.Module):
   
   def average_forward(self, x):
     # (batch_size, seq_len, d_model)
-    x =  x.mean(dim=2) # --> (batch_size, seq_len)
+    x =  x.mean(dim=1) # --> (batch_size, seq_len)#TODO check whether this is correct 1 or 2
     x = self.linear(x) # --> (batch_size, 1)
 
     x = x.squeeze()
@@ -653,8 +653,10 @@ class EncoderTransformer(nn.Module):
     src = self.src_pos(src)
     
     src = self.encoder(src, src_mask)
+    # print(f"Encoder output standard deviation: {src.std().item()} ", end=' ')
 
     src = self.final_block(src)
+    # print(f"Final block output standard deviation: {src.std().item()} ", end='\r')
     return src
   
   def non_encode(self, src, src_mask=None):

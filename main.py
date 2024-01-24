@@ -44,9 +44,9 @@ from model_configs.config import get_config
 def main(start_model_num, batch_size, epochs, test, cuda_device, config_number, inherit_model): 
   models_path = '/mnt/md0/halin/Models/'
   # 'double_linear', 'single_linear', 'seq_average_linear'
-  hyper_paramters = [2]
-  hyper_param_key = 'h'
-  labels = {'hyper_parameters': hyper_paramters, 'name': 'Encoder type: ({hyper_param_key}})'}
+  hyper_paramters = ['Relative',  'Learnable']
+  hyper_param_key = 'N'
+  labels = {'pos_enc_type': hyper_paramters, 'name': 'Encoder type: ({hyper_param_key}})'}
   
   if start_model_num == None:
     if test:
@@ -122,7 +122,7 @@ if __name__ == "__main__":
   parser.add_argument('--test', type=bool, help='Default False', default=False)
   parser.add_argument('--cuda_device', type=int,help='Default 0', default=0)
   parser.add_argument('--config_number', type=int,help='Default 1', default=1)
-  parser.add_argument('--inherit_model', type=int,help='Default 18', default=None)
+  parser.add_argument('--inherit_model', type=int,help='Default 18', default=116)
   
   args = parser.parse_args()
   main(args.start_model_num, args.batch_size, args.epochs, args.test, args.cuda_device, args.config_number, args.inherit_model)

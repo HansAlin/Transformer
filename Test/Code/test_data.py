@@ -82,10 +82,10 @@ def add_key_if_not_exists(dict_obj, key, value):
 ###################################################################
 # Print config file                                               #
 ###################################################################
-model_num = [111,108,112,113,114] # 101,105,106,107,108,109,110   
+model_num = [13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,99,100,101,102,103,104,105,106,107,108,109,110,111,108,112,113,114,115,116,117,118,119,120,121] # 101,105,106,107,108,109,110   
 col_1 = 'model_num'
 # col_2 = 'encoder_type'
-# col_3 = 'embed_type'
+# col_3 = 'embed_type'#
 # col_4 = 'final_type' 
 col_5 = 'num_param'
 col_6 = 'encoder_param'
@@ -100,6 +100,7 @@ col_13 = 'h'
 col_15 = 'NSE_AT_10KNRF'
 df = collect_config_to_df(model_numbers=model_num, save_path='/home/halin/Master/Transformer/Test/ModelsResults/collections/', save=True)
 # col_2, col_3, col_4,col_14,
+df = df.sort_values('NSE_AT_10KNRF', ascending=False)
 print(df[[col_1, col_5, col_6, col_7, col_8, col_9, col_10, col_11, col_12, col_13,  col_15]])
 
 

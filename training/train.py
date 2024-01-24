@@ -126,11 +126,11 @@ def training(configs, cuda_device, batch_size=32, channels=4, model_folder='', t
       #############################################
       # Training                                  #
       #############################################
-      print("train_loader is not a DataLoader")    
+        
       num_of_bathes = int(len(train_loader))
       for istep in tqdm(range(len(train_loader))):
 
-        print(f"Epoch {epoch + 1}/{config['num_epochs']} Batch {batch_num}/{num_of_bathes}", end="\r")
+        print(f"Epoch {epoch + 1}/{config['num_epochs']} Batch {batch_num}/{num_of_bathes}", end="\r") 
   
         x_batch, y_batch = train_loader.__getitem__(istep)
         x_batch, y_batch = x_batch.to(device), y_batch.to(device)
@@ -147,7 +147,7 @@ def training(configs, cuda_device, batch_size=32, channels=4, model_folder='', t
         train_loss.append(loss.item())
         batch_num += 1
 
-      print(f"\rEpoch {epoch + 1}/{config['num_epochs']} Done ", end="  ")
+ 
       
       #############################################
       # Validation                                #

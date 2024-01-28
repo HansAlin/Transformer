@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import matplotlib.style as style
-style.use('seaborn-colorblind')
+
 import numpy as np
 import os
 import pandas as pd
@@ -9,7 +9,8 @@ import torch
 
 
 from models.models import build_encoder_transformer
-from dataHandler.datahandler import get_test_data, get_data_binary_class
+from dataHandler.datahandler import get_test_data, get_data_binary_class, get_model_path
+from evaluate.evaluate import get_model_path
 
 def histogram(y_pred, y, config, bins=100, save_path=''):
     """
@@ -50,7 +51,7 @@ def histogram(y_pred, y, config, bins=100, save_path=''):
 
 
 
-def plot_performance_curve(y_preds, ys, configs, bins=1000, save_path='', text = '', labels=None, x_lim=[0.8,1], curve='roc', log_bins=False):
+def plot_performance_curve(y_preds, ys, configs, bins=1000, save_path='', text = '', labels=None, x_lim=[0.8,1], curve='roc', log_bins=False, reject_noise=1e4):
     """
             This function plots the noise reduction factor curve for a given model or models. Note that
             the y_pred, y and config must be a list of arrays and dicts respectively.
@@ -70,6 +71,7 @@ def plot_performance_curve(y_preds, ys, configs, bins=1000, save_path='', text =
                 area (float): area under the curve for both noise reduction factor and roc
                 nse (float): noise reduction factor at 100k noise only for noise reduction factor curve
                               for roc curve, nse is None
+                threshold (float): threshold at rejection  of reject_noise              
     """
  
     fig, ax = plt.subplots()
@@ -104,12 +106,12 @@ def plot_performance_curve(y_preds, ys, configs, bins=1000, save_path='', text =
         nr_y_noise = np.count_nonzero(y == 0)
 
         if curve == 'roc':
-          x, y = get_roc(y, y_pred,bins=bins, log_bins=log_bins)
-          nse = None
+          x, y, nse, threshold = get_roc(y, y_pred,bins=bins, log_bins=log_bins, number_of_noise=reject_noise)
+         
     
         elif curve == 'nr':  
-          x, y = get_noise_reduction(y, y_pred, bins, log_bins=log_bins)
-          nse = get_NSE_AT_NRF(TP=x, noise_reduction=y,  number_of_noise=10000)
+          x, y, nse, threshold = get_noise_reduction(y, y_pred, bins, log_bins=log_bins, number_of_noise=reject_noise)
+          
 
         if labels == None:
           ax.plot(x, y)   
@@ -137,7 +139,7 @@ def plot_performance_curve(y_preds, ys, configs, bins=1000, save_path='', text =
     plt.savefig(save_path)
     plt.close()
 
-    return get_area_under_curve(x,y), nse
+    return get_area_under_curve(x,y), nse, threshold
 
 def plot_results(model_number, config, path=''):
   if path == '':
@@ -228,7 +230,7 @@ def plot_weights(model, config, save_path='', block='self_attention_block', quie
   plt.close()
 
 
-def plot_collections(models, labels, bins=100, save_path='', models_path='Test/ModelsResults/', x_lim=[0.8,1], window_pred=False, curve='roc', log_bins=False): 
+def plot_collections(models, labels, bins=100, save_path='', models_path='Test/ModelsResults/', x_lim=[0.8,1], window_pred=False, curve='roc', log_bins=False, reject_noise=1e4): 
   y_pred = []
   y = []
   configs = []
@@ -254,7 +256,7 @@ def plot_collections(models, labels, bins=100, save_path='', models_path='Test/M
       save_path =  model_name + '.png'  
 
   
-  plot_performance_curve(ys=y, 
+  area, nse, threshold = plot_performance_curve(ys=y, 
                         y_preds=y_pred, 
                         configs=configs, 
                         save_path=save_path, 
@@ -262,7 +264,8 @@ def plot_collections(models, labels, bins=100, save_path='', models_path='Test/M
                         x_lim=x_lim,
                         bins=bins,
                         curve=curve,
-                        log_bins=log_bins)
+                        log_bins=log_bins,
+                        reject_noise=reject_noise)
 
 
 def plot_examples(data, config=None, save_path=''):
@@ -308,7 +311,7 @@ def plot_performance(config, device, x_batch=None, y_batch=None,lim_value=0.2, m
     y_test = y_batch
 
   device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  
-  MODEL_PATH = model_path + f'model_{model_num}/saved_model/model_{model_num}.pth'
+  MODEL_PATH = get_model_path(config)
   CONFIG_PATH = model_path + f'model_{model_num}/config.txt'
   with open(CONFIG_PATH, 'rb') as f:
     config = pickle.load(f)
@@ -392,7 +395,7 @@ def plot_performance(config, device, x_batch=None, y_batch=None,lim_value=0.2, m
       plt.close()
   return None
 
-def get_roc(y_true, y_score, bins=100, log_bins=False):
+def get_roc(y_true, y_score, bins=100, log_bins=False, number_of_noise=1e4):
     """
         This function calculates the ROC curve for a given model.
         Args:
@@ -437,10 +440,12 @@ def get_roc(y_true, y_score, bins=100, log_bins=False):
         
         tpr.append(TPR)
         fpr.append(FPR)
-    
-    return fpr, tpr
+    index = np.argmax(ensure_numpy_array(fpr) < 1/number_of_noise)
+    nse = tpr[index]
+    threshold = binnings[index]
+    return fpr, tpr, nse, threshold
 
-def get_noise_reduction(y, y_pred, bins=1000,  log_bins=False):
+def get_noise_reduction(y, y_pred, bins=1000,  log_bins=False, number_of_noise=1e4):
     """ 
       This function calculates the noise reduction factor for a given model.
       Args:
@@ -479,9 +484,11 @@ def get_noise_reduction(y, y_pred, bins=1000,  log_bins=False):
 
         noise_reduction[i] = 1 / (1 - true_neg) if true_neg < 1 else background
 
-    return TP, noise_reduction
+    nse, index = get_NSE_AT_NRF(TP, noise_reduction, number_of_noise=number_of_noise)
+
+    return TP, noise_reduction, nse, binnings[index]
  
-def get_NSE_AT_NRF(TP, noise_reduction, number_of_noise=1e5):
+def get_NSE_AT_NRF(TP, noise_reduction, number_of_noise=1e4):
   """ 
     This function calculates the noise reduction factor at a given number of noise
     Args:
@@ -495,7 +502,7 @@ def get_NSE_AT_NRF(TP, noise_reduction, number_of_noise=1e5):
   noise_reduction = ensure_numpy_array(noise_reduction)
   index = np.argmax(noise_reduction >= number_of_noise)
   nse = TP[index]
-  return nse
+  return nse, index
 
 
 def ensure_numpy_array(variable):

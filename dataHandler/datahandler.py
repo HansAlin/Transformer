@@ -12,6 +12,7 @@ import pickle
 import sys
 import time
 from tqdm import tqdm
+import glob
 
 CODE_DIR_1  ='/home/acoleman/software/NuRadioMC/'
 sys.path.append(CODE_DIR_1)
@@ -674,7 +675,7 @@ def standardScaler(x):
   x /= std
   return x
 
-def save_model(trained_model, optimizer, config, global_step):
+def save_model(trained_model, optimizer, config, global_step, text='early_stop'):
 
   path = config['model_path']
 
@@ -688,8 +689,42 @@ def save_model(trained_model, optimizer, config, global_step):
               'model_state_dict': trained_model.state_dict(), 
               'optimizer_state_dict': optimizer.state_dict(),
               'global_step': global_step},
-              saved_model_path + f'/model_{config["model_num"]}.pth')
+              saved_model_path + f'/model_{config["model_num"]}_{text}.pth')
 
+def file_exist(directory, filename):
+   
+  filepath = os.path.join(directory, filename)
+
+  if os.path.isfile(filepath):
+    print(f"The file '{filename}' exists in the directory '{directory}'.")
+    return True
+  else:
+    print(f"The file '{filename}' does not exist in the directory '{directory}'.")
+    return False
+
+def find_file(directory, extension):
+   
+  files = glob.glob(os.path.join(directory, f'*.{extension}'))
+
+  for file in files:
+    print(file)
+    return file
+   
+  return None
+
+def get_model_path(config):
+
+  model_path = config['model_path'] + 'saved_model/' 
+
+  if file_exist(model_path, f'model_{config["model_num"]}_final.pth'):
+    model_path = model_path + f'model_{config["model_num"]}_final.pth'
+  elif file_exist(model_path, f'model_{config["model_num"]}_early_stop.pth'):
+    model_path = model_path + f'model_{config["model_num"]}_early_stop.pth'
+  else:
+    model_path = find_file(model_path, 'pth')   
+   
+  return model_path 
+  
 
 
 

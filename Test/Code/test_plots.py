@@ -49,47 +49,47 @@ import matplotlib.pyplot as plt
 ###################################################################
 #  Plot collections of noise reduction factors or roc             #
 ###################################################################
-models_path = '/mnt/md0/halin/Models/'
-models = [111,108,112]
-curve = 'nr'
-parameter = 'N'
-bins = 10000
+# models_path = '/mnt/md0/halin/Models/'
+# models = [111,108,112]
+# curve = 'nr'
+# parameter = 'N'
+# bins = 10000
 
-str_models = '_'.join(map(str, models))
-#save_path = f"/mnt/md0/halin/Models/collections/{str_models}_{curve}.png"
-save_path = f'/home/halin/Master/Transformer/Test/presentation/model_{str_models}_{curve}.png'
+# str_models = '_'.join(map(str, models))
+# #save_path = f"/mnt/md0/halin/Models/collections/{str_models}_{curve}.png"
+# save_path = f'/home/halin/Master/Transformer/Test/presentation/model_{str_models}_{curve}.png'
 
 
-hyper_parameters = find_hyperparameters(model_number=models, 
-                                        parameter=parameter,
-                                        models_path=models_path)
-labels = {'hyper_parameters': hyper_parameters, 'name': f'Model num.,  {parameter}'}
+# hyper_parameters = find_hyperparameters(model_number=models, 
+#                                         parameter=parameter,
+#                                         models_path=models_path)
+# labels = {'hyper_parameters': hyper_parameters, 'name': f'Model num.,  {parameter}'}
 
-plot_collections(models, 
-                 labels, 
-                 save_path=save_path, 
-                 models_path=models_path,
-                 x_lim=[0.8,1],
-                 curve=curve,
-                 bins=bins)
-df = collect_config_to_df(model_numbers=models, save_path='/home/halin/Master/Transformer/Test/ModelsResults/collections/', save=False)
-df = df.sort_values('NSE_AT_10KNRF', ascending=False)
-keys = ['model_num', 'd_model', 'd_ff', 'N', 'h', 'input_param','encoder_param', 'final_param', 'NSE_AT_10KNRF', 'training_time']
-for key in keys:
-    if key not in df.columns:
-        df[key] = np.nan
-print(df[keys])
+# plot_collections(models, 
+#                  labels, 
+#                  save_path=save_path, 
+#                  models_path=models_path,
+#                  x_lim=[0.8,1],
+#                  curve=curve,
+#                  bins=bins)
+# df = collect_config_to_df(model_numbers=models, save_path='/home/halin/Master/Transformer/Test/ModelsResults/collections/', save=False)
+# df = df.sort_values('NSE_AT_10KNRF', ascending=False)
+# keys = ['model_num', 'd_model', 'd_ff', 'N', 'h', 'input_param','encoder_param', 'final_param', 'NSE_AT_10KNRF', 'training_time']
+# for key in keys:
+#     if key not in df.columns:
+#         df[key] = np.nan
+# print(df[keys])
 
 ###################################################################
 # Plot tabel of hyperparameters                                   #
 ###################################################################
 models_path = '/mnt/md0/halin/Models/'
 
-str_models = '_'.join(map(str, models))
-save_path = f'/home/halin/Master/Transformer/Test/presentation/model_{str_models}_table.png'
-df = collect_config_to_df(model_numbers=models, save_path=save_path)
-# keys = ['model_num', 'd_model', 'd_ff', 'N', 'h', "num_param", "pos_param", 'input_param', 'encoder_param', 'final_param', 'NSE_AT_10KNRF' ]
-plot_table(df, keys, save_path=save_path)
+# str_models = '_'.join(map(str, models))
+# save_path = f'/home/halin/Master/Transformer/Test/presentation/model_{str_models}_table.png'
+# df = collect_config_to_df(model_numbers=models, save_path=save_path)
+# # keys = ['model_num', 'd_model', 'd_ff', 'N', 'h', "num_param", "pos_param", 'input_param', 'encoder_param', 'final_param', 'NSE_AT_10KNRF' ]
+# plot_table(df, keys, save_path=save_path)
 
 ###################################################################
 # Plot performance of a model                                     #
@@ -99,79 +99,42 @@ plot_table(df, keys, save_path=save_path)
 
 
 ###################################################################
-# Test noise reduction factor                                     #
-###################################################################
-# model_num = 990
-# save_path=f'/home/halin/Master/Transformer/Test/ModelsResults/model_{model_num}_roc'
-# data_path='/home/halin/Master/Transformer/Test/data/'
-# model_path='/mnt/md0/halin/Models/'
-# x_test = torch.load(data_path + 'example_x_data.pt')
-# y_test = torch.load(data_path + 'example_y_data.pt')
-# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  
-# MODEL_PATH = model_path + f'model_{model_num}/saved_model/model_{model_num}.pth'
-# CONFIG_PATH = model_path + f'model_{model_num}/config.txt'
-# with open(CONFIG_PATH, 'rb') as f:
-#     config = pickle.load(f)
-
-# model = build_encoder_transformer(config)
-# state = torch.load(MODEL_PATH)
-# model.load_state_dict(state['model_state_dict'])
-
-# model.to(device)
-# x_test, y_test = x_test.to(device), y_test.to(device)
-# model.eval()
-# pred = model.encode(x_test,src_mask=None)
-# index = 0
-
-# pred = pred.cpu().detach().numpy().reshape(-1,1)
-# x_test = x_test.cpu().detach().numpy()
-# y_test = y_test.cpu().detach().numpy().reshape(-1,1)
-
-# plot_performance_curve(y_preds=[pred], 
-#                        ys=[y_test], 
-#                        configs=[config], 
-#                        save_path=save_path, x_lim=[0,1], curve='roc')
-
-###################################################################
 # Plot single curves                                                     #
 ###################################################################
-# model_num = 13
-# model_path = '/mnt/md0/halin/Models/'
-# df = pd.read_pickle(model_path + f'model_{model_num}/y_pred_data.pkl')
-# y = df['y'].to_numpy()
-# y_pred = df['y_pred'].to_numpy()
-# cuda_device = 1 # If running performance plot
+model_nums = [123]
+window_pred = False
+bins = 10000
+curve = 'nr'
+save_path = f'/home/halin/Master/Transformer/Test/ModelsResults/collections/test_{curve}_threshold.png'
+for model_num in model_nums:
+    config_path = models_path + f'model_{model_num}/config.txt'
+    with open(config_path, 'rb') as f:
+        config = pickle.load(f)
+    y_data_path = models_path + f'model_{model_num}/y_pred_data.pkl'    
+    with open(y_data_path, 'rb') as f:
+        y_data = pickle.load(f)
+    y_pred = np.asarray(y_data['y_pred'])    
+    y = np.asarray(y_data['y'])
+    area, nse, threshold = plot_performance_curve(ys=[y], 
+                        y_preds=[y_pred], 
+                        configs=[config], 
+                        save_path=save_path, 
+                        labels=None,
+                        x_lim=0.8,
+                        bins=bins,
+                        curve='roc',
+                        log_bins=False,
+                        reject_noise=1e4)
+    print(f'Model number: {model_num} Area under curve: {area:.4f}, NSE: {nse:.4f}, Threshold: {threshold:.4f}')
 
-# plot_performance_curve(y_preds=[y_pred], 
-#                        ys=[y], 
-#                        configs=[get_model_config(model_num=model_num)], 
-#                        save_path='', 
-#                        x_lim=[0,1], 
-#                        curve='roc',
-#                        log_bins=False)
-# plot_performance_curve(y_preds=[y_pred], 
-#                        ys=[y], 
-#                        configs=[get_model_config(model_num=model_num)], 
-#                        save_path='', 
-#                        x_lim=[0,1], 
-#                        curve='nr',
-#                        log_bins=False)
-# histogram(y_pred=y_pred,
-#           y=y,
-#            config=get_model_config(model_num=model_num),
-#              )
-# torch.cuda.set_device(cuda_device)
-# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-# print(f"Using device: {device}, name of GPU: {torch.cuda.get_device_name(device=device)}")
-# plot_performance(config=get_model_config(model_num=model_num), device=device, lim_value=0.5)
 
 ###################################################################
 # Plot multi curves                                               #
 ###################################################################
-# model_nums = [13]
+# model_nums = [123]
 # window_pred = False
 # bins = 100
-# save_path = ''
+# save_path = '/home/halin/Master/Transformer/Test/ModelsResults/collections/test_threshold.png'
 # labels = None
 # for model_num in model_nums:
 #     plot_collections([model_num], 
@@ -182,7 +145,9 @@ plot_table(df, keys, save_path=save_path)
 #                     window_pred=window_pred,
 #                     curve='nr',
 #                     bins=bins,
-#                     log_bins=True)
+#                     log_bins=True, 
+#                     reject_noise=1e4)
+
     # plot_collections([model_num], 
     #                 labels, 
     #                 save_path=save_path, 

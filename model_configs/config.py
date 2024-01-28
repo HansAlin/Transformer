@@ -15,7 +15,8 @@ config_1 = {'model_name': "Attention is all you need",
               'encoder_type': 'normal', # Posible options: 'normal', 'none', 'bypass', 'vanilla'
               'embed_type': 'linear', # Posible options: 'lin_relu_drop', 'lin_gelu_drop', 'linear', 
               'pos_enc_type':'Sinusoidal', # Posible options: 'Sinusoidal', 'Relative',  'Learnable''None',
-              'final_type':  'seq_average_linear', # Posible options: 'double_linear', 'single_linear', 'seq_average_linear'
+              'final_type':  'd_model_average_linear', # Posible options: 'double_linear', 'single_linear', 'seq_average_linear', 'd_model_average_linear'
+              'normalization': 'layer', # Posible options: 'layer', 'batch'
               'loss_function': 'BCEWithLogits', # Posible options: 'BCE', 'BCEWithLogits'
               'model_num': None,
               'seq_len': 128,

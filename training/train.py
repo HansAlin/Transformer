@@ -186,7 +186,7 @@ def training(configs, cuda_device, batch_size=32, channels=4, model_folder='', t
       df = pd.concat([df, temp_df], ignore_index=True)
       # TODO maybe use best_val_loss instead of best_accuracy
       if val_loss < min_val_loss:
-        save_model(model, optimizer, config, epoch)
+        save_model(model, optimizer, config, epoch, text='early_stop')
       save_data(config, df)
 
       ############################################
@@ -217,6 +217,7 @@ def training(configs, cuda_device, batch_size=32, channels=4, model_folder='', t
     ###########################################
     # Training done                           #
     ###########################################  
+    save_model(model, optimizer, config, epoch, text='final')  
     writer.close()   
     total_training_time = time.time() - total_time   
     print(f"Total time: {total_training_time} s")
@@ -231,11 +232,13 @@ def training(configs, cuda_device, batch_size=32, channels=4, model_folder='', t
     print(f"Test efficiency: {config['Efficiency']:.4f}")
 
     histogram(y_pred_data['y_pred'], y_pred_data['y'], config)
-    nr_area, nse = plot_performance_curve([y_pred_data['y_pred']], [y_pred_data['y']], [config], curve='nr', x_lim=[0,1], bins=10000)
+    nr_area, nse, threshold = plot_performance_curve([y_pred_data['y_pred']], [y_pred_data['y']], [config], curve='nr', x_lim=[0,1], bins=10000)
     config['nr_area'] = nr_area
     config['NSE_AT_10KNRF'] = nse
-    roc_area, _ = plot_performance_curve([y_pred_data['y_pred']], [y_pred_data['y']], [config], curve='roc', bins=10000)
+    roc_area, nse, threshold = plot_performance_curve([y_pred_data['y_pred']], [y_pred_data['y']], [config], curve='roc', bins=10000)
     config['roc_area'] = roc_area
+    config['NSE_AT_10KROC'] = nse
+    config['TRESH_AT_10KNRF'] = threshold
     plot_results(config['model_num'], config)
 
 

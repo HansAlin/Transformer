@@ -8,10 +8,10 @@ CODE_DIR_1  ='/home/halin/Master/Transformer'
 sys.path.append(CODE_DIR_1)
 
 # from models.models import InputEmbeddings, LayerNormalization, FinalBlock, MultiHeadAttentionBlock, LearnablePositionalEncoding
-from models.models import InputEmbeddings, LayerNormalization, FinalBlock, MultiHeadAttentionBlock, LearnablePositionalEncoding, build_encoder_transformer, ModelWrapper
-from dataHandler.datahandler import get_data, prepare_data
+from models.models import InputEmbeddings, LayerNormalization, FinalBlock, MultiHeadAttentionBlock, LearnablePositionalEncoding, build_encoder_transformer, ModelWrapper, BatchNormalization
+from dataHandler.datahandler import get_data, prepare_data, get_data_binary_class, get_model_config
 from model_configs.config import get_config
-from evaluate.evaluate import get_MMac
+from evaluate.evaluate import get_MMac, test_model
 import torch
 
 
@@ -21,20 +21,22 @@ import torch
 
 # train_loader, val_loader, test_loader = prepare_data(x_train, x_val, x_test, y_train, y_val, y_test, batch_size=32, multi_channel=True)    
 
-# train_loader, val_loader, test_loader = get_data(batch_size=32, seq_len=256, subset=True)
 
-# input_data = None
-# for i in train_loader:
-#     input_data = i[0]
-#     break
-config = get_config(1)
+# model_number = 19
+# config = get_model_config(model_num=model_number)
+# model_path = config['model_path'] + 'saved_model' + f'/model_{config["model_num"]}.pth'
+# model = build_encoder_transformer(config)
+# print(f'Preloading model {model_path}')
+# state = torch.load(model_path)
+# model.load_state_dict(state['model_state_dict'])
+# train_loader, val_loader, test_loader = get_data_binary_class(seq_len=config['seq_len'],
+#                                                               batch_size=config['batch_size'],)
 
-model = build_encoder_transformer(config)
-input_data = torch.ones((config['batch_size'], config['seq_len'], 4))
-
-output = model.encode(input_data, src_mask=None)
-print(f"Shape output from model: {output.shape}")
-print(f"MACs: {mac}")
+# y_pred_data, accuracy, efficiency, precission = test_model(model=model, 
+#            test_loader=test_loader,
+#            device=0,
+#            config=config,)
+# print(f"Accuracy: {accuracy}, Efficiency: {efficiency}, Precission: {precission}")
 
 # time_input_model = InputEmbeddings(d_model=512, channels=4, dropout=0, activation='none' )
 # print(f"Shape input time embedding: {input_data.shape}")
@@ -54,3 +56,16 @@ print(f"MACs: {mac}")
 # final_layer = FinalBlock(d_model=512, seq_len=256, out_put_size=1, forward_type='new')
 # final_output = final_layer(output)
 # print(f"Shape input: {final_output.shape}")
+
+d_model = 64
+batch_size = 32
+seq_len = 128
+input_data = torch.randn(batch_size, seq_len, d_model)
+
+# normal = BatchNormalization(features=d_model)
+# output = normal(input_data)
+# print(f"Shape output: {output.shape}")
+
+learnable = LearnablePositionalEncoding(d_model=d_model)
+output = learnable(input_data)
+print(f"Shape output: {output.shape}")

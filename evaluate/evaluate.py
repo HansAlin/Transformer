@@ -10,9 +10,10 @@ import os
 from matplotlib import pyplot as plt
 import matplotlib
 import itertools
+import glob
 
 from models.models import ModelWrapper, get_n_params, build_encoder_transformer
-from dataHandler.datahandler import get_model_config, get_data, save_data
+from dataHandler.datahandler import get_model_config, get_data, save_data, get_model_path
 
 CODE_DIR_1  ='/home/acoleman/software/NuRadioMC/'
 sys.path.append(CODE_DIR_1)
@@ -22,6 +23,8 @@ sys.path.append(CODE_DIR_2)
 from analysis_tools.Filters import GetRMSNoise
 from NuRadioReco.utilities import units
 
+
+   
 
 def test_model(model, test_loader, device, config):
   """
@@ -36,8 +39,8 @@ def test_model(model, test_loader, device, config):
   Return:
     y_pred_data, accuracy, efficiency, precission
   """
-  model_path = config['model_path'] + 'saved_model' + f'/model_{config["model_num"]}.pth'
- 
+  model_path = get_model_path(config)
+    
   print(f'Preloading model {model_path}')
   state = torch.load(model_path)
   model.load_state_dict(state['model_state_dict'])
@@ -90,7 +93,7 @@ def test_model(model, test_loader, device, config):
     precission = 0
   else:  
     precission = TP / (TP + FP) 
- 
+  
   y_pred_data = pd.DataFrame({'y_pred': y_pred, 'y': y})
 
   return y_pred_data, accuracy, efficiency, precission
@@ -267,10 +270,11 @@ def get_results(model_num, device=0):
     save_data(config=config, y_pred_data=y_pred_data)
     return accuracy, efficiency, precission
 
-def get_transformer_triggers(waveforms, trigger_times, model_name, data_config, pre_trig):
+def get_transformer_triggers(waveforms, trigger_times, model_name, pre_trig):
   config = model_name['config']
   triggers = np.zeros((len(waveforms)))
   target_length = config['seq_len']
+  data_config = model_name['data_config']
   sampling_rate = data_config['sampling']['rate'] 
   upsampling = data_config['training']['upsampling']
   frac_into_waveform = data_config['training']['start_frac']
@@ -303,7 +307,8 @@ def get_transformer_triggers(waveforms, trigger_times, model_name, data_config, 
               x = this_wvf[cut_low_bin:cut_high_bin].swapaxes(0, 1).unsqueeze(0)
               x = x.transpose(1, 2)
               yhat = model.encode(x, src_mask=None)
-              triggers[i] = yhat.cpu().squeeze() > 0.95  # model["config"]["trigger"]["threshold"] * 
+              yhat = torch.sigmoid(yhat)
+              triggers[i] = yhat.cpu().squeeze() > config['TRESH_AT_10KNRF']
               pct_pass += 1 * triggers[i]
           except Exception as e:
               print("Yhat failed for ", this_wvf[cut_low_bin:cut_high_bin].swapaxes(0, 1).unsqueeze(0).shape)
@@ -346,10 +351,12 @@ def get_quick_veff_ratio(model_list,  data_config, save_path, device=0):
   print(f"Using device: {device}, name of GPU: {torch.cuda.get_device_name(device=device)}")
   
   # Get noise
-  data_path = ['/home/acoleman/data/rno-g/signal-generation/data/npy-files/veff/fLow_0.08-fhigh_0.23-rate_0.5/CDF_0.7/VeffData_nu_mu_cc_17.00eV.npz',
-               '/home/acoleman/data/rno-g/signal-generation/data/npy-files/veff/fLow_0.08-fhigh_0.23-rate_0.5/CDF_0.7/VeffData_nu_mu_cc_17.25eV.npz',
-               '/home/acoleman/data/rno-g/signal-generation/data/npy-files/veff/fLow_0.08-fhigh_0.23-rate_0.5/CDF_0.7/VeffData_nu_mu_cc_17.50eV.npz']    
-  sampling_string = data_path[0].split("/")[-3]
+  data_path = '/home/acoleman/data/rno-g/signal-generation/data/npy-files/veff/fLow_0.08-fhigh_0.23-rate_0.5/CDF_0.7/'
+  # file_list = glob.glob(data_path+'VeffData_nu_*.npz')
+  file_list =[data_path + 'VeffData_nu_mu_cc_17.00eV.npz',
+              data_path + 'VeffData_nu_mu_cc_17.25eV.npz',
+              data_path + 'VeffData_nu_mu_cc_17.50eV.npz',]
+  sampling_string = data_path.split("/")[-3]
   band_flow = float(sampling_string.split("-")[0].split("_")[1])
   band_fhigh = float(sampling_string.split("-")[1].split("_")[1])
   sampling_rate = float(sampling_string.split("-")[2].split("_")[1])
@@ -374,7 +381,7 @@ def get_quick_veff_ratio(model_list,  data_config, save_path, device=0):
 
 
 
-  for filename in data_path:
+  for filename in file_list:
     print(filename)
 
     basename = os.path.basename(filename)
@@ -487,11 +494,11 @@ def get_quick_veff_ratio(model_list,  data_config, save_path, device=0):
             if snr > snr_edges[-1] or snr < snr_edges[0]:
                 continue
             i_all = np.argmin(np.abs(snr - snr_centers))
-            #all_dat[lgE][flavor][current][ml_trig_name]["snr_trig"][1, i_all] += np.sum(file_dat["weight"])
+           # all_dat[lgE][flavor][current][ml_trig_name]["snr_trig"][1, i_all] += np.sum(file_dat["weight"])
 
 
   avg_veff = dict()
-  for trig_name in standard_triggers:
+  for trig_name in standard_triggers + list(all_models.keys()):
       avg_veff[trig_name] = []
 
   lgEs = []
@@ -499,13 +506,13 @@ def get_quick_veff_ratio(model_list,  data_config, save_path, device=0):
   for lgE in all_dat.keys():
       lgEs.append(lgE)
 
-      for trig_name in standard_triggers:
+      for trig_name in standard_triggers + list(all_models.keys()):
           avg_veff[trig_name].append(0.0)
 
       for flavor in all_dat[lgE].keys():
           for current in all_dat[lgE][flavor].keys():
 
-              for trig_name in standard_triggers:
+              for trig_name in standard_triggers + list(all_models.keys()):
                   avg_veff[trig_name][-1] += (
                       all_dat[lgE][flavor][current][trig_name]["weight"] / all_dat[lgE][flavor][current]["n_tot"]
                   )
@@ -521,14 +528,14 @@ def get_quick_veff_ratio(model_list,  data_config, save_path, device=0):
   )
 
   avg_snr_vals = dict()
-  for trig_name in standard_triggers:
+  for trig_name in standard_triggers + list(all_models.keys()):
       avg_snr_vals[trig_name] = np.zeros_like(snr_centers)
 
   for lgE in all_dat.keys():
       for flavor in all_dat[lgE].keys():
           for current in all_dat[lgE][flavor].keys():
 
-              for trig_name in standard_triggers:
+              for trig_name in standard_triggers + list(all_models.keys()):
                   avg_snr_vals[trig_name] += all_dat[lgE][flavor][current][trig_name]["snr_trig"][0]
 
 
@@ -549,7 +556,7 @@ def get_quick_veff_ratio(model_list,  data_config, save_path, device=0):
   ax.set_xlim(0, max(snr_edges))
   ax.legend(prop={"size": "x-small"})
 
-  filename = save_path + f"QuickVeffSNR.pdf"
+  filename = save_path + f"QuickVeffSNR.png"
   print("Saving", filename)
   fig.savefig(filename, bbox_inches="tight")
   plt.close()
@@ -566,7 +573,7 @@ def get_quick_veff_ratio(model_list,  data_config, save_path, device=0):
   )
 
 
-  for i, name in enumerate(standard_triggers):
+  for i, name in enumerate(standard_triggers + list(all_models.keys())):
       marker = next(markers)
       linestyle = next(linestyles)
 
@@ -586,7 +593,7 @@ def get_quick_veff_ratio(model_list,  data_config, save_path, device=0):
       )
 
   ymin, ymax = ax.get_ylim()
-  ax.set_ylim(0.9, 2.1)
+  ax.set_ylim(ymin=0.9, ymax=ymax)
   ax.legend(prop={"size": 6})
   ax.set_xlabel(r"lg(E$_{\nu}$ / eV)")
   ax.set_ylabel(r"V$_{\rm eff}$ / (" + reference_trigger.replace("_", " ") + ")")
@@ -595,6 +602,6 @@ def get_quick_veff_ratio(model_list,  data_config, save_path, device=0):
   ax.xaxis.set_ticks_position("both")
 
 
-  filename = save_path + "QuickVeffRatio.pdf"
+  filename = save_path + "QuickVeffRatio.png"
   print("Saving", filename)
   fig.savefig(filename, bbox_inches="tight")

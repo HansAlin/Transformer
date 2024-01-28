@@ -41,11 +41,11 @@ from model_configs.config import get_config
 # TODO Scheck if scheduler works!
 # TODO secure no model gets overwritten when running a new model
 
-def main(start_model_num, batch_size, epochs, test, cuda_device, config_number, inherit_model): 
+def main(start_model_num, batch_size, epochs, test, cuda_device, config_number, inherit_model, pretrained): 
   models_path = '/mnt/md0/halin/Models/'
   # 'double_linear', 'single_linear', 'seq_average_linear'
-  hyper_paramters = ['Relative',  'Learnable']
-  hyper_param_key = 'pos_enc_type'
+  hyper_paramters = ['seq_average_linear']
+  hyper_param_key = 'final_type'
   labels = {'hyper_parameters': hyper_paramters, 'name': 'Encoder type: ({hyper_param_key}})'}
   
   if start_model_num == None:
@@ -90,12 +90,23 @@ def main(start_model_num, batch_size, epochs, test, cuda_device, config_number, 
       config = old_config.copy()
       config['model_num'] = model_num
       config['model_path'] = ''
-      config['inherit_model'] = inherit_model
+      if pretrained:
+        config['inherit_model'] = inherit_model
+      else:
+        config['inherit_model'] = None  
       config['num_epochs'] = epochs
       config['Accuracy'] = 0
       config['Efficiency'] = 0
       config['Precission'] = 0
       config['training_time'] = 0
+      config['energy'] = 0
+      config['trained'] = False
+      config['power'] = 0
+      config['roc_area'] = 0
+      config['nr_area'] = 0
+      config['NSE_AT_10KNRF'] = 0
+      config['TRESH_AT_10KNRF'] = 0
+      config['NSE_AT_100KNRF'] = 0
       
 
     # Update the hyper parameter
@@ -118,13 +129,14 @@ if __name__ == "__main__":
   parser = argparse.ArgumentParser()
   parser.add_argument('--start_model_num', help='Check for no interference', type=int)
   parser.add_argument('--batch_size', type=int, help='Default 32', default=64)
-  parser.add_argument('--epochs', type=int, help='Default 100', default=2)
-  parser.add_argument('--test', type=bool, help='Default False', default=True)
+  parser.add_argument('--epochs', type=int, help='Default 100', default=100)
+  parser.add_argument('--test', type=bool, help='Default False', default=False)
   parser.add_argument('--cuda_device', type=int,help='Default 0', default=0)
   parser.add_argument('--config_number', type=int,help='Default 1', default=1)
-  parser.add_argument('--inherit_model', type=int,help='Default 18', default=123)
+  parser.add_argument('--inherit_model', type=int,help='Default 18', default=131)
+  parser.add_argument('--pretrained', type=bool,help='Default False', default=False)
   
   args = parser.parse_args()
-  main(args.start_model_num, args.batch_size, args.epochs, args.test, args.cuda_device, args.config_number, args.inherit_model)
+  main(args.start_model_num, args.batch_size, args.epochs, args.test, args.cuda_device, args.config_number, args.inherit_model, args.pretrained)
 
 

@@ -11,7 +11,7 @@ sys.path.append(CODE_DIR_2)
 from evaluate.evaluate import test_model, get_results, count_parameters, get_MMac,  get_quick_veff_ratio
 from models.models import build_encoder_transformer
 from model_configs.config import get_config
-from dataHandler.datahandler import get_model_config
+from dataHandler.datahandler import get_model_config, get_model_path
 
 from analysis_tools.config import GetConfig
 
@@ -19,7 +19,7 @@ from analysis_tools.config import GetConfig
 config = get_model_config(model_num=123)
 
 model = build_encoder_transformer(config)
-model_path = config['model_path'] + 'saved_model' + f'/model_{config["model_num"]}.pth'
+model_path = get_model_path(config)
 
 print(f'Preloading model {model_path}')
 state = torch.load(model_path)

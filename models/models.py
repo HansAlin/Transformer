@@ -39,14 +39,19 @@ class BatchNormalization(nn.Module):
       eps (float, optional): [description]. Defaults to 10**-6.
       d_model (int, optional): [description]. Defaults to 512.
   """
-  def _init__(self, eps: float = 10**-6, d_model: int = 512) -> None:
+  def __init__(self, eps: float = 10**-6, features: int = 512) -> None:
     super().__init__()
     self.eps = eps
-    self.batch_norm = nn.BatchNorm1d(d_model, eps=eps)
+    self.features = features
+    self.batch_norm = nn.BatchNorm1d(num_features=self.features, eps=eps)
 
   def forward(self, x):
+    # (batch_size, seq_len, d_model)
     # TODO check whether this is correct implemented reshape? 
-    return self.batch_norm(x)
+    x = x.permute(1,2,0) # (batch_size, d_model, seq_len)
+    x = self.batch_norm(x)
+    x = x.permute(2,0,1)
+    return x
   
 
 class FeedForwardBlock(nn.Module):
@@ -216,13 +221,19 @@ class RelativePositionalEncoding(nn.Module):
     return embeddings
 
 class LearnablePositionalEncoding(nn.Module):
-  def __init__(self, d_model):
+  """ This is from   https://github.com/gzerveas/mvts_transformer/blob/master/src/models/ts_transformer.py
+  """
+  def __init__(self, d_model, max_len=2048, dropout=0.1):
     super().__init__()
     self.d_model = d_model
-    self.positional_encoding = nn.Parameter(torch.zeros(1, d_model))
+    self.positional_encoding = nn.Parameter(torch.empty(1, max_len, d_model))
+    nn.init.uniform_(self.positional_encoding, -0.02, 0.02)
+    self.dropout = nn.Dropout(p=dropout)
 
   def forward(self, x):
-    x += self.positional_encoding
+    b = self.positional_encoding[:, :x.size(1), :]
+    x = x + b
+    x = self.dropout(x)
     return x  
    
 class FinalBlock(nn.Module):
@@ -247,9 +258,14 @@ class FinalBlock(nn.Module):
       self.forward_type = self.single_linear_forward
 
     elif forward_type == 'seq_average_linear':  
-      self.linear = nn.Linear(d_model, out_put_size) #TODO check whether this is correct seq_len
+      self.linear = nn.Linear(seq_len, out_put_size) #TODO check whether this is correct seq_len
       self.forward_type = self.average_forward
+      self.dim = 2
 
+    elif forward_type == 'd_model_average_linear':
+      self.linear = nn.Linear(d_model, out_put_size)
+      self.forward_type = self.average_forward
+      self.dim = 1
     else:
       raise ValueError(f"Unsupported forward type: {forward_type}")  
  
@@ -276,7 +292,7 @@ class FinalBlock(nn.Module):
   
   def average_forward(self, x):
     # (batch_size, seq_len, d_model)
-    x =  x.mean(dim=1) # --> (batch_size, seq_len)#TODO check whether this is correct 1 or 2
+    x =  x.mean(dim=self.dim) # --> (batch_size, seq_len)#TODO check whether this is correct 1 or 2
     x = self.linear(x) # --> (batch_size, 1)
 
     x = x.squeeze()
@@ -434,8 +450,10 @@ class ResidualConnection(nn.Module):
     self.dropout = nn.Dropout(dropout)
     if normalization == 'layer':
       self.norm = LayerNormalization(features=features)
+    elif normalization == 'batch':
+      self.norm = BatchNormalization(features=features)  
     else:
-      self.norm = BatchNormalization()  
+      raise ValueError(f"Unsupported normalization: {normalization}")
     
 
   def forward(self, x, sublayer):
@@ -529,13 +547,18 @@ class EncoderBlock(nn.Module):
 
   
 class VanillaEncoderBlock(nn.Module):
-  def __init__(self, d_model: int, h: int, d_ff: int, dropout: float = 0.1):
+  def __init__(self, d_model: int, h: int, d_ff: int, dropout: float = 0.1, normalization='layer'):
     super().__init__()
     self.self_attention_block = MultiheadAttention(d_model, h, dropout)
     self.dropout_1 = nn.Dropout(dropout)
     self.dropout_2 = nn.Dropout(dropout)
-    self.norm_1 = LayerNormalization(d_model)
-    self.norm_2 = LayerNormalization(d_model)
+    if normalization == 'layer':
+      self.norm_1 = LayerNormalization(d_model)
+      self.norm_2 = LayerNormalization(d_model)
+    elif normalization == 'batch': 
+      self.norm_1 = BatchNormalization(d_model)
+      self.norm_2 = BatchNormalization(d_model)  
+ 
     self.feed_forward_block = FeedForwardBlock(d_model, d_ff, dropout)
 
   def forward(self, x, src_mask, src_key_padding_mask=None):
@@ -589,7 +612,7 @@ class Encoder(nn.Module):
     if normalization == 'layer':
       self.norm = LayerNormalization(features=features)
     else:
-      self.norm = BatchNormalization()  
+      self.norm = BatchNormalization(features=features)  
     
 
   def forward(self, x, mask=None):
@@ -695,7 +718,11 @@ def build_encoder_transformer(config): #-> EncoderTransformer:
   omega=config['omega']
   d_ff=config['d_ff']
   output_size = config.get('output_size', 1)
+  config['output_size'] = output_size
   encoder_type = config.get('encoder_type', 'normal')
+  config['encoder_type'] = encoder_type
+  normalization = config.get('normalization', 'layer')
+  config['normalization'] = normalization
   if encoder_type == 'bypass':
     by_pass = True
     num_embeddings = config['n_ant']
@@ -719,7 +746,7 @@ def build_encoder_transformer(config): #-> EncoderTransformer:
       'Sinusoidal': lambda: PositionalEncoding(d_model=d_model, dropout=dropout, seq_len=seq_len, omega=omega),
       'None': lambda: nn.Identity(),
       'Relative': lambda: nn.Identity(),
-      'Learnable': lambda: LearnablePositionalEncoding(d_model=d_model)
+      'Learnable': lambda: LearnablePositionalEncoding(d_model=d_model, max_len=2048)
   }
 
   pos_enc_type = config['pos_enc_type']
@@ -755,7 +782,8 @@ def build_encoder_transformer(config): #-> EncoderTransformer:
         encoder_block = EncoderBlock(features=d_model, 
                                     self_attention_block=encoder_self_attention_block, 
                                     feed_forward_block=feed_forward_block, 
-                                    dropout=dropout)
+                                    dropout=dropout,
+                                    normalization=normalization)
         encoder_blocks.append(encoder_block)
       encoders.append(Encoder(features=d_model,
                               layers=nn.ModuleList(encoder_blocks), 

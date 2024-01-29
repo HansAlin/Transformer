@@ -13,7 +13,7 @@ sys.path.append(CODE_DIR_1)
 from models.models import InputEmbeddings, LayerNormalization, FinalBlock, build_encoder_transformer
 from dataHandler.datahandler import get_data, prepare_data, find_hyperparameters, get_model_config, collect_config_to_df
 # from training.train import test_model
-from plots.plots import get_area_under_curve, get_noise_reduction, get_roc, plot_performance_curve, histogram, plot_performance, plot_collections, plot_table
+from plots.plots import get_area_under_curve, get_noise_reduction, get_roc, plot_performance_curve, histogram, plot_performance, plot_collections, plot_table, plot_results
 import torch
 import subprocess
 import pandas as pd
@@ -50,7 +50,7 @@ import matplotlib.pyplot as plt
 #  Plot collections of noise reduction factors or roc             #
 ###################################################################
 # models_path = '/mnt/md0/halin/Models/'
-# models = [111,108,112]
+# models = [116, 129]
 # curve = 'nr'
 # parameter = 'N'
 # bins = 10000
@@ -83,12 +83,12 @@ import matplotlib.pyplot as plt
 ###################################################################
 # Plot tabel of hyperparameters                                   #
 ###################################################################
-models_path = '/mnt/md0/halin/Models/'
-
+# # models_path = '/mnt/md0/halin/Models/'
+# models = [116, 129]
 # str_models = '_'.join(map(str, models))
 # save_path = f'/home/halin/Master/Transformer/Test/presentation/model_{str_models}_table.png'
 # df = collect_config_to_df(model_numbers=models, save_path=save_path)
-# # keys = ['model_num', 'd_model', 'd_ff', 'N', 'h', "num_param", "pos_param", 'input_param', 'encoder_param', 'final_param', 'NSE_AT_10KNRF' ]
+# keys = ['model_num', 'pos_enc_type','d_model', 'd_ff', 'N', 'h', "num_param", "pos_param", 'input_param', 'encoder_param', 'final_param', 'NSE_AT_10KNRF', 'MACs' ]
 # plot_table(df, keys, save_path=save_path)
 
 ###################################################################
@@ -101,31 +101,31 @@ models_path = '/mnt/md0/halin/Models/'
 ###################################################################
 # Plot single curves                                                     #
 ###################################################################
-model_nums = [123]
-window_pred = False
-bins = 10000
-curve = 'nr'
-save_path = f'/home/halin/Master/Transformer/Test/ModelsResults/collections/test_{curve}_threshold.png'
-for model_num in model_nums:
-    config_path = models_path + f'model_{model_num}/config.txt'
-    with open(config_path, 'rb') as f:
-        config = pickle.load(f)
-    y_data_path = models_path + f'model_{model_num}/y_pred_data.pkl'    
-    with open(y_data_path, 'rb') as f:
-        y_data = pickle.load(f)
-    y_pred = np.asarray(y_data['y_pred'])    
-    y = np.asarray(y_data['y'])
-    area, nse, threshold = plot_performance_curve(ys=[y], 
-                        y_preds=[y_pred], 
-                        configs=[config], 
-                        save_path=save_path, 
-                        labels=None,
-                        x_lim=0.8,
-                        bins=bins,
-                        curve='roc',
-                        log_bins=False,
-                        reject_noise=1e4)
-    print(f'Model number: {model_num} Area under curve: {area:.4f}, NSE: {nse:.4f}, Threshold: {threshold:.4f}')
+# model_nums = [123]
+# window_pred = False
+# bins = 10000
+# curve = 'nr'
+# save_path = f'/home/halin/Master/Transformer/Test/ModelsResults/collections/test_{curve}_threshold.png'
+# for model_num in model_nums:
+#     config_path = models_path + f'model_{model_num}/config.txt'
+#     with open(config_path, 'rb') as f:
+#         config = pickle.load(f)
+#     y_data_path = models_path + f'model_{model_num}/y_pred_data.pkl'    
+#     with open(y_data_path, 'rb') as f:
+#         y_data = pickle.load(f)
+#     y_pred = np.asarray(y_data['y_pred'])    
+#     y = np.asarray(y_data['y'])
+#     area, nse, threshold = plot_performance_curve(ys=[y], 
+#                         y_preds=[y_pred], 
+#                         configs=[config], 
+#                         save_path=save_path, 
+#                         labels=None,
+#                         x_lim=0.8,
+#                         bins=bins,
+#                         curve='roc',
+#                         log_bins=False,
+#                         reject_noise=1e4)
+#     print(f'Model number: {model_num} Area under curve: {area:.4f}, NSE: {nse:.4f}, Threshold: {threshold:.4f}')
 
 
 ###################################################################
@@ -158,5 +158,10 @@ for model_num in model_nums:
     #                 bins=bins,
     #                 log_bins=True)
 
-
+#######################################################################
+# Plot results from training                                          #
+# #######################################################################
+# model_num = 129
+# config = get_model_config(model_num=model_num)
+# plot_results(model_num, config)
 

@@ -49,7 +49,8 @@ parser = argparse.ArgumentParser()
 # d_ff [19, 20, 21,] [105, 101, 106, 107, 108, 109, 110]
 # final_type [105, 121,] [126, 128]
 # normalization [125,127]
-transformer_models = [105, 121] #args.models #
+# pos_enc_type [116, 128, 129]
+transformer_models = [116, 129] #args.models #
 
 def qualitative_colors(length, darkening_factor=0.6):
     colors = [cm.Set3(i) for i in np.linspace(0, 1, length)]

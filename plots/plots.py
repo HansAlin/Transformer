@@ -171,7 +171,8 @@ def plot_results(model_number, config, path=''):
   acc_path = plot_path + f'model_{model_number}_{config["metric"]}_plot.png'
   ax.plot(df.Epochs, df.metric, label=config['metric'])
   ax.set_title("Metric")
-  plt.ylim([0,1])
+  #plt.ylim([0.9,1])
+  plt.grid()
   plt.legend()
   plt.savefig(acc_path)
   plt.cla()
@@ -559,19 +560,21 @@ def plot_table(df, keys, save_path=''):
     if key not in df.columns:
         df[key] = np.nan
   num_of_rows = len(df)
-  fig_hight = 0.6 * num_of_rows
+  num_of_cols = len(df.columns)
+  fig_hight = 0.7 * num_of_rows + 0.5
+  fig_width = 0.35 * num_of_cols   # Add this line
   df = df[keys]
   df = change_format_units(df)
   # Add white spaces around the keys
   df.columns = df.columns.str.pad(10, side='both')
-  fig, ax = plt.subplots(figsize=(16, fig_hight))
+  fig, ax = plt.subplots(figsize=(fig_width, fig_hight))
   ax.axis('off')
   ax.axis('tight')
   table = ax.table(cellText=df.values, colLabels=df.columns, loc='center', cellLoc = 'center')
 
   # Add colors and so
   table.auto_set_font_size(False)
-  table.set_fontsize(16)
+  table.set_fontsize(14)
   table.scale(1.5, 1.5)
   table.auto_set_column_width(col=list(range(len(df.columns))))
   for (row, col), cell in table.get_celld().items():
@@ -579,9 +582,9 @@ def plot_table(df, keys, save_path=''):
         cell.set_facecolor('darkgrey')
       if (row % 2 == 0) and (row != 0):
         cell.set_facecolor('lightgrey')
-  plt.title('Hyperparameters', fontsize=20, pad=2)  
-  ax.title.set_position([.5, 1.02])   
-  plt.subplots_adjust(left=0.025, bottom=0, right=0.975, top=0.9) 
+  plt.title('Hyperparameters', fontsize=20, pad=0.1)  
+  ax.title.set_position([.5, 1.01])   
+  plt.subplots_adjust(left=0.01, bottom=0, right=0.99, top=0.95) 
 
   fig.tight_layout()
   plt.savefig(save_path)

@@ -108,7 +108,7 @@ def add_key_if_not_exists(dict_obj, key, value):
         # model_numbers = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14, 15, 16, 17, 18, 19, 20, 21, 22, 23,24,25,26,27]
 # model_numbers = [99,100,101,102,103,104,105,106,107,108,109,110,111,108,112,113,114,115,116,117,118,119,120,121,122,123,124,125,127]
         
-model_num = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14, 15, 16, 17, 18, 19, 20, 21, 22, 23,24,25,26,27,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128,129] # 101,105,106,107,108,109,110   
+model_num = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14, 15, 16, 17, 18, 19, 20, 21, 22, 23,24,25,26,27,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128,129,130,131,132] # 101,105,106,107,108,109,110   
 col_1 = 'model_num'
 col_2 = 'encoder_type'
 col_3 = 'embed_type'#
@@ -128,7 +128,7 @@ col_17 = 'data_type'
 #col_18 = 'MACs'
 df = collect_config_to_df(model_numbers=model_num, save_path='/home/halin/Master/Transformer/Test/ModelsResults/collections/', save=True)
 
-#df = df.sort_values('NSE_AT_10KNRF', ascending=False)
+df = df.sort_values('NSE_AT_10KNRF', ascending=False)
 print(df[[col_1,col_2,col_3, col_4, col_5,col_6, col_7,  col_9, col_10, col_11, col_12, col_13,  col_15, col_17, ]])
 # df.plot.scatter(x=col_15, y=col_6, c='DarkBlue')
 # plt.savefig('/home/halin/Master/Transformer/Test/Code/plots/NRF_vs_param.png')
@@ -164,7 +164,7 @@ def get_similar(df, ignore_col):
 
     return selected_rows['model_num'].tolist()
 
-models = get_similar(df=df, ignore_col='final_type')
+models = get_similar(df=df, ignore_col='pos_enc_type')
 
 print(models)
 ###################################################################

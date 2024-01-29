@@ -1,0 +1,3 @@
+model_num ,pos_enc_type, d_model  ,   d_ff   ,    N     ,    h     ,num_param ,pos_param ,input_param,encoder_param,final_param,NSE_AT_10KNRF,   MACs   
+116,Sinusoidal,64,512,2,4,167937,8192,320,167488,129,0.916,1.35e+09
+129,Relative,64,512,2,4,179457,0,320,179008,129,0.942,1.35e+09

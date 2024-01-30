@@ -369,7 +369,9 @@ class MultiHeadAttentionBlock(nn.Module):
     q = query.view(query.shape[0], query.shape[1], h, d_h).transpose(1,2) # (batch_size, n_head, seq_len, d_h)
     k = key.view(key.shape[0], key.shape[1], h, d_h).transpose(1,2) # (batch_size, n_head, seq_len, d_h)
     normal_attention_scores = (q @ k.transpose(-2, -1)) # (batch_size, n_head, seq_len, seq_len)
-
+    # TODO I might have to divide by math.sqrt(d_h) here as well
+    # and use a softmax function here as well
+    
     relative_q = query.permute(1, 0, 2).contiguous().view(len_q, batch_size*h, -1) # (seq_len, batch_size*n_head, d_h)
     relative_k = relative_position_k(len_q, len_k) # (seq_len, seq_len, d_h)
     # realative_k = (seq_len, seq_len, d_h) --> (seq_len, d_h, seq_len)

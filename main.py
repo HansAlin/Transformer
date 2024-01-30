@@ -107,6 +107,7 @@ def main(start_model_num, batch_size, epochs, test, cuda_device, config_number, 
       config['NSE_AT_10KNRF'] = 0
       config['TRESH_AT_10KNRF'] = 0
       config['NSE_AT_100KNRF'] = 0
+      config['pretrained'] = pretrained
       
 
     # Update the hyper parameter

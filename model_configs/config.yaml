@@ -1,0 +1,62 @@
+architecture:
+  N: 2
+  activation: 'relu'
+  by_pass: false
+  d_ff: 32
+  d_model: 512
+  data_type: chunked
+  embed_type: lin_relu_drop
+  encoder_type: normal
+  final_type: double_linear
+  h: 8
+  inherit_model: null
+  n_ant: 4
+  normalization: layer
+  omega: 10000
+  output_shape: null
+  output_size: null
+  pos_enc_type: Sinusoidal
+  pretrained: null
+  seq_len: 256
+basic:
+  data_path: ''
+  model: null
+  model_name: Attention is all you need
+  model_num: 1
+  model_path: /mnt/md0/halin/Models/model_1/
+  model_type: base_encoder
+num of parameters:
+  MACs: null
+  encoder_param: 18931456
+  final_param: 770
+  input_param: 2560
+  num_param: 19065858
+  pos_param: 131072
+  trained_noise: 0
+  trained_signal: 0
+results:
+  Accuracy: 0
+  Efficiency: 0
+  NSE_AT_100KNRF: 0
+  NSE_AT_10KNRF: 0
+  NSE_AT_10KROC: 0
+  Precission: 0
+  TRESH_AT_10KNRF: 0
+  current_epoch: 32
+  energy: 0
+  global_epoch: 0
+  nr_area: 0
+  power: 0
+  roc_area: 0
+  test_acc: 0
+  trained: false
+  training_time: 0
+training:
+  batch_size: 64
+  decreas_factor: 0.5
+  dropout: 0.1
+  early_stop: 7
+  learning_rate: 0.001
+  loss_function: null
+  metric: Efficiency
+  num_epochs: 100

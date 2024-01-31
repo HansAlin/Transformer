@@ -24,7 +24,7 @@ def histogram(y_pred, y, config, bins=100, save_path=''):
     """
 
     if save_path == '':
-      save_path = config['model_path'] + 'plot/' 
+      save_path = config['basic']['model_path'] + 'plot/' 
       isExist = os.path.exists(save_path)
       if not isExist:
         os.makedirs(save_path)
@@ -39,13 +39,13 @@ def histogram(y_pred, y, config, bins=100, save_path=''):
     signal_wights = np.ones_like(y_pred_signal) / len(y_pred_signal)
     noise_weights = np.ones_like(y_pred_noise) / len(y_pred_noise)
 
-    ax.set_title(f"Model {config['model_num']}")
+    ax.set_title(f"Model {config['basic']['model_num']}")
     ax.hist(y_pred_signal, bins=bins, label='Pred signal', weights=signal_wights, alpha=0.5)
     ax.hist(y_pred_noise, bins=bins, label='Pred noise', weights=noise_weights, alpha=0.5)
     ax.set_yscale('log')
     ax.legend()
     ax.set_xlabel(r'noise $\leftrightarrow$ signal')
-    plt.savefig(save_path + f"model_{config['model_num']}_histogram.png")
+    plt.savefig(save_path + f"model_{config['basic']['model_num']}_histogram.png")
     plt.clf()
     plt.close()
 
@@ -78,7 +78,7 @@ def plot_performance_curve(y_preds, ys, configs, bins=1000, save_path='', text =
     length = len(y_preds)
 
     if save_path == '' and length == 0:
-      save_path = config['model_path'] + 'plot/' 
+      save_path = config['basic']['model_path'] + 'plot/' 
       isExist = os.path.exists(save_path)
       if not isExist:
         os.makedirs(save_path)
@@ -116,7 +116,7 @@ def plot_performance_curve(y_preds, ys, configs, bins=1000, save_path='', text =
         if labels == None:
           ax.plot(x, y)   
         else:
-            ax.plot(x, y, label=f" {config['model_num']},     " + str(labels['hyper_parameters'][i]))
+            ax.plot(x, y, label=f" {config['basic']['model_num']},     " + str(labels['hyper_parameters'][i]))
         
             
     if labels != None:
@@ -135,7 +135,7 @@ def plot_performance_curve(y_preds, ys, configs, bins=1000, save_path='', text =
     ax.grid()
     style.use('seaborn-colorblind')
     if save_path == '':
-        save_path = config['model_path'] + 'plot/' + f'model_{config["model_num"]}_{curve}_{text.replace(" ", "_")}.png'
+        save_path = config['basic']['model_path'] + 'plot/' + f'model_{config["basic"]["model_num"]}_{curve}_{text.replace(" ", "_")}.png'
     plt.savefig(save_path)
     plt.close()
 
@@ -143,7 +143,7 @@ def plot_performance_curve(y_preds, ys, configs, bins=1000, save_path='', text =
 
 def plot_results(model_number, config, path=''):
   if path == '':
-    path = config['model_path']
+    path = config['basic']['model_path']
 
   df = pd.read_pickle(path + 'dataframe.pkl')
 
@@ -195,7 +195,7 @@ def plot_weights(model, config, save_path='', block='self_attention_block', quie
         print(f'Layer: {name}, Shape: {param.shape}')
 
   if save_path == '':
-      save_path = config['model_path'] + 'plot/' 
+      save_path = config['basic']['model_path'] + 'plot/' 
       isExist = os.path.exists(save_path)
       if not isExist:
         os.makedirs(save_path)
@@ -226,7 +226,7 @@ def plot_weights(model, config, save_path='', block='self_attention_block', quie
   plt.title(f'Layer: {block}  - Weights')
   
   if save_path == '':
-    save_path = config['model_path'] + f'plot/model_{config["model_num"]}_{block}_weights.png'
+    save_path = config['basic']['model_path'] + f'plot/model_{config["basic"]["model_num"]}_{block}_weights.png'
   plt.savefig(save_path)
   plt.close()
 
@@ -272,7 +272,7 @@ def plot_collections(models, labels, bins=100, save_path='', models_path='Test/M
 def plot_examples(data, config=None, save_path=''):
 
   if config != None:
-    save_path = config['model_path'] + 'plot/examples.png'
+    save_path = config['basic']['model_path'] + 'plot/examples.png'
   else:
     if save_path == '':
       save_path = os.getcwd() + 'examples.png'
@@ -296,7 +296,7 @@ def plot_performance(config, device, x_batch=None, y_batch=None,lim_value=0.2, m
         save_path (str): path to save the plot, optional
   
   """
-  model_num = config['model_num']
+  model_num = config['basic']['model_num']
   if x_batch == None and y_batch == None:
     train_data, val_data, test_data = get_data_binary_class(seq_len=config['seq_len'], 
                                                             batch_size=config['batch_size'], 
@@ -385,7 +385,7 @@ def plot_performance(config, device, x_batch=None, y_batch=None,lim_value=0.2, m
       if config["data_type"] != "classic":
         plt.legend()
       
-      fig.suptitle(f"Model {config['model_num']} - {text} treshold: {lim_value}")
+      fig.suptitle(f"Model {config['basic']['model_num']} - {text} treshold: {lim_value}")
       if save_path == '':
         path = config['model_path'] + f'plot/performance_{text.replace(" ", "_")}.png'
       else:

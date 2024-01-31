@@ -44,8 +44,8 @@ from model_configs.config import get_config
 def main(start_model_num, batch_size, epochs, test, cuda_device, config_number, inherit_model, pretrained): 
   models_path = '/mnt/md0/halin/Models/'
   # 'double_linear', 'single_linear', 'seq_average_linear'
-  hyper_paramters = ['seq_average_linear']
-  hyper_param_key = 'final_type'
+  hyper_paramters = ['Relative']
+  hyper_param_key = 'pos_enc_type'
   labels = {'hyper_parameters': hyper_paramters, 'name': 'Encoder type: ({hyper_param_key}})'}
   
   if start_model_num == None:
@@ -68,8 +68,9 @@ def main(start_model_num, batch_size, epochs, test, cuda_device, config_number, 
       print('Model not exisiting')
  
     start_model_num = int(start_model_num)
- 
-  while hyper_param_key not in get_config(config_number):
+  
+  old_config = get_config(config_number)
+  while hyper_param_key not in old_config['architecture'].keys():
     hyper_param_key = input("Enter hyper parameter key: ")
     hyper_param_key = str(hyper_param_key)   
   
@@ -78,48 +79,56 @@ def main(start_model_num, batch_size, epochs, test, cuda_device, config_number, 
   configs = []
   for i in range(len(hyper_paramters)):
 
-    old_config = get_config(config_number)
+    
     config = old_config.copy()
-    config['batch_size'] = batch_size
-    config['model_num'] = model_num
-    config['num_epochs'] = epochs 
+    config['training']['batch_size'] = batch_size
+    config['basic']['model_num'] = model_num
+    config['training']['num_epochs'] = epochs
+    # config['batch_size'] = batch_size
+    # config['model_num'] = model_num
+    # config['num_epochs'] = epochs 
     
     # Copy the config from the model to inherit from
     if inherit_model != None:
-      old_config = dh.get_model_config(inherit_model)
+      old_config = dh.get_model_config(inherit_model, type_of_file='yaml' )
       config = old_config.copy()
-      config['model_num'] = model_num
-      config['model_path'] = ''
+      #config['model_num'] = model_num
+      config['basic']['model_num'] = model_num
+      #config['model_path'] = ''
+      config['basic']['model_path'] = ''
       if pretrained:
-        config['inherit_model'] = inherit_model
+        # config['inherit_model'] = inherit_model
+        config['architecture']['inherit_model'] = inherit_model
       else:
-        config['inherit_model'] = None  
-      config['num_epochs'] = epochs
-      config['Accuracy'] = 0
-      config['Efficiency'] = 0
-      config['Precission'] = 0
-      config['training_time'] = 0
-      config['energy'] = 0
-      config['trained'] = False
-      config['power'] = 0
-      config['roc_area'] = 0
-      config['nr_area'] = 0
-      config['NSE_AT_10KNRF'] = 0
-      config['TRESH_AT_10KNRF'] = 0
-      config['NSE_AT_100KNRF'] = 0
-      config['pretrained'] = pretrained
+        # config['inherit_model'] = None  
+        config['architecture']['inherit_model'] = None
+
+      config['training']['num_epochs'] = epochs
+      config['results']['Accuracy'] = 0
+      config['results']['Efficiency'] = 0
+      config['results']['Precission'] = 0
+      config['results']['training_time'] = 0
+      config['results']['energy'] = 0
+      config['results']['trained'] = False
+      config['results']['power'] = 0
+      config['results']['roc_area'] = 0
+      config['results']['nr_area'] = 0
+      config['results']['NSE_AT_10KNRF'] = 0
+      config['results']['TRESH_AT_10KNRF'] = 0
+      config['results']['NSE_AT_100KNRF'] = 0
+      config['architecture']['pretrained'] = pretrained
       
 
     # Update the hyper parameter
-    config[hyper_param_key] = hyper_paramters[i]
+    config['architecture'][hyper_param_key] = hyper_paramters[i]
 
     configs.append(config)
     model_num += 1
 
   training(configs=configs, 
           cuda_device=cuda_device,
-          batch_size=configs[0]['batch_size'], 
-          channels=configs[0]['n_ant'],
+          batch_size=configs[0]['training']['batch_size'], 
+          channels=configs[0]['architecture']['n_ant'],
           model_folder=models_path,
           test=test,)
   
@@ -130,11 +139,11 @@ if __name__ == "__main__":
   parser = argparse.ArgumentParser()
   parser.add_argument('--start_model_num', help='Check for no interference', type=int)
   parser.add_argument('--batch_size', type=int, help='Default 32', default=64)
-  parser.add_argument('--epochs', type=int, help='Default 100', default=100)
-  parser.add_argument('--test', type=bool, help='Default False', default=False)
+  parser.add_argument('--epochs', type=int, help='Default 100', default=2)
+  parser.add_argument('--test', type=bool, help='Default False', default=True)
   parser.add_argument('--cuda_device', type=int,help='Default 0', default=0)
-  parser.add_argument('--config_number', type=int,help='Default 1', default=1)
-  parser.add_argument('--inherit_model', type=int,help='Default 18', default=131)
+  parser.add_argument('--config_number', type=int,help='Default 1', default=0)
+  parser.add_argument('--inherit_model', type=int,help='Default 18', default=19)
   parser.add_argument('--pretrained', type=bool,help='Default False', default=False)
   
   args = parser.parse_args()

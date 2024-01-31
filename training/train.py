@@ -22,13 +22,13 @@ from evaluate.evaluate import test_model, validate, get_energy, get_MMac, count_
 
 def training(configs, cuda_device, batch_size=32, channels=4, model_folder='', test=False):
   if not test:
-    data_type = configs[0].get('data_type', 'chunked')
+    data_type = configs[0]['architecture'].get('data_type', 'chunked')
     if data_type == 'chunked':
-      train_loader, val_loader, test_loader = get_data(batch_size=batch_size, seq_len=configs[0]['seq_len'], subset=test)
+      train_loader, val_loader, test_loader = get_data(batch_size=batch_size, seq_len=configs[0]['architecture']['seq_len'], subset=test) # 
     else:
-      train_loader, val_loader, test_loader = get_data_binary_class(batch_size=batch_size, seq_len=configs[0]['seq_len'], subset=test)
+      train_loader, val_loader, test_loader = get_data_binary_class(batch_size=batch_size, seq_len=configs[0]['architecture']['seq_len'], subset=test) # 
   else:  
-    train_loader, val_loader, test_loader = get_test_data(batch_size=batch_size, seq_len=configs[0]['seq_len'], n_antennas=channels)
+    train_loader, val_loader, test_loader = get_test_data(batch_size=batch_size, seq_len=configs[0]['architecture']['seq_len'], n_antennas=channels) # configs[0]['architecture']['seq_len']
 
 
   item = next(iter(train_loader))
@@ -41,15 +41,15 @@ def training(configs, cuda_device, batch_size=32, channels=4, model_folder='', t
   
   for config in configs:
     df = pd.DataFrame([], columns= ['Train_loss', 'Val_loss', 'metric', 'Epochs', 'lr'])
-    config['power'] = get_energy(cuda_device)
-    config['out_put_shape'] = out_put_shape
-    if config['model_type'] == "base_encoder":
+    config['results']['power'  ] = get_energy(cuda_device) # 
+    config['architecture']['out_put_shape'] = out_put_shape # config['architecture']['out_put_shape']
+    if config['basic']['model_type'] == "base_encoder": # config['basic']['model_type']
       model = build_encoder_transformer(config)
 
-      if config['inherit_model'] != None:
+      if config['architecture']['inherit_model'] != None: # config[architecture]['inherit_model']
 
         new_state_dic = model.state_dict()
-        old_state = torch.load(model_folder + f"model_{config['inherit_model']}/saved_model/model_{config['inherit_model']}.pth")
+        old_state = torch.load(model_folder + f"model_{config['architecture']['inherit_model']}/saved_model/model_{config['architecture']['inherit_model']}.pth") # config[architecture]['inherit_model']
         
         for name, param in old_state.items():
           if name not in new_state_dic:
@@ -61,30 +61,30 @@ def training(configs, cuda_device, batch_size=32, channels=4, model_folder='', t
           new_state_dic[name].copy_(param)  
 
         model.load_state_dict(new_state_dic)
-        config['global_epoch'] = config['current_epoch']
+        config['basic']['global_epoch'] = config['basic']['current_epoch']
         
-        config['current_epoch'] = 0
+        config['basic']['current_epoch'] = 0
       else:
-        config['global_epoch'] = 0  
+        config['basic']['global_epoch'] = 0 
 
     else:
       print("No model found")
       return None
     
     
-    config['MACs'], config['num_param'] = get_MMac(model, batch_size=batch_size,  seq_len=config['seq_len'], channels=channels)
-    config['model_path'] = create_model_folder(config['model_num'], path=model_folder)
+    config['num of parameters']['MACs'], config['num of parameters']['num_param'] = get_MMac(model, batch_size=batch_size,  seq_len=config['architecture']['seq_len'], channels=channels) # 
+    config['basic']['model_path'] = create_model_folder(config['basic']['model_num'], path=model_folder) # 
     results = count_parameters(model, verbose=False)
-    config['encoder_param'] = results['encoder_param']
-    config['input_param'] = results['src_embed_param']
-    config['final_param'] = results['final_param']
-    config['pos_param'] = results['buf_param']
-    print(f"Number of paramters: {config['num_param']} input: {config['input_param']} encoder: {config['encoder_param']} final: {config['final_param']} pos: {config['pos_param']}")
-    writer = SummaryWriter(config['model_path'] + '/trainingdata')
-    print(f"Follow on tensorboard: python3 -m tensorboard.main --logdir={config['model_path']}trainingdata")
+    config['num of parameters']['encoder_param'] = results['encoder_param'] # 
+    config['num of parameters']['input_param'] = results['src_embed_param'] # 
+    config['num of parameters']['final_param'] = results['final_param'] # 
+    config['num of parameters']['pos_param'] = results['buf_param'] 
+    print(f"Number of paramters: {config['num of parameters']['num_param']} input: {config['num of parameters']['input_param']} encoder: {config['num of parameters']['encoder_param']} final: {config['num of parameters']['final_param']} pos: {config['num of parameters']['pos_param']}")
+    writer = SummaryWriter(config['basic']['model_path'] + '/trainingdata')
+    print(f"Follow on tensorboard: python3 -m tensorboard.main --logdir={config['basic']['model_path']}trainingdata")
     #  python3 -m tensorboard.main --logdir=/mnt/md0/halin/Models/model_1/trainingdata
     
-    loss_type = config.get('loss_function', 'BCE')
+    loss_type = config['training'].get('loss_function', 'BCE')
     if loss_type == 'BCE':
       criterion = nn.BCELoss().to(device)
     elif loss_type == 'BCEWithLogits':
@@ -93,14 +93,14 @@ def training(configs, cuda_device, batch_size=32, channels=4, model_folder='', t
       print("No loss function found")
       return None
    
-    optimizer = torch.optim.Adam(model.parameters(), lr=config['learning_rate'])
+    optimizer = torch.optim.Adam(model.parameters(), lr=config['training']['learning_rate']) # 
     scheduler = ReduceLROnPlateau(optimizer=optimizer,
                                 mode='min',
-                                factor=config['decreas_factor'],
+                                factor=config['training']['decreas_factor'],      # 
                                 patience=4,
                                 verbose=True)
   
-    model.to(device)
+    model.to(device) 
     
     initial_epoch = 0
     
@@ -109,11 +109,11 @@ def training(configs, cuda_device, batch_size=32, channels=4, model_folder='', t
     min_val_loss = float('inf')
     total_time = time.time()
 
-    for epoch in range(initial_epoch, config['num_epochs']):
+    for epoch in range(initial_epoch, config['training']['num_epochs']):
 
       epoch_time = time.time()
 
-      config['current_epoch'] = epoch + 1
+      config['results']['current_epoch'] = epoch + 1
       
       # set the model in training mode
       model.train()
@@ -130,7 +130,7 @@ def training(configs, cuda_device, batch_size=32, channels=4, model_folder='', t
       num_of_bathes = int(len(train_loader))
       for istep in tqdm(range(len(train_loader))):
 
-        print(f"Epoch {epoch + 1}/{config['num_epochs']} Batch {batch_num}/{num_of_bathes}", end="\r") 
+        print(f"Epoch {epoch + 1}/{config['training']['num_epochs']} Batch {batch_num}/{num_of_bathes}", end="\r") # config['training']['num_epochs']
   
         x_batch, y_batch = train_loader.__getitem__(istep)
         x_batch, y_batch = x_batch.to(device), y_batch.to(device)
@@ -161,10 +161,10 @@ def training(configs, cuda_device, batch_size=32, channels=4, model_folder='', t
           x_batch, y_batch = x_batch.to(device), y_batch.to(device)
           outputs = model.encode(x_batch,src_mask=None)
           loss = criterion(outputs, y_batch.squeeze())
-          if config['loss_function'] == 'BCEWithLogits':
+          if  config['training']['loss_function']== 'BCEWithLogits':      #
             outputs = torch.sigmoid(outputs)
           pred = outputs.round()
-          met = validate(y_batch.cpu().detach().numpy(), pred.cpu().detach().numpy(), config['metric'])
+          met = validate(y_batch.cpu().detach().numpy(), pred.cpu().detach().numpy(), config['training']['metric'])  # config['training']['metric']
             
           val_loss.append(loss.item())
           metric.append(met)
@@ -194,10 +194,10 @@ def training(configs, cuda_device, batch_size=32, channels=4, model_folder='', t
       ############################################
       writer.add_scalar('Training Loss' , train_loss, epoch)
       writer.add_scalar('Validation Loss' , val_loss, epoch)
-      writer.add_scalar(config['metric'], metric, epoch)
+      writer.add_scalar(config['training']['metric'], metric, epoch)    # config['training']['metric']
       writer.flush()
 
-      print(f"Training Loss: {train_loss:.4f}, Validation Loss: {val_loss:.4f}, Val {config['metric']}: {metric:.6f}, Time: {time.time() - epoch_time:.2f} s")
+      print(f"Training Loss: {train_loss:.4f}, Validation Loss: {val_loss:.4f}, Val {config['training']['metric']}: {metric:.6f}, Time: {time.time() - epoch_time:.2f} s")
 
       #############################################
       # Early stopping
@@ -207,13 +207,13 @@ def training(configs, cuda_device, batch_size=32, channels=4, model_folder='', t
         early_stop_count = 0
       else:
         early_stop_count += 1
-      if early_stop_count >= config['early_stop']:
+      if early_stop_count >= config['early_stop']: # config['training']['early_stop']
         print("Early stopping!")
         break
       
-      config['global_epoch'] += 1
-      config['power'] = ((config['current_epoch'])*config['power'] + get_energy(cuda_device))/(config['current_epoch'] + 1)
+      config['results']['global_epoch'] += 1
 
+      config['results']['power'] = ((config['results']['current_epoch'])*config['results']['power'] + get_energy(cuda_device))/(config['results']['current_epoch'] + 1)
     ###########################################
     # Training done                           #
     ###########################################  
@@ -221,25 +221,25 @@ def training(configs, cuda_device, batch_size=32, channels=4, model_folder='', t
     writer.close()   
     total_training_time = time.time() - total_time   
     print(f"Total time: {total_training_time} s")
-    config['trained'] = True
-    config['training_time'] = total_training_time
-    config['energy'] = config['power']*total_training_time
 
-    y_pred_data, config['Accuracy'], config['Efficiency'], config['Precission'] = test_model(model=model, 
+    config['results']['trained'] = True
+    config['results']['training_time'] = total_training_time
+    config['results']['energy'] = config['results']['power']*total_training_time
+    y_pred_data, config['results']['Accuracy'], config['results']['Efficiency'], config['results']['Precission'] = test_model(model=model, 
                                                                                              test_loader=test_loader,
                                                                                              device=device, 
                                                                                              config=config)    
-    print(f"Test efficiency: {config['Efficiency']:.4f}")
+    print(f"Test efficiency: {config['results']['Efficiency']:.4f}")
 
     histogram(y_pred_data['y_pred'], y_pred_data['y'], config)
     nr_area, nse, threshold = plot_performance_curve([y_pred_data['y_pred']], [y_pred_data['y']], [config], curve='nr', x_lim=[0,1], bins=10000)
-    config['nr_area'] = nr_area
-    config['NSE_AT_10KNRF'] = nse
+    config['results']['nr_area'] = nr_area
+    config['results']['NSE_AT_10KNRF'] = nse
     roc_area, nse, threshold = plot_performance_curve([y_pred_data['y_pred']], [y_pred_data['y']], [config], curve='roc', bins=10000)
-    config['roc_area'] = roc_area
-    config['NSE_AT_10KROC'] = nse
-    config['TRESH_AT_10KNRF'] = threshold
-    plot_results(config['model_num'], config)
+    config['results']['roc_area'] = roc_area
+    config['results']['NSE_AT_10KROC'] = nse
+    config['results']['TRESH_AT_10KNRF'] = threshold
+    plot_results(config['basic']['model_num'], config)
 
 
     x_batch, y_batch = train_loader.__getitem__(0)

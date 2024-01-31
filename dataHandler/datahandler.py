@@ -13,6 +13,7 @@ import sys
 import time
 from tqdm import tqdm
 import glob
+import yaml
 
 CODE_DIR_1  ='/home/acoleman/software/NuRadioMC/'
 sys.path.append(CODE_DIR_1)
@@ -677,7 +678,7 @@ def standardScaler(x):
 
 def save_model(trained_model, optimizer, config, global_step, text='early_stop'):
 
-  path = config['model_path']
+  path = config['basic']['model_path']
 
   saved_model_path = path + f'/saved_model'
   isExist = os.path.exists(saved_model_path)
@@ -685,11 +686,11 @@ def save_model(trained_model, optimizer, config, global_step, text='early_stop')
     os.makedirs(saved_model_path)
     print("The new directory is created!")    
   torch.save({
-              'epoch': config['current_epoch'],
+              'epoch': config['results']['current_epoch'],
               'model_state_dict': trained_model.state_dict(), 
               'optimizer_state_dict': optimizer.state_dict(),
               'global_step': global_step},
-              saved_model_path + f'/model_{config["model_num"]}_{text}.pth')
+              saved_model_path + f'/model_{config["basic"]["model_num"]}_{text}.pth')
 
 def file_exist(directory, filename):
    
@@ -714,12 +715,12 @@ def find_file(directory, extension):
 
 def get_model_path(config):
 
-  model_path = config['model_path'] + 'saved_model/' 
+  model_path = config['basic']['model_path'] + 'saved_model/' 
 
-  if file_exist(model_path, f'model_{config["model_num"]}_final.pth'):
-    model_path = model_path + f'model_{config["model_num"]}_final.pth'
-  elif file_exist(model_path, f'model_{config["model_num"]}_early_stop.pth'):
-    model_path = model_path + f'model_{config["model_num"]}_early_stop.pth'
+  if file_exist(model_path, f'model_{config["basic"]["model_num"]}_final.pth'):
+    model_path = model_path + f'model_{config["basic"]["model_num"]}_final.pth'
+  elif file_exist(model_path, f'model_{config["basic"]["model_num"]}_early_stop.pth'):
+    model_path = model_path + f'model_{config["basic"]["model_num"]}_early_stop.pth'
   else:
     model_path = find_file(model_path, 'pth')   
    
@@ -730,10 +731,16 @@ def get_model_path(config):
 
 def save_data(config, df=None, y_pred_data=None):
 
-  path = config['model_path']
+  path = config["basic"]['model_path']
 
   with open(path + 'config.txt', "wb") as fp:
     pickle.dump(config, fp)
+
+  for key, value in config.items():
+        if isinstance(value, np.float32) or isinstance(value, np.float64):
+            config[key] = float(value)
+  with open(config['basic']['model_path'] + 'config.yaml', 'w') as data:
+        yaml.dump(config, data, default_flow_style=False) 
 
   # A easier to read part
   with open(path + 'text_config.txt', 'w') as data:
@@ -814,11 +821,18 @@ def save_example_data(save_path='/home/halin/Master/Transformer/Test/data/'):
       break
     count += 1
 
-def get_model_config(model_num, path='/mnt/md0/halin/Models/'):
-    CONFIG_PATH = path + f'model_{model_num}/config.txt'
-    with open(CONFIG_PATH, 'rb') as f:
-        config = pickle.load(f)
-    return config    
+def get_model_config(model_num, path='/mnt/md0/halin/Models/', type_of_file='txt'):
+    if type_of_file == 'txt':  
+      CONFIG_PATH = path + f'model_{model_num}/config.txt'
+      with open(CONFIG_PATH, 'rb') as f:
+          config = pickle.load(f)
+    else:
+      CONFIG_PATH = path + f'model_{model_num}/config.yaml'
+      with open(CONFIG_PATH, 'r') as file:
+          config = yaml.safe_load(file)
+
+    return config  
+
 
 def collect_config_to_df(model_numbers, model_path='/mnt/md0/halin/Models/', save_path='', save=False):
   df = pd.DataFrame()

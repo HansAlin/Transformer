@@ -1,3 +1,4 @@
+import yaml
 # History: 
 # Date        model
 # 2024-01-15: 24    'final_type' is 'maxpool' instead of 'slim'
@@ -18,6 +19,7 @@ config_1 = {'model_name': "Attention is all you need",
               'final_type':  'd_model_average_linear', # Posible options: 'double_linear', 'single_linear', 'seq_average_linear', 'd_model_average_linear'
               'normalization': 'layer', # Posible options: 'layer', 'batch'
               'loss_function': 'BCEWithLogits', # Posible options: 'BCE', 'BCEWithLogits'
+              'activation': 'relu', # Posible options: 'relu', 'gelu'
               'model_num': None,
               'seq_len': 128,
               'd_model': 64, # Have to be dividable by h
@@ -57,10 +59,13 @@ config_1 = {'model_name': "Attention is all you need",
             }
 
 def get_config(num):
+    
     if num == 1:
         config = config_1
         return config
-    else:
-        return None
+    elif num == 0:
+        with open('/home/halin/Master/Transformer/model_configs/config.yaml', 'r') as file:
+          config = yaml.safe_load(file)
+        return config
     
 

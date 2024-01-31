@@ -485,7 +485,8 @@ class EncoderBlock(nn.Module):
                self_attention_block: MultiHeadAttentionBlock,
                feed_forward_block: FeedForwardBlock, 
                dropout: float = 0.1,
-               normalization='layer'):
+               normalization='layer',
+               activation='relu'):
     super().__init__()
     self.self_attention_block = self_attention_block
     self.feed_forward_block =  feed_forward_block
@@ -549,7 +550,7 @@ class EncoderBlock(nn.Module):
 
   
 class VanillaEncoderBlock(nn.Module):
-  def __init__(self, d_model: int, h: int, d_ff: int, dropout: float = 0.1, normalization='layer'):
+  def __init__(self, d_model: int, h: int, d_ff: int, dropout: float = 0.1, normalization='layer', activation='relu'):
     super().__init__()
     self.self_attention_block = MultiheadAttention(d_model, h, dropout)
     self.dropout_1 = nn.Dropout(dropout)
@@ -561,7 +562,7 @@ class VanillaEncoderBlock(nn.Module):
       self.norm_1 = BatchNormalization(d_model)
       self.norm_2 = BatchNormalization(d_model)  
  
-    self.feed_forward_block = FeedForwardBlock(d_model, d_ff, dropout)
+    self.feed_forward_block = FeedForwardBlock(d_model, d_ff, dropout, activation)
 
   def forward(self, x, src_mask, src_key_padding_mask=None):
     # (batch_size, seq_len, d_model)
@@ -710,28 +711,30 @@ class EncoderTransformer(nn.Module):
   def encode(self, src, src_mask=None):
     return self.encode_type(src, src_mask)
   
-def build_encoder_transformer(config): #-> EncoderTransformer:
+def build_encoder_transformer(config): 
 
-  seq_len=config['seq_len']
-  d_model=config['d_model']
-  N=config['N']
-  h=config['h']
-  dropout=config['dropout']
-  omega=config['omega']
-  d_ff=config['d_ff']
-  output_size = config.get('output_size', 1)
-  config['output_size'] = output_size
-  encoder_type = config.get('encoder_type', 'normal')
-  config['encoder_type'] = encoder_type
-  normalization = config.get('normalization', 'layer')
-  config['normalization'] = normalization
+  seq_len=config['architecture']['seq_len'] 
+  d_model=config['architecture']['d_model'] 
+  N=config['architecture']['N'] 
+  h=config['architecture']['h'] 
+  dropout=config['training']['dropout'] 
+  omega=config['architecture']['omega'] 
+  d_ff=config['architecture']['d_ff'] 
+  output_size = config['architecture'].get('output_size', 1) 
+  config['architecture']['output_size'] = output_size 
+  encoder_type = config['architecture'].get('encoder_type', 'normal') 
+  config['architecture']['encoder_type'] = encoder_type 
+  normalization = config['architecture'].get('normalization', 'layer')
+  config['architecture']['normalization'] = normalization 
+  activation = config['architecture'].get('activation', 'relu') 
+  n_ant = config['architecture']['n_ant'] 
   if encoder_type == 'bypass':
     by_pass = True
-    num_embeddings = config['n_ant']
+    num_embeddings = n_ant 
     channels = 1
   else:
     by_pass = False 
-    channels = config['n_ant']
+    channels = n_ant
     num_embeddings = 1  
   
 
@@ -739,7 +742,7 @@ def build_encoder_transformer(config): #-> EncoderTransformer:
   # Create the input embeddings                           #
   #########################################################    
 
-  src_embed = [InputEmbeddings(d_model=d_model, channels=channels, dropout=config['dropout'], embed_type=config['embed_type']) for _ in range(num_embeddings)]
+  src_embed = [InputEmbeddings(d_model=d_model, channels=channels, dropout=config['training']['dropout'], embed_type=config['architecture']['embed_type']) for _ in range(num_embeddings)]
   
   #########################################################
   # Create the positional encodings                       #
@@ -751,36 +754,35 @@ def build_encoder_transformer(config): #-> EncoderTransformer:
       'Learnable': lambda: LearnablePositionalEncoding(d_model=d_model, max_len=2048)
   }
 
-  pos_enc_type = config['pos_enc_type']
+  pos_enc_type = config['architecture']['pos_enc_type'] 
 
   if pos_enc_type in pos_enc_config:
       src_pos_func = pos_enc_config[pos_enc_type]
   else:
       raise ValueError(f"Unsupported positional encoding type: {pos_enc_type}")
 
-  num_embeddings = config['n_ant'] if by_pass else 1
+  num_embeddings = n_ant if by_pass else 1 
 
   src_pos = [src_pos_func() for _ in range(num_embeddings)]
 
   #########################################################
   # Create the encoder layers                             #
   #########################################################
-  encoding_type = config.get('encoder_type', 'normal')
-  if encoding_type == 'normal' or encoding_type == 'bypass':
+  if encoder_type == 'normal' or encoder_type == 'bypass':
 
-    num_encoders = config['n_ant'] if by_pass else 1
+    num_encoders = n_ant if by_pass else 1
 
     encoders = []
     
     for _ in range(num_encoders):
       encoder_blocks = []
       for _ in range(N):
-        if config['pos_enc_type'] == 'Relative':
+        if config['architecture']['pos_enc_type'] == 'Relative':
           encoder_self_attention_block = MultiHeadAttentionBlock(d_model, h, dropout, max_relative_position=100, relative_positional_encoding=True)
         else:
           encoder_self_attention_block = MultiHeadAttentionBlock(d_model, h, dropout)
 
-        feed_forward_block = FeedForwardBlock(d_model, d_ff, dropout)
+        feed_forward_block = FeedForwardBlock(d_model, d_ff, dropout, activation=activation)
         encoder_block = EncoderBlock(features=d_model, 
                                     self_attention_block=encoder_self_attention_block, 
                                     feed_forward_block=feed_forward_block, 
@@ -790,19 +792,19 @@ def build_encoder_transformer(config): #-> EncoderTransformer:
       encoders.append(Encoder(features=d_model,
                               layers=nn.ModuleList(encoder_blocks), 
                               normalization='layer'))
-  elif encoding_type == 'none':
+  elif encoder_type == 'none':
     encoders = [None]
-  elif encoding_type == 'vanilla':
+  elif encoder_type == 'vanilla':
     vanilla_layer = VanillaEncoderBlock(d_model, h, d_ff, dropout)
     encoders = nn.TransformerEncoder(vanilla_layer, num_layers=N)
   else:
-    raise ValueError(f"Unsupported encoding type: {encoding_type}")        
+    raise ValueError(f"Unsupported encoding type: {encoder_type}")        
     
 
   #########################################################
   # Create the final block                                #
   #########################################################
-  final_type = config.get('final_type', 'double_linear')
+  final_type = config['architecture'].get('final_type', 'double_linear') 
   if by_pass:
     factor = 4
   else:
@@ -810,7 +812,7 @@ def build_encoder_transformer(config): #-> EncoderTransformer:
   final_block = FinalBlock(d_model=d_model*factor, seq_len=seq_len, dropout=dropout, out_put_size=output_size, forward_type=final_type)
 
   # Create the transformer
-  if encoding_type == 'vanilla':
+  if encoder_type == 'vanilla':
     encoder_transformer = VanillaEncoderTransformer(encoders=encoders,
                                                     src_embed=src_embed,
                                                     src_pos= src_pos, 
@@ -820,7 +822,7 @@ def build_encoder_transformer(config): #-> EncoderTransformer:
                                            src_embed=src_embed,
                                            src_pos= src_pos, 
                                            final_block=final_block,
-                                           encoding_type=encoding_type)
+                                           encoding_type=encoder_type)
 
   # Initialize the parameters
   for p in encoder_transformer.parameters():

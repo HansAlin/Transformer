@@ -86,7 +86,7 @@ def plot_performance_curve(y_preds, ys, configs, bins=1000, save_path='', text =
 
     if labels == None:
       if configs[0] != None:
-        ax.set_title(f"Model {configs[0]['model_num']} {text}")
+        ax.set_title(f"Model {configs[0]['basic']['model_num']} {text}")
       else:
         ax.set_title(f"Model Test")  
     else:
@@ -168,8 +168,8 @@ def plot_results(model_number, config, path=''):
 
   # Accuracy plot
   fig,ax = plt.subplots()
-  acc_path = plot_path + f'model_{model_number}_{config["metric"]}_plot.png'
-  ax.plot(df.Epochs, df.metric, label=config['metric'])
+  acc_path = plot_path + f'model_{model_number}_{config["training"]["metric"]}_plot.png'
+  ax.plot(df.Epochs, df.metric, label=config['training']['metric'])
   ax.set_title("Metric")
   #plt.ylim([0.9,1])
   plt.grid()
@@ -382,12 +382,12 @@ def plot_performance(config, device, x_batch=None, y_batch=None,lim_value=0.2, m
         ax[i].plot(x[:,i], color='grey')
         ax[i].plot(pred_y, label='Prediction')
         ax[i].plot(y, label='True signal')
-      if config["data_type"] != "classic":
+      if config["architecture"]["data_type"] != "classic":
         plt.legend()
       
       fig.suptitle(f"Model {config['basic']['model_num']} - {text} treshold: {lim_value}")
       if save_path == '':
-        path = config['model_path'] + f'plot/performance_{text.replace(" ", "_")}.png'
+        path = config['basic']['model_path'] + f'plot/performance_{text.replace(" ", "_")}.png'
       else:
         path = save_path + f'performance_{text.replace(" ", "_")}.png'  
       plt.savefig(path)

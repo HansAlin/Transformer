@@ -64,7 +64,7 @@ def test_model(model, test_loader, device, config):
       x_test, y_test = x_test.to(device), y_test.to(device)
       y_test = y_test.squeeze() 
       outputs = model.encode(x_test,src_mask=None)
-      if config['loss_function'] == 'BCEWithLogits':
+      if config['training']['loss_function'] == 'BCEWithLogits':
         outputs = torch.sigmoid(outputs)
       y_pred.append(outputs.cpu().detach().numpy())
       y.append(y_test.cpu().detach().numpy()) 
@@ -263,7 +263,7 @@ def get_results(model_num, device=0):
     model = build_encoder_transformer(config)
     torch.cuda.set_device(device)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    train_loader, val_loader, test_loader = get_data(batch_size=config['batch_size'], seq_len=config['seq_len'], subset=False)
+    train_loader, val_loader, test_loader = get_data(batch_size=config['training']['batch_size'], seq_len=config['architecture']['seq_len'], subset=False)
     del train_loader
     del val_loader
     y_pred_data, accuracy, efficiency, precission = test_model(model, test_loader, device, config)
@@ -273,7 +273,7 @@ def get_results(model_num, device=0):
 def get_transformer_triggers(waveforms, trigger_times, model_name, pre_trig):
   config = model_name['config']
   triggers = np.zeros((len(waveforms)))
-  target_length = config['seq_len']
+  target_length = config['architecture']['seq_len']
   data_config = model_name['data_config']
   sampling_rate = data_config['sampling']['rate'] 
   upsampling = data_config['training']['upsampling']
@@ -308,7 +308,7 @@ def get_transformer_triggers(waveforms, trigger_times, model_name, pre_trig):
               x = x.transpose(1, 2)
               yhat = model.encode(x, src_mask=None)
               yhat = torch.sigmoid(yhat)
-              triggers[i] = yhat.cpu().squeeze() > config['TRESH_AT_10KNRF']
+              triggers[i] = yhat.cpu().squeeze() > config['results']['TRESH_AT_10KNRF']
               pct_pass += 1 * triggers[i]
           except Exception as e:
               print("Yhat failed for ", this_wvf[cut_low_bin:cut_high_bin].swapaxes(0, 1).unsqueeze(0).shape)
@@ -327,7 +327,7 @@ def qualitative_colors(length):
 
 def LoadModel(filename, model_list, device):
     config = get_model_config(model_num=123)
-    name = config["model_num"]
+    name = config['basic']["model_num"]
     model_list[name] = dict()
     model_list[name]["config"] = config
     model_list[name]["model"] = build_encoder_transformer(config)

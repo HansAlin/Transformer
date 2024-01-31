@@ -175,82 +175,92 @@ def add_key_if_not_exists(dict_obj, key, value):
 # config = get_model_config(model_num=model_num)
 # model = build_encoder_transformer(config)
 # count_parameters(model, verbose=True)        
-def transform_config(config):
-        newdict = { 'basic': {
-                                'model_num': config.get('model_num', None),
-                                'model_name': config.get('model_name', None),
-                                'model_type': config.get('model_type', None),
-                                'model': config.get('model', None),
-                                'model_path': config.get('model_path', None),
-                                'data_path': config.get('data_path', None),},
-                    'architecture': {
-                                'inherit_model': config.get('inherit_model', None),
-                                'pretrained': config.get('pretrained', None),
-                                'embed_type': config.get('embed_type', None),
-                                'pos_enc_type': config.get('pos_enc_type', None),
-                                'encoder_type': config.get('encoder_type', None),
-                                'final_type': config.get('final_type', None),
-                                'normalization': config.get('normalization', None),
-                                'seq_len': config.get('seq_len', None),
-                                'd_model': config.get('d_model', None),
-                                'd_ff': config.get('d_ff', None),
-                                'N': config.get('N', None),
-                                'h': config.get('h', None),
-                                'by_pass': config.get('by_pass', False),
-                                'output_size': config.get('output_size', None),
-                                'output_shape': config.get('output_shape', None),
-                                'data_type': config.get('data_type', None),
-                                'n_ant': config.get('n_ant', None),
-                                'omega': config.get('omega', None),
-                                'activation': config.get('activation', None),},
-                    'num of parameters': {
-                                'num_param': config.get('num_param', None),
-                                'MACs': config.get('MACs', None),
-                                'input_param': config.get('input_param', None),
-                                'pos_param': config.get('pos_param', None),
-                                'encoder_param': config.get('encoder_param', None),
-                                'final_param': config.get('final_param', None),
-                                'trained_noise': config.get('trained_noise', None),
-                                'trained_signal': config.get('trained_signal', None)},
+# def transform_config(config):
+#     def get_int(key):
+#         value = config.get(key, None)
+#         return int(value) if value is not None else None
 
-                    'training': {
-                                'loss_function': config.get('loss_function', None),
-                                'dropout': config.get('dropout', None),
-                                'num_epochs': config.get('num_epochs', None),
-                                'batch_size': config.get('batch_size', None),
-                                'learning_rate': config.get('learning_rate', None),
-                                'decreas_factor': config.get('decreas_factor', None),
-                                'early_stop': config.get('early_stop', None),
-                                'metric': config.get('metric', None),},
+#     def get_float(key):
+#         value = config.get(key, None)
+#         return float(value) if value is not None else None
 
-                    'results': {
-                                'current_epoch': config.get('current_epoch', 0),
-                                'global_epoch': config.get('global_epoch', 0),
-                                'test_acc': config.get('test_acc', 0),
-                                'Accuracy': config.get('Accuracy', 0),
-                                'Efficiency': config.get('Efficiency', 0),
-                                'Precission': config.get('Precission', 0),
-                                'roc_area': config.get('roc_area', 0),
-                                'nr_area': config.get('nr_area', 0),
-                                'TRESH_AT_10KNRF': config.get('TRESH_AT_10KNRF', 0),
-                                'NSE_AT_10KNRF': config.get('NSE_AT_10KNRF', 0),
-                                'NSE_AT_10KROC': config.get('NSE_AT_10KROC', 0),
-                                'NSE_AT_100KNRF': config.get('NSE_AT_100KNRF', 0),
-                                'trained': config.get('trained', False),
-                                'power': config.get('power', 0),
-                                'training_time': config.get('training_time', 0),
-                                'energy': config.get('energy', 0),}
-        }
+#     newdict = {
+#         'basic': {
+#             'model_num': get_int('model_num'),
+#             'model_name': config.get('model_name', None),
+#             'model_type': config.get('model_type', None),
+#             'model': config.get('model', None),
+#             'model_path': config.get('model_path', None),
+#             'data_path': config.get('data_path', None),
+#         },
+#         'architecture': {
+#             'inherit_model': get_int('inherit_model'),
+#             'pretrained': config.get('pretrained', None),
+#             'embed_type': config.get('embed_type', None),
+#             'pos_enc_type': config.get('pos_enc_type', None),
+#             'encoder_type': config.get('encoder_type', None),
+#             'final_type': config.get('final_type', None),
+#             'normalization': config.get('normalization', None),
+#             'seq_len': get_int('seq_len'),
+#             'd_model': get_int('d_model'),
+#             'd_ff': get_int('d_ff'),
+#             'N': get_int('N'),
+#             'h': get_int('h'),
+#             'by_pass': config.get('by_pass', False),
+#             'output_size': get_int('output_size'),
+#             'output_shape': get_int('output_shape'),
+#             'data_type': config.get('data_type', None),
+#             'n_ant': get_int('n_ant'),
+#             'omega': get_int('omega'),
+#             'activation': config.get('activation', None),
+#         },
+#         'num of parameters': {
+#             'num_param': get_int('num_param'),
+#             'MACs': get_int('MACs'),
+#             'input_param': get_int('input_param'),
+#             'pos_param': get_int('pos_param'),
+#             'encoder_param': get_int('encoder_param'),
+#             'final_param': get_int('final_param'),
+#             'trained_noise': get_int('trained_noise'),
+#             'trained_signal': get_int('trained_signal'),
+#         },
+#         'training': {
+#             'loss_function': config.get('loss_function', None),
+#             'dropout': config.get('dropout', None),
+#             'num_epochs': get_int('num_epochs'),
+#             'batch_size': get_int('batch_size'),
+#             'learning_rate': get_float('learning_rate'),
+#             'decreas_factor': get_float('decreas_factor'),
+#             'early_stop': get_int('early_stop'),
+#             'metric': config.get('metric', None),
+#         },
+#         'results': {
+#             'current_epoch': get_int('current_epoch'),
+#             'global_epoch': get_int('global_epoch'),
+#             'test_acc': get_float('test_acc'),
+#             'Accuracy': get_float('Accuracy'),
+#             'Efficiency': get_float('Efficiency'),
+#             'Precission': get_float('Precission'),
+#             'roc_area': get_float('roc_area'),
+#             'nr_area': get_float('nr_area'),
+#             'TRESH_AT_10KNRF': get_float('TRESH_AT_10KNRF'),
+#             'NSE_AT_10KNRF': get_float('NSE_AT_10KNRF'),
+#             'NSE_AT_10KROC': get_float('NSE_AT_10KROC'),
+#             'NSE_AT_100KNRF': get_float('NSE_AT_100KNRF'),
+#             'trained': config.get('trained', False),
+#             'power': get_float('power'),
+#             'training_time': get_float('training_time'),
+#             'energy': get_float('energy'),
+#         }
+#     }
 
-        return newdict
-model_numbers = [21,22,23,24,25,26,27,99,100,101,102,103,104,105,106,107,108,109,110,111,108,112,113,114,115,116,117,118,119,120,121,122,123,124,125,127,128,129,130,131]
-for model_number in model_numbers:
-    config = get_model_config(model_num=model_number)
-    for key, value in config.items():
-        if isinstance(value, np.float32) or isinstance(value, np.float64):
-            config[key] = float(value)
-    new_dict = transform_config(config)
-    with open(config['model_path'] + 'config.yaml', 'w') as data:
-        yaml.dump(new_dict, data, default_flow_style=False)
+#     return newdict
+# model_numbers = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,99,100,101,102,103,104,105,106,107,108,109,110,111,108,112,113,114,115,116,117,118,119,120,121,122,123,124,125,127,128,129,130,131]
+# for model_number in model_numbers:
+#     config = get_model_config(model_num=model_number)
+
+#     new_dict = transform_config(config)
+#     with open(config['model_path'] + 'config.yaml', 'w') as data:
+#         yaml.dump(new_dict, data, default_flow_style=False)
 
         

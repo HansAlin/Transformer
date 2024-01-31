@@ -83,13 +83,13 @@ import matplotlib.pyplot as plt
 ###################################################################
 # Plot tabel of hyperparameters                                   #
 ###################################################################
-# # models_path = '/mnt/md0/halin/Models/'
-# models = [116, 129]
-# str_models = '_'.join(map(str, models))
-# save_path = f'/home/halin/Master/Transformer/Test/presentation/model_{str_models}_table.png'
-# df = collect_config_to_df(model_numbers=models, save_path=save_path)
-# keys = ['model_num', 'pos_enc_type','d_model', 'd_ff', 'N', 'h', "num_param", "pos_param", 'input_param', 'encoder_param', 'final_param', 'NSE_AT_10KNRF', 'MACs' ]
-# plot_table(df, keys, save_path=save_path)
+# models_path = '/mnt/md0/halin/Models/'
+models = [116, 130]
+str_models = '_'.join(map(str, models))
+save_path = f'/home/halin/Master/Transformer/Test/presentation/model_{str_models}_table.png'
+df = collect_config_to_df(model_numbers=models, save_path=save_path)
+keys = ['model_num', 'pos_enc_type','d_model', 'd_ff', 'N', 'h', "num_param", "pos_param", 'input_param', 'encoder_param', 'final_param', 'NSE_AT_10KNRF', 'MACs' ]
+plot_table(df, keys, save_path=save_path)
 
 ###################################################################
 # Plot performance of a model                                     #

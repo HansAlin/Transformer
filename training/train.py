@@ -207,7 +207,7 @@ def training(configs, cuda_device, batch_size=32, channels=4, model_folder='', t
         early_stop_count = 0
       else:
         early_stop_count += 1
-      if early_stop_count >= config['early_stop']: # config['training']['early_stop']
+      if early_stop_count >= config['training']['early_stop']: # config['training']['early_stop']
         print("Early stopping!")
         break
       
@@ -225,20 +225,24 @@ def training(configs, cuda_device, batch_size=32, channels=4, model_folder='', t
     config['results']['trained'] = True
     config['results']['training_time'] = total_training_time
     config['results']['energy'] = config['results']['power']*total_training_time
-    y_pred_data, config['results']['Accuracy'], config['results']['Efficiency'], config['results']['Precission'] = test_model(model=model, 
+    y_pred_data, accuracy , efficiency, precision = test_model(model=model, 
                                                                                              test_loader=test_loader,
                                                                                              device=device, 
                                                                                              config=config)    
+    config['results']['Accuracy'] = float(accuracy)
+    config['results']['Efficiency'] = float(efficiency)
+    config['results']['Precission'] = float(precision)
+
     print(f"Test efficiency: {config['results']['Efficiency']:.4f}")
 
     histogram(y_pred_data['y_pred'], y_pred_data['y'], config)
     nr_area, nse, threshold = plot_performance_curve([y_pred_data['y_pred']], [y_pred_data['y']], [config], curve='nr', x_lim=[0,1], bins=10000)
-    config['results']['nr_area'] = nr_area
-    config['results']['NSE_AT_10KNRF'] = nse
+    config['results']['nr_area'] = float(nr_area)
+    config['results']['NSE_AT_10KNRF'] = float(nse)
     roc_area, nse, threshold = plot_performance_curve([y_pred_data['y_pred']], [y_pred_data['y']], [config], curve='roc', bins=10000)
-    config['results']['roc_area'] = roc_area
-    config['results']['NSE_AT_10KROC'] = nse
-    config['results']['TRESH_AT_10KNRF'] = threshold
+    config['results']['roc_area'] = float(roc_area)
+    config['results']['NSE_AT_10KROC'] = float(nse)
+    config['results']['TRESH_AT_10KNRF'] = float(threshold)
     plot_results(config['basic']['model_num'], config)
 
 

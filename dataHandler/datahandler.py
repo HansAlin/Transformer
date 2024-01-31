@@ -8,6 +8,7 @@ import matplotlib.gridspec as gridspec
 from matplotlib.ticker import MultipleLocator
 import os
 import pandas as pd
+from pandas.io.json import json_normalize
 import pickle
 import sys
 import time
@@ -725,9 +726,6 @@ def get_model_path(config):
     model_path = find_file(model_path, 'pth')   
    
   return model_path 
-  
-
-
 
 def save_data(config, df=None, y_pred_data=None):
 
@@ -736,9 +734,6 @@ def save_data(config, df=None, y_pred_data=None):
   with open(path + 'config.txt', "wb") as fp:
     pickle.dump(config, fp)
 
-  for key, value in config.items():
-        if isinstance(value, np.float32) or isinstance(value, np.float64):
-            config[key] = float(value)
   with open(config['basic']['model_path'] + 'config.yaml', 'w') as data:
         yaml.dump(config, data, default_flow_style=False) 
 
@@ -839,7 +834,10 @@ def collect_config_to_df(model_numbers, model_path='/mnt/md0/halin/Models/', sav
   counter = 0
   for model_num in model_numbers:
     config = get_model_config(model_num, model_path)
-    df = pd.concat([df, pd.DataFrame(config, index=[counter])])
+    flatt_dict = json_normalize(config)
+    df = pd.concat([df, flatt_dict])
+
+
 
     if save:
       if save_path == '':

@@ -24,7 +24,7 @@ import torch
 
 # model_number = 19
 # config = get_model_config(model_num=model_number)
-# model_path = config['model_path'] + 'saved_model' + f'/model_{config["model_num"]}.pth'
+# model_path = config['basic]['model_path'] + 'saved_model' + f'/model_{config["model_num"]}.pth'
 # model = build_encoder_transformer(config)
 # print(f'Preloading model {model_path}')
 # state = torch.load(model_path)

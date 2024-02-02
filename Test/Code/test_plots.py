@@ -33,7 +33,7 @@ import matplotlib.pyplot as plt
 # model_number = 992
 # with open(f"/mnt/md0/halin/Models/model_{model_number}/config.txt", 'rb') as f:
 #     config = pickle.load(f)
-# path = config['model_path']
+# path = config['basic']['model_path']
 # save_path = f'/home/halin/Master/Transformer/Test/ModelsResults/test/model_{model_number}_noise_reduction.png'
 # df = pd.read_pickle(path + 'y_pred_data.pkl')
 # noise_reduction_factor([df['y_pred']], [df['y']], [config], save_path=save_path, x_lim=[0,1])

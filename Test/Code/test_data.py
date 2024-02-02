@@ -131,7 +131,7 @@ def add_key_if_not_exists(dict_obj, key, value):
 
 # df = df.sort_values('NSE_AT_10KNRF', ascending=False)
 # print(df[[col_1,col_2,col_3, col_4, col_5,col_6, col_7,  col_9, col_10, col_11, col_12, col_13,  col_15, col_17, ]])
-# # df.plot.scatter(x=col_15, y=col_6, c='DarkBlue')
+# df.plot.scatter(x=col_15, y=col_6, c='DarkBlue')
 # # plt.savefig('/home/halin/Master/Transformer/Test/Code/plots/NRF_vs_param.png')
 # df_2 = df[[col_1,col_2,col_3, col_4, col_5,col_6, col_7, col_9, col_10, col_11, col_12, col_13,  col_15, col_17, ]]
 # # df_2 = df_2.copy()
@@ -174,7 +174,14 @@ def add_key_if_not_exists(dict_obj, key, value):
 # model_num = 21
 # config = get_model_config(model_num=model_num)
 # model = build_encoder_transformer(config)
-# count_parameters(model, verbose=True)        
+# count_parameters(model, verbose=True)
+
+
+
+
+###################################################################
+# Changing config file style                                      #
+###################################################################                
 # def transform_config(config):
 #     def get_int(key):
 #         value = config.get(key, None)
@@ -255,9 +262,9 @@ def add_key_if_not_exists(dict_obj, key, value):
 #     }
 
 #     return newdict
-# model_numbers = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,99,100,101,102,103,104,105,106,107,108,109,110,111,108,112,113,114,115,116,117,118,119,120,121,122,123,124,125,127,128,129,130,131]
+# model_numbers = [126]
 # for model_number in model_numbers:
-#     config = get_model_config(model_num=model_number)
+#     config = get_model_config(model_num=model_number, type_of_file='txt')
 
 #     new_dict = transform_config(config)
 #     with open(config['model_path'] + 'config.yaml', 'w') as data:

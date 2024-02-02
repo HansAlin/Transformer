@@ -1,23 +1,24 @@
 architecture:
   N: 2
-  activation: 'relu'
+  activation: 'relu' # Posible options: 'relu', 'gelu'
   by_pass: false
-  d_ff: 32
-  d_model: 512
-  data_type: chunked
-  embed_type: lin_relu_drop
-  encoder_type: normal
-  final_type: double_linear
+  d_ff: 512
+  d_model: 512 # Have to be dividable by h
+  data_type: trigger # Possible options: 'trigger', 'chunked'
+  embed_type: linear # Posible options: 'lin_relu_drop', 'lin_gelu_drop', 'linear',
+  encoder_type: normal # Posible options: 'normal', 'none', 'bypass', 'vanilla'
+  final_type: double_linear # Posible options: 'double_linear', 'single_linear', 'seq_average_linear', 'd_model_average_linear'
   h: 8
   inherit_model: null
+  location: 'post' # Posible options: 'pre', 'post'
   n_ant: 4
-  normalization: layer
+  normalization: layer # Posible options: 'layer', 'batch'
   omega: 10000
   output_shape: null
   output_size: null
-  pos_enc_type: Sinusoidal
+  pos_enc_type: Relative # Posible options: 'Sinusoidal', 'Relative',  'Learnable''None',
   pretrained: null
-  seq_len: 256
+  seq_len: 128
 basic:
   data_path: ''
   model: null
@@ -27,11 +28,11 @@ basic:
   model_type: base_encoder
 num of parameters:
   MACs: null
-  encoder_param: 18931456
-  final_param: 770
-  input_param: 2560
-  num_param: 19065858
-  pos_param: 131072
+  encoder_param: 0
+  final_param: 0
+  input_param: 0
+  num_param: 0
+  pos_param: 0
   trained_noise: 0
   trained_signal: 0
 results:
@@ -42,7 +43,7 @@ results:
   NSE_AT_10KROC: 0
   Precission: 0
   TRESH_AT_10KNRF: 0
-  current_epoch: 32
+  current_epoch: 0
   energy: 0
   global_epoch: 0
   nr_area: 0
@@ -57,6 +58,6 @@ training:
   dropout: 0.1
   early_stop: 7
   learning_rate: 0.001
-  loss_function: null
-  metric: Efficiency
+  loss_function: 'BCEWithLogits' # Posible options: 'BCE', 'BCEWithLogits'
+  metric: Efficiency # Posible options: 'Accuracy', 'Efficiency', 'Precision'
   num_epochs: 100

@@ -32,8 +32,8 @@ def training(configs, cuda_device, batch_size=32, channels=4, model_folder='', t
 
 
   item = next(iter(train_loader))
-  out_put_shape = item[0].shape[-2]
-  print(f"Output shape: {out_put_shape}")
+  output_size = item[1].shape[-1]
+  print(f"Output shape: {output_size}")
 
   torch.cuda.set_device(cuda_device)
   device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -42,7 +42,9 @@ def training(configs, cuda_device, batch_size=32, channels=4, model_folder='', t
   for config in configs:
     df = pd.DataFrame([], columns= ['Train_loss', 'Val_loss', 'metric', 'Epochs', 'lr'])
     config['results']['power'  ] = get_energy(cuda_device) # 
-    config['architecture']['out_put_shape'] = out_put_shape # config['architecture']['out_put_shape']
+    config['architecture']['output_size'] = output_size #
+    config['architecture']['out_put_shape'] = output_size # config['architecture']['out_put_shape']
+    
     if config['basic']['model_type'] == "base_encoder": # config['basic']['model_type']
       model = build_encoder_transformer(config)
 

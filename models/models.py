@@ -322,9 +322,10 @@ class MultiHeadAttentionBlock(nn.Module):
     self.dropout = nn.Dropout(dropout)
 
     # For relative positional encoding
-    self.max_relative_position = max_relative_position
-    self.relative_positional_k = RelativePositionalEncoding(self.d_h, max_relative_position)
-    self.relative_positional_v = RelativePositionalEncoding(self.d_h, max_relative_position)
+    if relative_positional_encoding:
+      self.max_relative_position = max_relative_position
+      self.relative_positional_k = RelativePositionalEncoding(self.d_h, max_relative_position)
+      self.relative_positional_v = RelativePositionalEncoding(self.d_h, max_relative_position)
     self.scale = math.sqrt(self.d_model)
     self.relative_positional_encoding = relative_positional_encoding
 
@@ -447,9 +448,10 @@ class ResidualConnection(nn.Module):
   """ This layer adds the residual connection from sublayer to the input.
       It also appies a 
   """
-  def __init__(self, features: int, dropout: float = 0.1, normalization='layer'):
+  def __init__(self, features: int, dropout: float = 0.1, normalization='layer', location='post'):
     super().__init__()
     self.dropout = nn.Dropout(dropout)
+    self.location = location
     if normalization == 'layer':
       self.norm = LayerNormalization(features=features)
     elif normalization == 'batch':
@@ -457,24 +459,22 @@ class ResidualConnection(nn.Module):
     else:
       raise ValueError(f"Unsupported normalization: {normalization}")
     
+    
 
   def forward(self, x, sublayer):
     #TODO change this code so it becomes more similar to the vanilla encoder
     # There are other ways to add the residual connection
     # For example, you can add it sublayer(x) and then apply the normalization.
 
-    # (batch_size, seq_len, d_model)
-
-    # This is how mvts_transformer does it
-    out = sublayer(x)
-    x = x + self.dropout(out)
-    x = self.norm(x)
-
-    # This is how Jamil does it
-    # out = self.norm(x)
-    # out = sublayer(out)
-    # out = self.dropout(out)
-    # x = x + out
+    if self.location == 'post':
+      out = sublayer(x)
+      x = x + self.dropout(out)
+      x = self.norm(x)
+    elif self.location == 'pre':
+      out = self.norm(x)
+      out = sublayer(out)
+      x = x + self.dropout(out)
+  
 
     # (batch_size , seq_len, d_model)
     return x
@@ -486,11 +486,12 @@ class EncoderBlock(nn.Module):
                feed_forward_block: FeedForwardBlock, 
                dropout: float = 0.1,
                normalization='layer',
-               activation='relu'):
+               location='post'):
     super().__init__()
     self.self_attention_block = self_attention_block
     self.feed_forward_block =  feed_forward_block
-    self.residual_connections = nn.ModuleList([ResidualConnection(features, dropout, normalization) for _ in range(2)])
+    self.residual_connection_1 = ResidualConnection(features, dropout, normalization, location)
+    self.residual_connection_2 = ResidualConnection(features, dropout, normalization, location)
 
     # self.residual_1 = ResidualConnection(dropout)
     # self.residual_2 = ResidualConnection(dropout)
@@ -503,50 +504,10 @@ class EncoderBlock(nn.Module):
     # x = self.residual_2(x, self.feed_forward_block)
 
     #  TODO I don't understand the differnece between the two residual connections
-    x = self.residual_connections[0](x, lambda x: self.self_attention_block(x, x, x, src_mask))
-    x = self.residual_connections[1](x, self.feed_forward_block)
+    x = self.residual_connection_1(x, lambda y: self.self_attention_block(y, y, y, src_mask))
+    x = self.residual_connection_2(x, self.feed_forward_block)
     return x  
   
-# class EncoderBlock(nn.Module):
-#   def __init__(self,
-#                d_model: int,
-#                self_attention_block: MultiHeadAttentionBlock,
-#                feed_forward_block: FeedForwardBlock, 
-#                dropout: float = 0.1,
-#                normalization='layer'):
-#     super().__init__()  
-#     self.self_attention_block = self_attention_block
-#     self.feed_forward_block =  feed_forward_block
-#     if normalization == 'layer':
-#       self.norm_1 = LayerNormalization(d_model)
-#       self.norm_2 = LayerNormalization(d_model)
-#     elif normalization == 'batch': 
-#       self.norm_1 = BatchNormalization(d_model)
-#       self.norm_2 = BatchNormalization(d_model) 
-#     else:
-#       raise ValueError(f"Unsupported normalization: {normalization}")
-    
-#     self.dropout_1 = nn.Dropout(dropout)
-#     self.dropout_2 = nn.Dropout(dropout)
-
-#   def forward(self, x, src_mask):
-#     # (batch_size, seq_len, d_model)
-    
-#     x2  = self.self_attention_block(x, x, x, src_mask)
-
-#     # Residual connection and normalization
-#     x = x + self.dropout_1(x2)
-#     x = self.norm_1(x)
-
-#     x2 = self.feed_forward_block(x)
-#     # Residual connection and normalization
-#     x = x + self.dropout_2(x2)
-#     x = self.norm_2(x)
-
-#     # (batch_size, seq_len, d_model)
-#     return x
-
-
 
   
 class VanillaEncoderBlock(nn.Module):
@@ -726,8 +687,13 @@ def build_encoder_transformer(config):
   config['architecture']['encoder_type'] = encoder_type 
   normalization = config['architecture'].get('normalization', 'layer')
   config['architecture']['normalization'] = normalization 
+  location = config['architecture'].get('location', 'post')
   activation = config['architecture'].get('activation', 'relu') 
   n_ant = config['architecture']['n_ant'] 
+  max_relative_position = config['architecture'].get('max_relative_position', 100)
+  config['architecture']['max_relative_position'] = max_relative_position
+  relative_positional_encoding = config['architecture'].get('relative_positional_encoding', False)
+  config['architecture']['relative_positional_encoding'] = relative_positional_encoding
   if encoder_type == 'bypass':
     by_pass = True
     num_embeddings = n_ant 
@@ -778,7 +744,7 @@ def build_encoder_transformer(config):
       encoder_blocks = []
       for _ in range(N):
         if config['architecture']['pos_enc_type'] == 'Relative':
-          encoder_self_attention_block = MultiHeadAttentionBlock(d_model, h, dropout, max_relative_position=100, relative_positional_encoding=True)
+          encoder_self_attention_block = MultiHeadAttentionBlock(d_model, h, dropout, max_relative_position=max_relative_position, relative_positional_encoding=relative_positional_encoding)
         else:
           encoder_self_attention_block = MultiHeadAttentionBlock(d_model, h, dropout)
 
@@ -787,7 +753,8 @@ def build_encoder_transformer(config):
                                     self_attention_block=encoder_self_attention_block, 
                                     feed_forward_block=feed_forward_block, 
                                     dropout=dropout,
-                                    normalization=normalization)
+                                    normalization=normalization,
+                                    location=location)
         encoder_blocks.append(encoder_block)
       encoders.append(Encoder(features=d_model,
                               layers=nn.ModuleList(encoder_blocks), 
@@ -809,7 +776,11 @@ def build_encoder_transformer(config):
     factor = 4
   else:
     factor = 1  
-  final_block = FinalBlock(d_model=d_model*factor, seq_len=seq_len, dropout=dropout, out_put_size=output_size, forward_type=final_type)
+  final_block = FinalBlock(d_model=d_model*factor,
+                            seq_len=seq_len, 
+                            dropout=dropout, 
+                            out_put_size=output_size, 
+                            forward_type=final_type)
 
   # Create the transformer
   if encoder_type == 'vanilla':

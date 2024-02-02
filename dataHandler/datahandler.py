@@ -834,7 +834,7 @@ def collect_config_to_df(model_numbers, model_path='/mnt/md0/halin/Models/', sav
   counter = 0
   for model_num in model_numbers:
     config = get_model_config(model_num, model_path)
-    flatt_dict = json_normalize(config)
+    flatt_dict = pd.json_normalize(config)
     df = pd.concat([df, flatt_dict])
 
 

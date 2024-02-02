@@ -7,10 +7,10 @@ architecture:
   data_type: trigger # Possible options: 'trigger', 'chunked'
   embed_type: linear # Posible options: 'lin_relu_drop', 'lin_gelu_drop', 'linear',
   encoder_type: normal # Posible options: 'normal', 'none', 'bypass', 'vanilla'
-  final_type: double_linear # Posible options: 'double_linear', 'single_linear', 'seq_average_linear', 'd_model_average_linear'
-  h: 8
+  final_type: seq_average_linear # Posible options: 'double_linear', 'single_linear', 'seq_average_linear', 'd_model_average_linear'
+  h: 4
   inherit_model: null
-  location: 'post' # Posible options: 'pre', 'post'
+  location: 'pre' # Posible options: 'pre', 'post'
   n_ant: 4
   normalization: layer # Posible options: 'layer', 'batch'
   omega: 10000
@@ -55,9 +55,10 @@ results:
 training:
   batch_size: 64
   decreas_factor: 0.5
-  dropout: 0.1
-  early_stop: 7
+  dropout: 0
+  early_stop: 100
   learning_rate: 0.001
   loss_function: 'BCEWithLogits' # Posible options: 'BCE', 'BCEWithLogits'
   metric: Efficiency # Posible options: 'Accuracy', 'Efficiency', 'Precision'
   num_epochs: 100
+  step_size: 7

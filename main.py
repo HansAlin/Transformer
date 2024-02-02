@@ -49,9 +49,11 @@ def main(start_model_num, batch_size, epochs, test, cuda_device, config_number, 
 
   config = get_config(config_number)
   #config = old_config.copy()
-  hyper_param = {'pos_enc_type':['Relative'],
-                 'h': [2,4,8],
-                 'd_model': [64,128,256],}
+  hyper_param = {'N':[6]
+              # 'pos_enc_type':['Relative'],
+              #   'h': [2,4,8],
+               #  'd_model': [64,128,256],
+                 }
 
   # Get all combinations
   combinations = list(itertools.product(*hyper_param.values()))
@@ -139,8 +141,8 @@ if __name__ == "__main__":
   parser = argparse.ArgumentParser()
   parser.add_argument('--start_model_num', help='Check for no interference', type=int)
   parser.add_argument('--batch_size', type=int, help='Default 32', default=64)
-  parser.add_argument('--epochs', type=int, help='Default 100', default=2)
-  parser.add_argument('--test', type=bool, help='Default False', default=True)
+  parser.add_argument('--epochs', type=int, help='Default 100', default=100)
+  parser.add_argument('--test', type=bool, help='Default False', default=False)
   parser.add_argument('--cuda_device', type=int,help='Default 0', default=0)
   parser.add_argument('--config_number', type=int,help='Default 1', default=0)
   parser.add_argument('--inherit_model', type=int,help='Default 18', default=None)

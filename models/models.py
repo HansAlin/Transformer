@@ -674,26 +674,28 @@ class EncoderTransformer(nn.Module):
   
 def build_encoder_transformer(config): 
 
-  seq_len=config['architecture']['seq_len'] 
-  d_model=config['architecture']['d_model'] 
-  N=config['architecture']['N'] 
-  h=config['architecture']['h'] 
-  dropout=config['training']['dropout'] 
-  omega=config['architecture']['omega'] 
-  d_ff=config['architecture']['d_ff'] 
-  output_size = config['architecture'].get('output_size', 1) 
+  seq_len=        config['architecture']['seq_len'] 
+  d_model=        config['architecture']['d_model'] 
+  N=              config['architecture']['N'] 
+  h=              config['architecture']['h'] 
+  omega=          config['architecture']['omega'] 
+  d_ff=           config['architecture']['d_ff'] 
+  output_size =   config['architecture'].get('output_size', 1) 
   config['architecture']['output_size'] = output_size 
-  encoder_type = config['architecture'].get('encoder_type', 'normal') 
+  encoder_type =  config['architecture'].get('encoder_type', 'normal') 
   config['architecture']['encoder_type'] = encoder_type 
   normalization = config['architecture'].get('normalization', 'layer')
   config['architecture']['normalization'] = normalization 
-  location = config['architecture'].get('location', 'post')
-  activation = config['architecture'].get('activation', 'relu') 
-  n_ant = config['architecture']['n_ant'] 
+  location =      config['architecture'].get('location', 'post')
+  activation =    config['architecture'].get('activation', 'relu') 
+  n_ant =         config['architecture']['n_ant'] 
   max_relative_position = config['architecture'].get('max_relative_position', 100)
   config['architecture']['max_relative_position'] = max_relative_position
   relative_positional_encoding = config['architecture'].get('relative_positional_encoding', False)
   config['architecture']['relative_positional_encoding'] = relative_positional_encoding
+ 
+  dropout=config['training']['dropout'] 
+
   if encoder_type == 'bypass':
     by_pass = True
     num_embeddings = n_ant 
@@ -708,7 +710,7 @@ def build_encoder_transformer(config):
   # Create the input embeddings                           #
   #########################################################    
 
-  src_embed = [InputEmbeddings(d_model=d_model, channels=channels, dropout=config['training']['dropout'], embed_type=config['architecture']['embed_type']) for _ in range(num_embeddings)]
+  src_embed = [InputEmbeddings(d_model=d_model, channels=channels, dropout=dropout, embed_type=config['architecture']['embed_type']) for _ in range(num_embeddings)]
   
   #########################################################
   # Create the positional encodings                       #
@@ -717,7 +719,7 @@ def build_encoder_transformer(config):
       'Sinusoidal': lambda: PositionalEncoding(d_model=d_model, dropout=dropout, seq_len=seq_len, omega=omega),
       'None': lambda: nn.Identity(),
       'Relative': lambda: nn.Identity(),
-      'Learnable': lambda: LearnablePositionalEncoding(d_model=d_model, max_len=2048)
+      'Learnable': lambda: LearnablePositionalEncoding(d_model=d_model, max_len=2048, dropout=dropout)
   }
 
   pos_enc_type = config['architecture']['pos_enc_type'] 

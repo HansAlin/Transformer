@@ -96,12 +96,14 @@ def training(configs, cuda_device, batch_size=32, channels=4, model_folder='', t
       return None
    
     optimizer = torch.optim.Adam(model.parameters(), lr=config['training']['learning_rate']) # 
-    scheduler = ReduceLROnPlateau(optimizer=optimizer,
-                                mode='min',
-                                factor=config['training']['decreas_factor'],      # 
-                                patience=4,
-                                verbose=True)
+    # scheduler = ReduceLROnPlateau(optimizer=optimizer,
+    #                             mode='min',
+    #                             factor=config['training']['decreas_factor'],      # 
+    #                             patience=4,
+    #                             verbose=True)
   
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=config['training']['step_size'], gamma=config['training']['decreas_factor']) #
+
     model.to(device) 
     
     initial_epoch = 0

@@ -24,6 +24,9 @@ class BaseTest(unittest.TestCase):
     N = 6
     n_ant = 4
     h = 8
+    normalizations = ['layer', 'batch']
+    locations = ['post', 'pre']
+    relative_positional_encodings = [True, False] 
 
 class TestLayers(BaseTest):
 
@@ -64,8 +67,8 @@ class TestLayers(BaseTest):
         self.assertEqual(output[0,0,0], 0, "Incorrect value!")
 
     def test_residual_connection(self):
-        for normalization in ['layer', 'batch']:
-            for location in ['post', 'pre']:
+        for normalization in self.normalizations:
+            for location in self.locations:
                 self.helper_residual_connection(normalization, location)
 
     def helper_residual_connection(self, normalization, location):
@@ -96,7 +99,7 @@ class TestLayers(BaseTest):
         self.assertFalse(torch.any(torch.isnan(output)))
 
     def test_MultiHeadAttentionBlock(self):
-        for relative_positional_encoding in [True, False]:
+        for relative_positional_encoding in self.relative_positional_encodings:
             self.helper_MultiHeadAttentionBlock(relative_positional_encoding)
 
     def helper_MultiHeadAttentionBlock(self, relative_positional_encoding):

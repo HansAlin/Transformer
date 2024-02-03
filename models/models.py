@@ -63,27 +63,21 @@ class FeedForwardBlock(nn.Module):
     self.dropout = nn.Dropout(dropout)
     self.linear_2 = nn.Linear(d_ff, d_model) # W2 and bias
     if activation == None:
-      self.activation_1 = nn .ReLU()
-      self.activation_2 = nn.ReLU()
+      self.activation = nn.Linear()
     elif activation == 'relu':
-      self.activation_1 = nn.ReLU() 
-      self.activation_2 = nn.ReLU() 
+      self.activation = nn.ReLU() 
     elif activation == 'gelu':
-      self.activation_1 = nn.GELU()
-      self.activation_2 = nn.GELU()  
+      self.activation = nn.GELU()
 
   def forward(self, x):
     # (batch_size, seq_len, d_model) 
     x = self.linear_1(x)
     # (batch_size, seq_len, d_ff) 
-    x = self.activation_1(x)
+    x = self.activation(x)
     x = self.dropout(x)
     x = self.linear_2(x)
 
-    # TODO mvts_transformer does not have this activation function
-    # and it does not seem so many others have it either
-    # x = self.activation_2(x)
-    
+
     # (batch_size, seq_len, d_model)
     return x
 

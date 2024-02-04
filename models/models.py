@@ -63,7 +63,7 @@ class FeedForwardBlock(nn.Module):
     self.dropout = nn.Dropout(dropout)
     self.linear_2 = nn.Linear(d_ff, d_model) # W2 and bias
     if activation == None:
-      self.activation = nn.Linear()
+      self.activation = nn.Identity()
     elif activation == 'relu':
       self.activation = nn.ReLU() 
     elif activation == 'gelu':

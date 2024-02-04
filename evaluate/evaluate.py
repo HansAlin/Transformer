@@ -39,11 +39,7 @@ def test_model(model, test_loader, device, config):
   Return:
     y_pred_data, accuracy, efficiency, precission
   """
-  model_path = get_model_path(config)
-    
-  print(f'Preloading model {model_path}')
-  state = torch.load(model_path)
-  model.load_state_dict(state['model_state_dict'])
+
 
   model.to(device)
   model.eval()

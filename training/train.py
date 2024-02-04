@@ -13,9 +13,9 @@ import pandas as pd
 import sys
 import time
 from tqdm import tqdm
-
+import tensorboard
 from models.models import build_encoder_transformer
-from dataHandler.datahandler import save_data, save_model, create_model_folder
+from dataHandler.datahandler import save_data, save_model, create_model_folder, get_model_path
 from evaluate.evaluate import test_model, validate, get_energy, get_MMac, count_parameters
 
 
@@ -229,10 +229,16 @@ def training(configs, cuda_device, batch_size=32, channels=4, model_folder='', t
     config['results']['trained'] = True
     config['results']['training_time'] = total_training_time
     config['results']['energy'] = config['results']['power']*total_training_time
+
+    model_path = get_model_path(config)
+    
+    print(f'Preloading model {model_path}')
+    state = torch.load(model_path)
+    model.load_state_dict(state['model_state_dict'])
     y_pred_data, accuracy , efficiency, precision = test_model(model=model, 
-                                                                                             test_loader=test_loader,
-                                                                                             device=device, 
-                                                                                             config=config)    
+                                                                test_loader=test_loader,
+                                                                device=device, 
+                                                                config=config)    
     config['results']['Accuracy'] = float(accuracy)
     config['results']['Efficiency'] = float(efficiency)
     config['results']['Precission'] = float(precision)

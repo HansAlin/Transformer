@@ -181,7 +181,7 @@ print(df[[col_1,col_2,col_3, col_4, col_5,col_6, col_7,  col_9, col_10, col_11, 
 
 ###################################################################
 # Changing config file style                                      #
-###################################################################                
+# ###################################################################                
 # def transform_config(config):
 #     def get_int(key):
 #         value = config.get(key, None)
@@ -262,7 +262,7 @@ print(df[[col_1,col_2,col_3, col_4, col_5,col_6, col_7,  col_9, col_10, col_11, 
 #     }
 
 #     return newdict
-# model_numbers = [126]
+# model_numbers = [131]
 # for model_number in model_numbers:
 #     config = get_model_config(model_num=model_number, type_of_file='txt')
 

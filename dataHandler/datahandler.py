@@ -714,11 +714,13 @@ def find_file(directory, extension):
    
   return None
 
-def get_model_path(config):
+def get_model_path(config, text=''):
 
   model_path = config['basic']['model_path'] + 'saved_model/' 
 
-  if file_exist(model_path, f'model_{config["basic"]["model_num"]}_final.pth'):
+  if text != '':
+     model_path = model_path + f'model_{config["basic"]["model_num"]}_{text}.pth'
+  elif file_exist(model_path, f'model_{config["basic"]["model_num"]}_final.pth'):
     model_path = model_path + f'model_{config["basic"]["model_num"]}_final.pth'
   elif file_exist(model_path, f'model_{config["basic"]["model_num"]}_early_stop.pth'):
     model_path = model_path + f'model_{config["basic"]["model_num"]}_early_stop.pth'

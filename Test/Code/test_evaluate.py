@@ -18,11 +18,11 @@ from analysis_tools.config import GetConfig
 #################################################################################
 #  Get new values for a model                                                   #
 #################################################################################
-model_number = 128
+model_number = 131
 config = get_model_config(model_num=model_number)
 
 model = build_encoder_transformer(config)
-model_path = get_model_path(config)
+model_path = '/mnt/md0/halin/Models/model_131/saved_model/model_131_early_stop.pth' #get_model_path(config)
 
 print(f'Preloading model {model_path}')
 state = torch.load(model_path)

@@ -19,11 +19,11 @@ from analysis_tools.config import GetConfig
 #################################################################################
 #  Get new values for a model                                                   #
 #################################################################################
-model_number = 131
+model_number = 19
 config = get_model_config(model_num=model_number, type_of_file='yaml')
 
 model = build_encoder_transformer(config)
-model_path = get_model_path(config, text='early_stop')
+model_path = get_model_path(config, text='')
 
 print(f'Preloading model {model_path}')
 state = torch.load(model_path)
@@ -32,11 +32,11 @@ model_shapes = [str(value.shape) for value in model.state_dict().values()]
 
 
 state_dict = state['model_state_dict']
-ignore_keys = ['hej',
-            #  'encoder.layers.0.self_attention_block.relative_positional_k.embeddings_table', 
-            #    'encoder.layers.0.self_attention_block.relative_positional_v.embeddings_table',
-            #    'encoder.layers.1.self_attention_block.relative_positional_k.embeddings_table',
-            #    'encoder.layers.1.self_attention_block.relative_positional_v.embeddings_table'
+ignore_keys = [
+             'encoder.layers.0.self_attention_block.relative_positional_k.embeddings_table', 
+               'encoder.layers.0.self_attention_block.relative_positional_v.embeddings_table',
+               'encoder.layers.1.self_attention_block.relative_positional_k.embeddings_table',
+               'encoder.layers.1.self_attention_block.relative_positional_v.embeddings_table'
                ]
 name_mapping = {
     'encoder.layers.0.residual_connections.0.norm.alpha': 'encoder.layers.0.residual_connection_1.norm.alpha',
@@ -56,9 +56,9 @@ state_dict = {name_mapping.get(k, k): v for k, v in state_dict.items() if k not 
 loaded_keys = list(state_dict.keys())
 loaded_shapes = [str(value.shape) for value in state_dict.values()]
 
-print("Model's state_dict keys and shapes vs Loaded state_dict keys and shapes:")
+print(f"{'Models state_dict keys and shapes':<100} {'vs':<3} {'Loaded state_dict keys and shapes:':<75}")
 for model_key, model_shape, loaded_key, loaded_shape in zip_longest(model_keys, model_shapes, loaded_keys, loaded_shapes):
-    print(f"{str(model_key):<55} {str(model_shape):<22} vs {str(loaded_key):<55} {str(loaded_shape):<22}")
+    print(f"{str(model_key):<80} {str(model_shape):<22} vs {str(loaded_key):<80} {str(loaded_shape):<22}")
 
 model.load_state_dict(state_dict)
 
@@ -75,11 +75,12 @@ y_pred_data, accuracy, efficiency, precission = test_model(model=model,
 config['results']['Accuracy'] = float(accuracy)
 config['results']['Efficiency'] = float(efficiency)
 config['results']['Precission'] = float(precission)
+save_path = 'Test/ModelsResults/test/'
 histogram(y_pred_data['y_pred'], y_pred_data['y'], config)
-nr_area, nse, threshold = plot_performance_curve([y_pred_data['y_pred']], [y_pred_data['y']], [config], curve='nr', x_lim=[0,1], bins=10000)
+nr_area, nse, threshold = plot_performance_curve([y_pred_data['y_pred']], [y_pred_data['y']], [config], curve='nr', x_lim=[0,1], bins=10000, save_path=save_path)
 config['results']['nr_area'] = float(nr_area)
 config['results']['NSE_AT_10KNRF'] = float(nse)
-roc_area, nse, threshold = plot_performance_curve([y_pred_data['y_pred']], [y_pred_data['y']], [config], curve='roc', bins=10000)
+roc_area, nse, threshold = plot_performance_curve([y_pred_data['y_pred']], [y_pred_data['y']], [config], curve='roc', bins=10000, save_path=save_path)
 config['results']['roc_area'] = float(roc_area)
 config['results']['NSE_AT_10KROC'] = float(nse)
 config['results']['TRESH_AT_10KNRF'] = float(threshold)

@@ -1,0 +1,16 @@
+model_num ,pos_enc_type, d_model  ,   d_ff   ,    N     ,    h     ,num_param ,NSE_AT_10KNRF,   MACs   
+13,Sinusoidal,64,64,2,2,86.3 k,0.902,0.4 G
+14,Sinusoidal,128,64,2,2,238.1 k,0.916,2.7 G
+15,Sinusoidal,256,64,2,2,738.2 k,0.912,9.7 G
+16,Sinusoidal,128,64,2,4,235.4 k,0.911,1.4 G
+17,Sinusoidal,128,64,2,8,234.0 k,0.913,1.4 G
+18,Sinusoidal,128,64,2,16,233.4 k,0.926,1.4 G
+19,Sinusoidal,128,128,2,16,266.3 k,0.931,1.6 G
+20,Sinusoidal,128,256,2,16,332.1 k,0.912,2.2 G
+21,Sinusoidal,128,512,2,16,463.6 k,0.921,3.2 G
+22,Sinusoidal,128,64,1,16,149.9 k,0.837,0.7 G
+23,Sinusoidal,128,64,4,16,367.6 k,0.351,2.7 G
+24,Sinusoidal,128,64,8,16,701.4 k,0.000,5.4 G
+25,Sinusoidal,128,64,4,16,351.2 k,0.575,2.7 G
+26,Sinusoidal,128,64,4,16,334.9 k,nan,2.7 G
+27,Sinusoidal,128,128,2,16,200.9 k,nan,1.6 G

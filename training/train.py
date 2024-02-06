@@ -179,7 +179,7 @@ def training(configs, cuda_device, batch_size=32, channels=4, model_folder='', t
 
       current_lr = optimizer.state_dict()['param_groups'][0]['lr']
       print(f"Learning rate: {current_lr}", end=" ")
-      scheduler.step(metrics=val_loss)
+      scheduler.step()
 
       #############################################
       # Data saving

@@ -2,21 +2,22 @@ architecture:
   N: 2
   activation: 'relu' # Posible options: 'relu', 'gelu'
   by_pass: false
-  d_ff: 512
-  d_model: 512 # Have to be dividable by h
+  d_ff: 1024
+  d_model: 32 # Have to be dividable by h
   data_type: trigger # Possible options: 'trigger', 'chunked'
   embed_type: linear # Posible options: 'lin_relu_drop', 'lin_gelu_drop', 'linear',
   encoder_type: normal # Posible options: 'normal', 'none', 'bypass', 'vanilla'
   final_type: seq_average_linear # Posible options: 'double_linear', 'single_linear', 'seq_average_linear', 'd_model_average_linear'
   h: 4
   inherit_model: null
+  max_relative_position: 100
   location: 'pre' # Posible options: 'pre', 'post'
   n_ant: 4
   normalization: layer # Posible options: 'layer', 'batch'
   omega: 10000
   output_shape: null
   output_size: null
-  pos_enc_type: Relative # Posible options: 'Sinusoidal', 'Relative',  'Learnable''None',
+  pos_enc_type: Sinusoidal # Posible options: 'Sinusoidal', 'Relative',  'Learnable''None',
   pretrained: null
   seq_len: 128
 basic:
@@ -54,7 +55,7 @@ results:
   training_time: 0
 training:
   batch_size: 64
-  decreas_factor: 0.5
+  decreas_factor: 0.7
   dropout: 0
   early_stop: 100
   learning_rate: 0.001

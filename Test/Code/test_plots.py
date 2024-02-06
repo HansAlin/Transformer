@@ -46,11 +46,11 @@ import matplotlib.pyplot as plt
 #     plot_weights(model, config, block=block, quiet=True)
 
 
-###################################################################
-#  Plot collections of noise reduction factors or roc             #
-###################################################################
+# ###################################################################
+# #  Plot collections of noise reduction factors or roc             #
+# ###################################################################
 # models_path = '/mnt/md0/halin/Models/'
-# models = [116, 129]
+# models = [19, 131]
 # curve = 'nr'
 # parameter = 'N'
 # bins = 10000
@@ -83,13 +83,20 @@ import matplotlib.pyplot as plt
 ###################################################################
 # Plot tabel of hyperparameters                                   #
 ###################################################################
-# # models_path = '/mnt/md0/halin/Models/'
-# models = [116, 130]
-# str_models = '_'.join(map(str, models))
-# save_path = f'/home/halin/Master/Transformer/Test/presentation/model_{str_models}_table.png'
-# df = collect_config_to_df(model_numbers=models, save_path=save_path)
-# keys = ['model_num', 'pos_enc_type','d_model', 'd_ff', 'N', 'h', "num_param", "pos_param", 'input_param', 'encoder_param', 'final_param', 'NSE_AT_10KNRF', 'MACs' ]
-# plot_table(df, keys, save_path=save_path)
+# models_path = '/mnt/md0/halin/Models/'
+models = [99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130,131]
+str_models = '_'.join(map(str, models))
+sort = True
+if sort:
+    save_path = f'/home/halin/Master/Transformer/Test/presentation/model_{str_models}_table_sorted.png'
+    df = collect_config_to_df(model_numbers=models, save_path=save_path)
+    df = df.sort_values('NSE_AT_10KNRF', ascending=False)
+else:
+    save_path = f'/home/halin/Master/Transformer/Test/presentation/model_{str_models}_table.png'
+    df = collect_config_to_df(model_numbers=models, save_path=save_path)
+ 
+keys = ['model_num', 'pos_enc_type','d_model', 'd_ff', 'N', 'h', "num_param", 'NSE_AT_10KNRF', 'MACs' ]
+plot_table(df, keys, save_path=save_path)
 
 ###################################################################
 # Plot performance of a model                                     #
@@ -168,7 +175,7 @@ import matplotlib.pyplot as plt
 #######################################################################
 # Plot current training from training                                 #
 # #######################################################################
-model_num = 131
-df = pd.read_pickle(f'/mnt/md0/halin/Models/model_{model_num}/y_pred_data.pkl')
-print(df)
+# model_num = 131
+# df = pd.read_pickle(f'/mnt/md0/halin/Models/model_{model_num}/y_pred_data.pkl')
+# print(df)
 

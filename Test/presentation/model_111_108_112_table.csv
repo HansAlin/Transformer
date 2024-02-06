@@ -1,4 +1,0 @@
-model_num , d_model  ,   d_ff   ,    N     ,    h     ,input_param,encoder_param,final_param,NSE_AT_10KNRF,training_time
-111,64,512,1,2,320,84480,129,0.853,1.9
-108,64,512,2,2,320,168832,129,0.896,8.8
-112,64,512,4,2,320,337536,129,0.000,8.2

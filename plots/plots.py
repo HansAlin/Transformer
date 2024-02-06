@@ -136,7 +136,7 @@ def plot_performance_curve(y_preds, ys, configs, bins=1000, save_path='', text =
     style.use('seaborn-colorblind')
     if save_path == '':
         save_path = config['basic']['model_path'] + 'plot/' + f'model_{config["basic"]["model_num"]}_{curve}_{text.replace(" ", "_")}.png'
-    plt.savefig(save_path)
+    plt.savefig(save_path + f'model_{config["basic"]["model_num"]}_{curve}_{text.replace(" ", "_")}.png')
     plt.close()
 
     return get_area_under_curve(x,y), nse, threshold
@@ -561,13 +561,13 @@ def plot_table(df, keys, save_path=''):
         df[key] = np.nan
   num_of_rows = len(df)
   num_of_cols = len(df.columns)
-  fig_hight = 0.7 * num_of_rows + 0.5
-  fig_width = 0.35 * num_of_cols   # Add this line
+  fig_hight = 0.325 * num_of_rows + 0.4
+  fig_width = 0.2 * num_of_cols   # Add this line
   df = df[keys]
   df = change_format_units(df)
   # Add white spaces around the keys
   df.columns = df.columns.str.pad(10, side='both')
-  fig, ax = plt.subplots(figsize=(fig_width, fig_hight))
+  fig, ax = plt.subplots(figsize=(fig_width, fig_hight)) # 
   ax.axis('off')
   ax.axis('tight')
   table = ax.table(cellText=df.values, colLabels=df.columns, loc='center', cellLoc = 'center')
@@ -598,6 +598,20 @@ def change_energy_units(value):
   changed_value = value/3600/1000
   return f'{changed_value:.2e} kWh'
 
+def change_to_giga(value):
+  try:
+    return f'{(value / 1e9):.1f} G'
+  except:
+    return value
+
+
+def change_to_kilo(value):
+  try:
+    return f'{(value / 1e3):.1f} k'
+  except:
+    return value
+
+
 def change_format_units(df):
   """ This function changes the format of the dataframe df
       to make it more readable:
@@ -608,9 +622,15 @@ def change_format_units(df):
   """
 
   if 'MACs' in df.columns:
-    df.loc[:,'MACs'] = df['MACs'].apply(lambda x: change_format(x, digits=2))
-  if 'num_parms' in df.columns:
-    df.loc[:,'num_parms'] = df['num_parms'].apply(lambda x: change_format(x, digits=2))
+    df.loc[:,'MACs'] = df['MACs'].apply(change_to_giga)
+  if 'num_param' in df.columns:
+    df.loc[:,'num_param'] = df['num_param'].apply(change_to_kilo)
+  if 'pos_param' in df.columns:
+    df.loc[:,'pos_param'] = df['pos_param'].apply(change_to_kilo)
+  if 'input_param' in df.columns:
+    df.loc[:,'input_param'] = df['input_param'].apply(change_to_kilo)
+  if 'encoder_param' in df.columns:
+    df.loc[:,'encoder_param'] = df['encoder_param'].apply(change_to_kilo)    
   if 'energy' in df.columns:  
     df.loc[:,'energy'] = df['energy'].apply(lambda x: change_energy_units(x))
   if 'roc_area' in df.columns:

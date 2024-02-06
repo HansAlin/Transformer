@@ -36,72 +36,73 @@ def add_key_if_not_exists(dict_obj, key, value):
     if key not in dict_obj:
         dict_obj[key] = value
 
+###################################################################
+# Add data to config file                                         #
 # ###################################################################
-# # Add data to config file                                         #
-# # ###################################################################
-# model_numbers = [99,100,101,102,103,104,105,106,107,108,109,110,111,108,112,113,114,115,116,117,118,119,120,121,122,123,124,125,127] 
-# bins = 10000
-# col_1 = 'model_num'
-# col_2 = 'encoder_type'
-# col_3 = 'embed_type'#
-# col_4 = 'final_type' 
-# col_5 = 'num_param'
-# col_6 = 'encoder_param'
-# col_7 = 'input_param'
-# col_8 = 'final_param'
-# col_9 = 'seq_len'
-# col_10 = 'd_model'
-# col_11 = 'd_ff'
-# col_12 = 'N'
-# col_13 = 'h' 
-# # col_14 = 'data_type'
-# col_15 = 'NSE_AT_10KNRF'
-# # print('{:<20} {:>20} {:>20} {:>20}  '.format('Model number', 'Prev NSE_AT_10KNRF','Nev ROC NSE_AT_10KNR', 'ROC Threshold' ))
-# for model_number in model_numbers:
-#     config = get_model_config(model_num=model_number)
-#     # model = build_encoder_transformer(config)
-#     # results = count_parameters(model, verbose=False)
-#     # config['encoder_param'] = results['encoder_param']
-#     # config['input_param'] = results['src_embed_param']
-#     # config['final_param'] = results['final_param']
-#     # config['pos_param'] = results['buf_param']
-#     # config['num_param'] = results['total_trainable_param']
-#     # macs, params = get_MMac(model=model, 
-#     #             batch_size=config['batch_size'], 
-#     #             seq_len=config['seq_len'], 
-#     #             channels=config['n_ant'])
-#     # y_true, y_pred = get_predictions(model_number=model_number)
-#     # x, y, nse_roc, threshold_roc  = get_roc(y_true, y_pred, bins=10000)
-#     if config['final_param'] == config['seq_len'] + 1 :
-#         config['final_type'] = 'seq_average_linear'
-#     elif config['final_param'] == config['d_model'] + 1:
-#         config['final_type'] = 'd_model_average_linear'    
-#     # # roc_area = get_area_under_curve(x, y)
-#     #x, y, nse, threshold = get_noise_reduction(y_true, y_pred, bins=bins)
-#     # nr_area = get_area_under_curve(x, y)
-#     # config['MACs'] = macs
-#     # config['num_parms'] = params
-#     # config['roc_area'] = roc_area
-#     # config['nr_area'] = nr_area
-#     # config['TRESH_AT_10KNRF'] = threshold_roc
-#     # nse = get_NSE_AT_NRF(TP=x, noise_reduction=y,  number_of_noise=10000)
-#     # config['NSE_AT_10KNRF'] = nse
-#     # config['final_type'] = 'd_model_average_linear'
-#     # change_key(config, 'num_parms', 'num_param')
-#     # results = count_parameters(model, verbose=False)
-#     # config['num_param'] = results['total_param']
-#     # config['encoder_param'] = results['encoder_param']
-#     # config['input_param'] = results['src_embed_param']
-#     # config['final_param'] = results['final_param']
-#     # config['pos_param'] = results['buf_param']
-#     add_key_if_not_exists(config, 'normalization', 'layer')
-#     # if config['data_type'] == 'classic':
-#     #     config['data_type'] = 'trigger'
+        model_numbers = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14, 15, 16, 17, 18, 19, 20, 21, 22, 23,24,25,26,27]
+model_numbers = [99,100,101,102,103,104,105,106,107,108,109,110,111,108,112,113,114,115,116,117,118,119,120,121,122,123,124,125,127]
+model_numbers =  [99,100,101,102,103,104,105,106,107,108,109,110,111,108,112,113,114,115,116,117,118,119,120,121,122,123,124,125,127]
+bins = 10000
+col_1 = 'model_num'
+col_2 = 'encoder_type'
+col_3 = 'embed_type'#
+col_4 = 'final_type' 
+col_5 = 'num_param'
+col_6 = 'encoder_param'
+col_7 = 'input_param'
+col_8 = 'final_param'
+col_9 = 'seq_len'
+col_10 = 'd_model'
+col_11 = 'd_ff'
+col_12 = 'N'
+col_13 = 'h' 
+# col_14 = 'data_type'
+col_15 = 'NSE_AT_10KNRF'
+# print('{:<20} {:>20} {:>20} {:>20}  '.format('Model number', 'Prev NSE_AT_10KNRF','Nev ROC NSE_AT_10KNR', 'ROC Threshold' ))
+for model_number in model_numbers:
+    config = get_model_config(model_num=model_number, type_of_file='yaml')
+    # model = build_encoder_transformer(config)
+    # results = count_parameters(model, verbose=False)
+    # config['encoder_param'] = results['encoder_param']
+    # config['input_param'] = results['src_embed_param']
+    # config['final_param'] = results['final_param']
+    # config['pos_param'] = results['buf_param']
+    # config['num_param'] = results['total_trainable_param']
+    # macs, params = get_MMac(model=model, 
+    #             batch_size=config['batch_size'], 
+    #             seq_len=config['seq_len'], 
+    #             channels=config['n_ant'])
+    # y_true, y_pred = get_predictions(model_number=model_number)
+    # x, y, nse_roc, threshold_roc  = get_roc(y_true, y_pred, bins=10000)
+    if config['architecture']['pos_enc_type'] == 'Relative':
+        config['architecture']['max_relative_position'] = 100
+        save_data(config)
+    # # roc_area = get_area_under_curve(x, y)
+    #x, y, nse, threshold = get_noise_reduction(y_true, y_pred, bins=bins)
+    # nr_area = get_area_under_curve(x, y)
+    # config['MACs'] = macs
+    # config['num_parms'] = params
+    # config['roc_area'] = roc_area
+    # config['nr_area'] = nr_area
+    # config['TRESH_AT_10KNRF'] = threshold_roc
+    # nse = get_NSE_AT_NRF(TP=x, noise_reduction=y,  number_of_noise=10000)
+    # config['NSE_AT_10KNRF'] = nse
+    # config['final_type'] = 'd_model_average_linear'
+    # change_key(config, 'num_parms', 'num_param')
+    # results = count_parameters(model, verbose=False)
+    # config['num_param'] = results['total_param']
+    # config['encoder_param'] = results['encoder_param']
+    # config['input_param'] = results['src_embed_param']
+    # config['final_param'] = results['final_param']
+    # config['pos_param'] = results['buf_param']
+    # add_key_if_not_exists(config, 'normalization', 'layer')
+    # if config['data_type'] == 'classic':
+    #     config['data_type'] = 'trigger'
       
 
-#     # print('{:<20} {:>20} {:>20} {:>20} '.format(model_number, config[col_15], nse_roc, threshold_roc, ))        
+    # print('{:<20} {:>20} {:>20} {:>20} '.format(model_number, config[col_15], nse_roc, threshold_roc, ))        
 
-#     save_data(config)
+    
 
 ###################################################################
 # Print config file                                               #
@@ -109,28 +110,28 @@ def add_key_if_not_exists(dict_obj, key, value):
         # model_numbers = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14, 15, 16, 17, 18, 19, 20, 21, 22, 23,24,25,26,27]
 # model_numbers = [99,100,101,102,103,104,105,106,107,108,109,110,111,108,112,113,114,115,116,117,118,119,120,121,122,123,124,125,127]
         
-model_num = [13,14, 15, 16, 17, 18, 19, 20, 21, 22, 23,24,25,26,27,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128,129,130,131] # 101,105,106,107,108,109,110   
-col_1 = 'model_num'
-col_2 = 'encoder_type'
-col_3 = 'embed_type'#
-col_4 = 'final_type' 
-col_6 = 'num_param'
-col_5 = 'normalization'
-col_7 = 'pos_enc_type'
-col_9 = 'seq_len'
-col_10 = 'd_model'
-col_11 = 'd_ff'
-col_12 = 'N'
-col_13 = 'h' 
-col_14 = 'data_type'
-col_15 = 'NSE_AT_10KNRF'
-#col_16 = 'TRESH_AT_10KNRF'
-col_17 = 'data_type'
-#col_18 = 'MACs'
-df = collect_config_to_df(model_numbers=model_num, save_path='/home/halin/Master/Transformer/Test/ModelsResults/collections/', save=True)
+# model_num = [13,14, 15, 16, 17, 18, 19, 20, 21, 22, 23,24,25,26,27,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128,129,130,131] # 101,105,106,107,108,109,110   
+# col_1 = 'model_num'
+# col_2 = 'encoder_type'
+# col_3 = 'embed_type'#
+# col_4 = 'final_type' 
+# col_6 = 'num_param'
+# col_5 = 'normalization'
+# col_7 = 'pos_enc_type'
+# col_9 = 'seq_len'
+# col_10 = 'd_model'
+# col_11 = 'd_ff'
+# col_12 = 'N'
+# col_13 = 'h' 
+# col_14 = 'data_type'
+# col_15 = 'NSE_AT_10KNRF'
+# #col_16 = 'TRESH_AT_10KNRF'
+# col_17 = 'data_type'
+# #col_18 = 'MACs'
+# df = collect_config_to_df(model_numbers=model_num, save_path='/home/halin/Master/Transformer/Test/ModelsResults/collections/', save=True)
 
-df = df.sort_values('NSE_AT_10KNRF', ascending=False)
-print(df[[col_1,col_2,col_3, col_4, col_5,col_6, col_7,  col_9, col_10, col_11, col_12, col_13,  col_15, col_17, ]])
+# df = df.sort_values('NSE_AT_10KNRF', ascending=False)
+# print(df[[col_1,col_2,col_3, col_4, col_5,col_6, col_7,  col_9, col_10, col_11, col_12, col_13,  col_15, col_17, ]])
 # df.plot.scatter(x=col_15, y=col_6, c='DarkBlue')
 # # plt.savefig('/home/halin/Master/Transformer/Test/Code/plots/NRF_vs_param.png')
 # df_2 = df[[col_1,col_2,col_3, col_4, col_5,col_6, col_7, col_9, col_10, col_11, col_12, col_13,  col_15, col_17, ]]
@@ -168,9 +169,9 @@ print(df[[col_1,col_2,col_3, col_4, col_5,col_6, col_7,  col_9, col_10, col_11, 
 # models = get_similar(df=df, ignore_col='seq_len')
 
 # print(models)
-###################################################################
+##################################################################
 # Test count of parameters                                        # 
-###################################################################
+##################################################################
 # model_num = 21
 # config = get_model_config(model_num=model_num)
 # model = build_encoder_transformer(config)
@@ -179,9 +180,9 @@ print(df[[col_1,col_2,col_3, col_4, col_5,col_6, col_7,  col_9, col_10, col_11, 
 
 
 
-###################################################################
-# Changing config file style                                      #
-# ###################################################################                
+##################################################################
+#Changing config file style                                      #
+###################################################################                
 # def transform_config(config):
 #     def get_int(key):
 #         value = config.get(key, None)
@@ -262,7 +263,7 @@ print(df[[col_1,col_2,col_3, col_4, col_5,col_6, col_7,  col_9, col_10, col_11, 
 #     }
 
 #     return newdict
-# model_numbers = [131]
+# model_numbers = [1]
 # for model_number in model_numbers:
 #     config = get_model_config(model_num=model_number, type_of_file='txt')
 

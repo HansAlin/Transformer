@@ -3,6 +3,7 @@ import torch.nn as nn
 import math
 from typing import List
 from torch.nn.modules import MultiheadAttention, Linear, Dropout, BatchNorm1d, TransformerEncoderLayer
+from dataHandler.datahandler import save_data
 
 
 # 
@@ -681,12 +682,19 @@ def build_encoder_transformer(config):
   normalization = config['architecture'].get('normalization', 'layer')
   config['architecture']['normalization'] = normalization 
   location =      config['architecture'].get('location', 'post')
-  activation =    config['architecture'].get('activation', 'relu') 
+  activation =    config['architecture']['activation']
   n_ant =         config['architecture']['n_ant'] 
   max_relative_position = config['architecture'].get('max_relative_position', 100)
   config['architecture']['max_relative_position'] = max_relative_position
-  relative_positional_encoding = config['architecture'].get('relative_positional_encoding', False)
-  config['architecture']['relative_positional_encoding'] = relative_positional_encoding
+  old_residual =  config['architecture'].get('old_residual', False)
+  if old_residual:
+    features = 1
+  else:
+    features = d_model  
+
+  if config['architecture']['pos_enc_type'] == 'Relative':
+    relative_positional_encoding = True
+
  
   dropout=config['training']['dropout'] 
 
@@ -745,14 +753,14 @@ def build_encoder_transformer(config):
           encoder_self_attention_block = MultiHeadAttentionBlock(d_model, h, dropout)
 
         feed_forward_block = FeedForwardBlock(d_model, d_ff, dropout, activation=activation)
-        encoder_block = EncoderBlock(features=d_model, 
+        encoder_block = EncoderBlock(features=features, 
                                     self_attention_block=encoder_self_attention_block, 
                                     feed_forward_block=feed_forward_block, 
                                     dropout=dropout,
                                     normalization=normalization,
                                     location=location)
         encoder_blocks.append(encoder_block)
-      encoders.append(Encoder(features=d_model,
+      encoders.append(Encoder(features=features,
                               layers=nn.ModuleList(encoder_blocks), 
                               normalization='layer'))
   elif encoder_type == 'none':
@@ -795,7 +803,7 @@ def build_encoder_transformer(config):
   for p in encoder_transformer.parameters():
     if p.dim() > 1:
       nn.init.xavier_uniform_(p)  
-
+  save_data(config)
   return encoder_transformer    
 
  

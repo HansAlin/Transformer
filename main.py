@@ -49,7 +49,7 @@ def main(start_model_num, batch_size, epochs, test, cuda_device, config_number, 
 
   config = get_config(config_number)
   #config = old_config.copy()
-  hyper_param = {'N':[6]
+  hyper_param = {'N':[5]
               # 'pos_enc_type':['Relative'],
               #   'h': [2,4,8],
                #  'd_model': [64,128,256],

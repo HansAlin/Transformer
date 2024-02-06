@@ -50,7 +50,7 @@ parser = argparse.ArgumentParser()
 # final_type [105, 121,] [126, 128]
 # normalization [125,127]
 # pos_enc_type [116, 128, 129]
-transformer_models = [125,130] #args.models #
+transformer_models = [131] #args.models #
 
 def qualitative_colors(length, darkening_factor=0.6):
     colors = [cm.Set3(i) for i in np.linspace(0, 1, length)]
@@ -261,7 +261,7 @@ def LoadModel(filename, model_list):
 
 def LoadTransformerModel(model_num, model_list):
     config = get_model_config(model_num=model_num)
-    name = str(config["model_num"])
+    name = str(config['basic']["model_num"])
     model_list[name] = dict()
     model_list[name]["config"] = config
     model = build_encoder_transformer(config)
@@ -269,7 +269,28 @@ def LoadTransformerModel(model_num, model_list):
     model_path = get_model_path(config=config)
     print(f'Preloading model {model_path}')
     state = torch.load(model_path)
-    model.load_state_dict(state['model_state_dict'])
+    state_dict = state['model_state_dict']
+    ignore_keys = [
+            #  'encoder.layers.0.self_attention_block.relative_positional_k.embeddings_table', 
+            #    'encoder.layers.0.self_attention_block.relative_positional_v.embeddings_table',
+            #    'encoder.layers.1.self_attention_block.relative_positional_k.embeddings_table',
+            #    'encoder.layers.1.self_attention_block.relative_positional_v.embeddings_table'
+               ]
+    name_mapping = {
+        'encoder.layers.0.residual_connections.0.norm.alpha': 'encoder.layers.0.residual_connection_1.norm.alpha',
+        'encoder.layers.0.residual_connections.0.norm.bias':  'encoder.layers.0.residual_connection_1.norm.bias',
+        'encoder.layers.0.residual_connections.1.norm.alpha': 'encoder.layers.0.residual_connection_2.norm.alpha',
+        'encoder.layers.0.residual_connections.1.norm.bias':  'encoder.layers.0.residual_connection_2.norm.bias',
+        'encoder.layers.1.residual_connections.0.norm.alpha': 'encoder.layers.1.residual_connection_1.norm.alpha',
+        'encoder.layers.1.residual_connections.0.norm.bias':  'encoder.layers.1.residual_connection_1.norm.bias',
+        'encoder.layers.1.residual_connections.1.norm.alpha': 'encoder.layers.1.residual_connection_2.norm.alpha',
+        'encoder.layers.1.residual_connections.1.norm.bias':  'encoder.layers.1.residual_connection_2.norm.bias',
+        # Add more mappings here
+    }
+
+    state_dict = {name_mapping.get(k, k): v for k, v in state_dict.items() if k not in ignore_keys}
+
+    model.load_state_dict(state_dict)
     model_list[name]["model"] = model
     model_list[name]["model"].to(device)
     model_list[name]["model"].eval()

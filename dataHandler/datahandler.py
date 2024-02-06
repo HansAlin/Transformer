@@ -719,7 +719,7 @@ def get_model_path(config, text=''):
   model_path = config['basic']['model_path'] + 'saved_model/' 
 
   if text != '':
-     model_path = model_path + f'model_{config["basic"]["model_num"]}_{text}.pth'
+     model_path = model_path + f'model_{config["basic"]["model_num"]}{text}.pth'
   elif file_exist(model_path, f'model_{config["basic"]["model_num"]}_final.pth'):
     model_path = model_path + f'model_{config["basic"]["model_num"]}_final.pth'
   elif file_exist(model_path, f'model_{config["basic"]["model_num"]}_early_stop.pth'):
@@ -792,7 +792,7 @@ def find_hyperparameters(model_number, parameter, models_path='/mnt/md0/halin/Mo
   for i, model in enumerate(model_number):
     with open(models_path + f'model_{model}/config.txt', 'rb') as f:
       config = pickle.load(f)
-      hyper_parameters.append(config[parameter])
+      hyper_parameters.append(config['architecture'][parameter])
 
   return hyper_parameters   
 
@@ -831,13 +831,26 @@ def get_model_config(model_num, path='/mnt/md0/halin/Models/', type_of_file='txt
     return config  
 
 
+def modify_keys(dictionary):
+    new_dict = {}
+    for key, value in dictionary.items():
+        if '.' in key:
+            new_key = key.split('.')[-1]
+            new_dict[new_key] = value
+        else:
+            new_dict[key] = value
+    return new_dict
+
 def collect_config_to_df(model_numbers, model_path='/mnt/md0/halin/Models/', save_path='', save=False):
   df = pd.DataFrame()
   counter = 0
   for model_num in model_numbers:
     config = get_model_config(model_num, model_path)
+
     flatt_dict = pd.json_normalize(config)
-    df = pd.concat([df, flatt_dict])
+    flatt_dict = modify_keys(flatt_dict)
+    flatt_dict_df = pd.DataFrame(flatt_dict, index=[0])
+    df = pd.concat([df, flatt_dict_df])
 
 
 

@@ -110,25 +110,25 @@ for model_number in model_numbers:
         # model_numbers = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14, 15, 16, 17, 18, 19, 20, 21, 22, 23,24,25,26,27]
 # model_numbers = [99,100,101,102,103,104,105,106,107,108,109,110,111,108,112,113,114,115,116,117,118,119,120,121,122,123,124,125,127]
         
-# model_num = [13,14, 15, 16, 17, 18, 19, 20, 21, 22, 23,24,25,26,27,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128,129,130,131] # 101,105,106,107,108,109,110   
-# col_1 = 'model_num'
-# col_2 = 'encoder_type'
-# col_3 = 'embed_type'#
-# col_4 = 'final_type' 
-# col_6 = 'num_param'
-# col_5 = 'normalization'
-# col_7 = 'pos_enc_type'
-# col_9 = 'seq_len'
-# col_10 = 'd_model'
-# col_11 = 'd_ff'
-# col_12 = 'N'
-# col_13 = 'h' 
-# col_14 = 'data_type'
-# col_15 = 'NSE_AT_10KNRF'
-# #col_16 = 'TRESH_AT_10KNRF'
-# col_17 = 'data_type'
-# #col_18 = 'MACs'
-# df = collect_config_to_df(model_numbers=model_num, save_path='/home/halin/Master/Transformer/Test/ModelsResults/collections/', save=True)
+model_num = [99,100,101,102,103,104,105,106,107,108,109,110,111,108,112,113,114,115,116,117,118,119,120,121,122,123,124,125,127]  
+col_1 = 'model_num'
+col_2 = 'encoder_type'
+col_3 = 'embed_type'#
+col_4 = 'final_type' 
+col_6 = 'num_param'
+col_5 = 'normalization'
+col_7 = 'pos_enc_type'
+col_9 = 'seq_len'
+col_10 = 'd_model'
+col_11 = 'd_ff'
+col_12 = 'N'
+col_13 = 'h' 
+col_14 = 'data_type'
+col_15 = 'NSE_AT_10KNRF'
+#col_16 = 'TRESH_AT_10KNRF'
+col_17 = 'data_type'
+#col_18 = 'MACs'
+df = collect_config_to_df(model_numbers=model_num, save_path='/home/halin/Master/Transformer/Test/ModelsResults/collections/', save=True)
 
 # df = df.sort_values('NSE_AT_10KNRF', ascending=False)
 # print(df[[col_1,col_2,col_3, col_4, col_5,col_6, col_7,  col_9, col_10, col_11, col_12, col_13,  col_15, col_17, ]])
@@ -147,28 +147,28 @@ for model_number in model_numbers:
 # correlation_matrix = df_2.corr()
 # print(correlation_matrix)
 
-# def get_similar(df, ignore_col):
+def get_similar(df, ignore_col):
 
-#     cols = ['N', 'h', 'seq_len', 'd_model',  'd_ff', 'data_type', 'encoder_type', 'embed_type', 'encoder_type', 'final_type', 'pos_enc_type', 'normalization', 'loss_function']
-#     #cols = [col for col in df.columns if col not in ['model_num', 'd_ff']]
-#     cols.remove(ignore_col)
+    cols = ['N', 'h', 'seq_len', 'd_model',  'd_ff', 'data_type', 'encoder_type', 'embed_type', 'encoder_type', 'final_type', 'pos_enc_type', 'normalization', 'loss_function']
+    #cols = [col for col in df.columns if col not in ['model_num', 'd_ff']]
+    cols.remove(ignore_col)
     
-#     # Create a mask that identifies the rows where all columns (except 'model_num' and 'd_ff') are identical
-#     mask = df.duplicated(subset=cols, keep=False)
+    # Create a mask that identifies the rows where all columns (except 'model_num' and 'd_ff') are identical
+    mask = df.duplicated(subset=cols, keep=False)
 
-#     # Use the mask to filter the DataFrame
-#     similar_df = df[mask]
-#     indices = similar_df.index
-#     indices = indices.intersection(df.index)
-#     selected_rows = df.loc[indices]
-#     print(selected_rows[[col_1,col_2,col_3, col_4, col_5,col_6,col_7,  col_9, col_10, col_11, col_12, col_13,  col_15, col_17, ]])
+    # Use the mask to filter the DataFrame
+    similar_df = df[mask]
+    indices = similar_df.index
+    indices = indices.intersection(df.index)
+    selected_rows = df.loc[indices]
+    print(selected_rows[[col_1,col_2,col_3, col_4, col_5,col_6,col_7,  col_9, col_10, col_11, col_12, col_13,  col_15, col_17, ]])
     
 
-#     return selected_rows['model_num'].tolist()
+    return selected_rows['model_num'].tolist()
 
-# models = get_similar(df=df, ignore_col='seq_len')
+models = get_similar(df=df, ignore_col='d_model')
 
-# print(models)
+print(models)
 ##################################################################
 # Test count of parameters                                        # 
 ##################################################################

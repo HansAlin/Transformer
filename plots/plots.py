@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import matplotlib.style as style
+import matplotlib.gridspec as gridspec
 
 import numpy as np
 import os
@@ -555,16 +556,21 @@ def plot_table(df, keys, save_path=''):
         df (pd.DataFrame): dataframe to plot
         keys (list): list of keys that are being ploted
   """ 
-
+  common = common_values(df, columns=['batch_size', 'seq_len', 'learning_rate' ])
+  print(common)
   for key in keys:
     if key not in df.columns:
         df[key] = np.nan
   num_of_rows = len(df)
   num_of_cols = len(df.columns)
   fig_hight = 0.325 * num_of_rows + 0.4
-  fig_width = 0.2 * num_of_cols   # Add this line
+  fig_width = 0.23 * num_of_cols   # Add this line
+
   df = df[keys]
   df = change_format_units(df)
+  df = change_headers(df)
+
+
   # Add white spaces around the keys
   df.columns = df.columns.str.pad(10, side='both')
   fig, ax = plt.subplots(figsize=(fig_width, fig_hight)) # 
@@ -594,13 +600,21 @@ def plot_table(df, keys, save_path=''):
 def change_format(value, digits=2, format="e"):
   return '{:.{digits}{format}}'.format(value, digits=digits, format=format)  
 
+def common_values(df, columns):
+    """
+    This function finds the common values of a given dataframe"""
+    # Convert each column to a set
+    sets =  [set(df[col]) for col in columns]
+    # Find common elements
+    common = set.intersection(*sets)
+    return common
 def change_energy_units(value):
   changed_value = value/3600/1000
   return f'{changed_value:.2e} kWh'
 
-def change_to_giga(value):
+def change_to_giga(value, factor=1):
   try:
-    return f'{(value / 1e9):.1f} G'
+    return f'{(value / 1e9 * factor):.1f} G'
   except:
     return value
 
@@ -610,6 +624,33 @@ def change_to_kilo(value):
     return f'{(value / 1e3):.1f} k'
   except:
     return value
+
+def change_headers(df):
+  """ This function changes the headers of the dataframe df
+      to make it more readable:
+
+      Args: 
+        df (pd.DataFrame): dataframe to change headers of
+
+  """
+  if 'model_num' in df.columns:
+    df.rename(columns={'model_num': 'Model number'}, inplace=True)
+  if 'pos_enc_type' in df.columns:
+    df.rename(columns={'pos_enc_type': 'Pos. enc. type'}, inplace=True)
+  if 'd_model' in df.columns:
+    df.rename(columns={'d_model': 'Model size'}, inplace=True)  
+  if 'd_ff' in df.columns:
+    df.rename(columns={'d_ff': 'Feed forward'}, inplace=True)
+  if 'N' in df.columns:
+    df.rename(columns={'N': 'Layers (N)'}, inplace=True)
+  if 'h' in df.columns:
+    df.rename(columns={'h': 'Heads (h)'}, inplace=True)
+  if 'num_param' in df.columns:
+    df.rename(columns={'num_param': 'Tot. param.'}, inplace=True)
+  if 'NSE_AT_10KNRF' in df.columns:
+    df.rename(columns={'NSE_AT_10KNRF': 'NSE at 10k NRF'}, inplace=True)
+
+  return df
 
 
 def change_format_units(df):
@@ -622,7 +663,8 @@ def change_format_units(df):
   """
 
   if 'MACs' in df.columns:
-    df.loc[:,'MACs'] = df['MACs'].apply(change_to_giga)
+    df.loc[:,'MACs'] = df['MACs'].apply(change_to_giga, factor=2)
+    df.rename(columns={'MACs': 'FLOPs'}, inplace=True)
   if 'num_param' in df.columns:
     df.loc[:,'num_param'] = df['num_param'].apply(change_to_kilo)
   if 'pos_param' in df.columns:
@@ -645,3 +687,50 @@ def change_format_units(df):
 
   return df  
 
+
+def plot_attention_scores(model, x, save_path):
+    model.eval()
+
+    out = model.encode(x, src_mask=None)
+    x = x.detach().numpy()
+    first_att = model.encoder.layers[0].self_attention_block.attention_scores
+    first_att = first_att.detach().numpy()
+
+    fig = plt.figure(figsize=(10, 10))
+
+    # Create a GridSpec object
+    gs = gridspec.GridSpec(2, 2, width_ratios=[1, 4], height_ratios=[4, 1])
+
+    # Create the subplots
+    ax0 = plt.subplot(gs[0])
+    ax1 = plt.subplot(gs[1])
+    ax3 = plt.subplot(gs[3])
+
+    x_reduced = x[0,:,0]
+    fig.suptitle('Attention Scores')
+    # Plot the attention scores
+    im = ax1.imshow(first_att[0,0,:,:], cmap='hot', interpolation='nearest')
+        # Remove the x and y ticks
+    ax1.set_xticks([])
+    ax1.set_yticks([])
+    # Plot the reduced input as a curve along the x axis
+    ax3.plot(x_reduced)
+    ax3.grid()
+    ax3.set_xlim([0, len(x_reduced)]) 
+    # Plot the reduced input as a curve along the y axis
+    ax0.plot(x_reduced, range(len(x_reduced)))
+    ax0.grid()
+    ax0.set_ylim([len(x_reduced), 0]) 
+    ax0.invert_yaxis()  # Invert the y axis to align it with the imshow plot
+
+    # Create a new Axes object for the colorbar
+    cax = fig.add_axes([0.9, 0.27, 0.03, 0.6])
+
+    # Create a colorbar in the new Axes object
+    cbar = fig.colorbar(im, cax=cax)
+
+    # Adjust the spacing between the subplots
+    plt.subplots_adjust(wspace=0, hspace=0)
+    # plt.tight_layout()
+    plt.savefig(save_path)
+    plt.close()

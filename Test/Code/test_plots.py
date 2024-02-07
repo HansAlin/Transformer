@@ -19,8 +19,11 @@ import subprocess
 import pandas as pd
 import time
 import matplotlib.pyplot as plt
+import re
 
-
+def condense_sequence(match):
+    numbers = list(map(int, match.group(0).split('_')))
+    return f'{numbers[0]}-{numbers[-1]}'
 
 # path = os.getcwd()
 
@@ -84,7 +87,8 @@ import matplotlib.pyplot as plt
 # Plot tabel of hyperparameters                                   #
 ###################################################################
 # models_path = '/mnt/md0/halin/Models/'
-models = [99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130,131]
+
+models = [118,119]
 str_models = '_'.join(map(str, models))
 sort = True
 if sort:
@@ -94,7 +98,9 @@ if sort:
 else:
     save_path = f'/home/halin/Master/Transformer/Test/presentation/model_{str_models}_table.png'
     df = collect_config_to_df(model_numbers=models, save_path=save_path)
- 
+pattern = r'(\d+(_\d+)+)'
+
+save_path = re.sub(pattern, condense_sequence, save_path)
 keys = ['model_num', 'pos_enc_type','d_model', 'd_ff', 'N', 'h', "num_param", 'NSE_AT_10KNRF', 'MACs' ]
 plot_table(df, keys, save_path=save_path)
 

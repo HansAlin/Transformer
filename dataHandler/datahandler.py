@@ -691,7 +691,7 @@ def save_model(trained_model, optimizer, config, global_step, text='early_stop')
               'model_state_dict': trained_model.state_dict(), 
               'optimizer_state_dict': optimizer.state_dict(),
               'global_step': global_step},
-              saved_model_path + f'/model_{config["basic"]["model_num"]}_{text}.pth')
+              saved_model_path + f'/model_{config["basic"]["model_num"]}{text}.pth')
 
 def file_exist(directory, filename):
    
@@ -729,26 +729,27 @@ def get_model_path(config, text=''):
    
   return model_path 
 
-def save_data(config, df=None, y_pred_data=None):
+def save_data(config, df=None, y_pred_data=None, text=''):
 
   path = config["basic"]['model_path']
-
-  with open(path + 'config.txt', "wb") as fp:
+  if text != '':
+    text = '_' + text
+  with open(path + f'config{text}.txt', "wb") as fp:
     pickle.dump(config, fp)
 
-  with open(config['basic']['model_path'] + 'config.yaml', 'w') as data:
+  with open(config['basic']['model_path'] + f'config{text}.yaml', 'w') as data:
         yaml.dump(config, data, default_flow_style=False) 
 
   # A easier to read part
-  with open(path + 'text_config.txt', 'w') as data:
+  with open(path + f'text_config{text}.txt', 'w') as data:
     for key, value in config.items():
       data.write('%s: %s\n' % (key, value))
 
   if df is not None:  
-    df.to_pickle(path + 'dataframe.pkl')
+    df.to_pickle(path + f'dataframe{text}.pkl')
 
   if y_pred_data is not None:
-    y_pred_data.to_pickle(path + 'y_pred_data.pkl') 
+    y_pred_data.to_pickle(path + f'y_pred_data{text}.pkl') 
   
 
 def create_model_folder(model_number, path=''):

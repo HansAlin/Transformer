@@ -13,7 +13,7 @@ sys.path.append(CODE_DIR_1)
 from models.models import InputEmbeddings, LayerNormalization, FinalBlock, build_encoder_transformer
 from dataHandler.datahandler import get_data, prepare_data, find_hyperparameters, get_model_config, collect_config_to_df
 # from training.train import test_model
-from plots.plots import get_area_under_curve, get_noise_reduction, get_roc, plot_performance_curve, histogram, plot_performance, plot_collections, plot_table, plot_results
+from plots.plots import get_area_under_curve, get_noise_reduction, get_roc, plot_performance_curve, histogram, plot_performance, plot_collections, plot_table, plot_results, plot_sns_table
 import torch
 import subprocess
 import pandas as pd
@@ -102,7 +102,7 @@ pattern = r'(\d+(_\d+)+)'
 
 save_path = re.sub(pattern, condense_sequence, save_path)
 keys = ['model_num', 'pos_enc_type','d_model', 'd_ff', 'N', 'h', "num_param", 'NSE_AT_10KNRF', 'MACs' ]
-plot_table(df, keys, save_path=save_path)
+plot_table(df, keys, save_path=save_path, print_common_values=True)
 
 ###################################################################
 # Plot performance of a model                                     #

@@ -9,11 +9,13 @@ import pickle
 import torch
 
 
+
+
 from models.models import build_encoder_transformer
 from dataHandler.datahandler import get_test_data, get_data_binary_class, get_model_path
 from evaluate.evaluate import get_model_path
 
-def histogram(y_pred, y, config, bins=100, save_path=''):
+def histogram(y_pred, y, config, bins=100, save_path='', text=''):
     """
           This function plots the histogram of the predictions of a given model.
           Args:
@@ -46,7 +48,9 @@ def histogram(y_pred, y, config, bins=100, save_path=''):
     ax.set_yscale('log')
     ax.legend()
     ax.set_xlabel(r'noise $\leftrightarrow$ signal')
-    plt.savefig(save_path + f"model_{config['basic']['model_num']}_histogram.png")
+    if text != '':
+      text = '_' + text
+    plt.savefig(save_path + f"model_{config['basic']['model_num']}_histogram{text}.png")
     plt.clf()
     plt.close()
 
@@ -135,6 +139,8 @@ def plot_performance_curve(y_preds, ys, configs, bins=1000, save_path='', text =
       ax.set_xlim(x_lim)
     ax.grid()
     style.use('seaborn-colorblind')
+    if text != '':
+      text = ' ' + text
     if save_path == '':
         save_path = config['basic']['model_path'] + 'plot/' + f'model_{config["basic"]["model_num"]}_{curve}_{text.replace(" ", "_")}.png'
     plt.savefig(save_path + f'model_{config["basic"]["model_num"]}_{curve}_{text.replace(" ", "_")}.png')
@@ -550,26 +556,70 @@ def get_area_under_curve(x,y):
     area += delta_x * y_mean
   return np.abs(area)
 
-def plot_table(df, keys, save_path=''):
+
+def plot_common_values(df, keys, save_path=''):
+    print(df.dtypes)
+    common_keys = ['N', 'activation', 'dff', 'd_model', 'embed_type', 'final_type', 'h', 'location', 'max_relative_position', 'n_ant', 'normalization', 'pos_enc_type', 'seq_len', 'batch_size', 'decrease_factor', 'dropout', 'learning_rate', 'loss_function', 'step_size']
+    common_keys = [common_key for common_key in common_keys if not common_key in keys]
+    common = find_constant_columns(df, column_names=['batch_size', 'seq_len', 'learning_rate' ])
+    print('1')
+    print(common.dtypes)
+    # Transpose and reset index
+    common = common.transpose().reset_index()
+    print('2')
+    print(common.dtypes)
+    # Rename columns
+    common.columns = ['Parameter', 'Value']
+    print('3')
+    print(common.dtypes)
+    fig, ax = plt.subplots() 
+    ax.axis('off')
+    ax.axis('tight')
+    common = pd.DataFrame(common)
+    common = change_format_units(common)
+    common = change_headers(common)
+    for col in common.columns:
+      try:
+          common[col] = common[col].astype(int)
+      except ValueError:
+          pass
+    print('4')
+    print(common.dtypes)
+    table = ax.table(cellText=common.values, colLabels=common.columns, loc='center', cellLoc = 'center')
+    table.auto_set_font_size(False)
+    table.set_fontsize(14)
+    table.scale(1.5, 1.5)
+    plt.savefig(save_path.replace('.png', '_common_values.png'))
+    plt.close()
+    print(common)
+
+def plot_table(df, keys, save_path='', print_common_values=False):
   """ This function plots a table of the dataframe df
       Args:
         df (pd.DataFrame): dataframe to plot
         keys (list): list of keys that are being ploted
   """ 
-  common = common_values(df, columns=['batch_size', 'seq_len', 'learning_rate' ])
-  print(common)
+
+  
+  df_copy = df.copy()
+
+  if print_common_values:
+    plot_common_values(df_copy, keys, save_path=save_path.replace('.png', '_common_values.png'))
+
+  
+
   for key in keys:
     if key not in df.columns:
         df[key] = np.nan
   num_of_rows = len(df)
   num_of_cols = len(df.columns)
-  fig_hight = 0.325 * num_of_rows + 0.4
+  fig_hight = 0.5 * num_of_rows + 0.4
   fig_width = 0.23 * num_of_cols   # Add this line
 
   df = df[keys]
   df = change_format_units(df)
   df = change_headers(df)
-
+  # df.columns = df.columns.str.pad(10, side='both')
 
   # Add white spaces around the keys
   df.columns = df.columns.str.pad(10, side='both')
@@ -596,18 +646,26 @@ def plot_table(df, keys, save_path=''):
   plt.savefig(save_path)
   plt.close()
   df.to_csv(save_path.replace('.png', '.csv'), index=False)
-  
+
+
+
+
+
 def change_format(value, digits=2, format="e"):
   return '{:.{digits}{format}}'.format(value, digits=digits, format=format)  
 
-def common_values(df, columns):
+def find_constant_columns(df, column_names):
     """
-    This function finds the common values of a given dataframe"""
-    # Convert each column to a set
-    sets =  [set(df[col]) for col in columns]
-    # Find common elements
-    common = set.intersection(*sets)
-    return common
+    This function checks whether all the columns in the given list exist in the DataFrame
+    and all their values are the same. If they are, it creates a new DataFrame with these columns and their values.
+    """
+    constant_columns = [col for col in column_names if col in df.columns and df[col].nunique() == 1]
+    if set(constant_columns) == set(column_names):
+        return df[constant_columns].iloc[[0]]  # Select a single-row DataFrame
+    else:
+        print(f'Columns {constant_columns} are not common')
+        return None
+
 def change_energy_units(value):
   changed_value = value/3600/1000
   return f'{changed_value:.2e} kWh'
@@ -649,6 +707,36 @@ def change_headers(df):
     df.rename(columns={'num_param': 'Tot. param.'}, inplace=True)
   if 'NSE_AT_10KNRF' in df.columns:
     df.rename(columns={'NSE_AT_10KNRF': 'NSE at 10k NRF'}, inplace=True)
+  if 'activation' in df.columns:
+    df.rename(columns={'activation': 'Activation function'}, inplace=True)
+  if 'embed_type' in df.columns:
+    df.rename(columns={'embed_type': 'Input embedding type'}, inplace=True)
+  if 'final_type' in df.columns:
+    df.rename(columns={'final_type': 'Final layer type'}, inplace=True)
+  if 'location' in df.columns:
+    df.rename(columns={'location': 'Residual location'}, inplace=True)
+  if 'max_relative_position' in df.columns:
+    df.rename(columns={'max_relative_position': 'Max. rel. pos.'}, inplace=True)
+  if 'n_ant' in df.columns:
+    df.rename(columns={'n_ant': 'Antennas'}, inplace=True)
+  if 'normalization' in df.columns:
+    df.rename(columns={'normalization': 'Normalization'}, inplace=True)
+  if 'seq_len' in df.columns:
+    df.rename(columns={'seq_len': 'Seq. length'}, inplace=True)
+  if 'batch_size' in df.columns:
+    df.rename(columns={'batch_size': 'Batch size'}, inplace=True)
+  if 'decrease_factor' in df.columns:
+    df.rename(columns={'decrease_factor': 'Decr. factor'}, inplace=True)
+  if 'dropout' in df.columns:
+    df.rename(columns={'dropout': 'Dropout'}, inplace=True)
+  if 'learning_rate' in df.columns:
+    df.rename(columns={'learning_rate': 'Learning rate'}, inplace=True)
+  if 'loss_function' in df.columns:
+    df.rename(columns={'loss_function': 'Loss function'}, inplace=True)
+  if 'step_size' in df.columns:
+    df.rename(columns={'step_size': 'Step size'}, inplace=True)
+
+
 
   return df
 

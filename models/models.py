@@ -803,7 +803,7 @@ def build_encoder_transformer(config):
   for p in encoder_transformer.parameters():
     if p.dim() > 1:
       nn.init.xavier_uniform_(p)  
-  save_data(config)
+ 
   return encoder_transformer    
 
  

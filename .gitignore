@@ -170,4 +170,6 @@ Test/MNIST/
 Test/data
 Test/ModelsResults
 Test/data/rawdata
+Test/presentation
+
 

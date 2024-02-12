@@ -11,7 +11,7 @@ architecture:
   h: 4
   inherit_model: null
   max_relative_position: 100
-  location: 'pre' # Posible options: 'pre', 'post'
+  residual_type: 'pre_ln' # Posible options: 'pre_ln', 'post_ln'
   n_ant: 4
   normalization: layer # Posible options: 'layer', 'batch'
   omega: 10000

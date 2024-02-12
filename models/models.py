@@ -443,53 +443,46 @@ class ResidualConnection(nn.Module):
   """ This layer adds the residual connection from sublayer to the input.
       It also appies a 
   """
-  def __init__(self, features: int, dropout: float = 0.1, normalization='layer', location='post'):
+  def __init__(self, dropout: float = 0.1, norm_layer: nn.Module, residual_type='post_ln'):
     super().__init__()
     self.dropout = nn.Dropout(dropout)
-    self.location = location
-    if normalization == 'layer':
-      self.norm = LayerNormalization(features=features)
-    elif normalization == 'batch':
-      self.norm = BatchNormalization(features=features)  
-    else:
-      raise ValueError(f"Unsupported normalization: {normalization}")
-    
-    
+    self.residual_type = residual_type
+    self.norm = norm_layer
+    self.residual_type = residual_type
 
-  def forward(self, x, sublayer):
-    #TODO change this code so it becomes more similar to the vanilla encoder
-    # There are other ways to add the residual connection
-    # For example, you can add it sublayer(x) and then apply the normalization.
+    if self.residual = 'post_ln':
+      self.forward = self.forward_post_ln
+    elif self.residual = 'pre_ln':
+      self.forward = self.forward_pre_ln
 
-    if self.location == 'post':
-      out = sublayer(x)
-      x = x + self.dropout(out)
-      x = self.norm(x)
-    elif self.location == 'pre':
+  def forward_post_ln(self, x, sublayer):
+    out = sublayer(x)
+    x = x + self.dropout(out)
+    x = self.norm(x)
+    return x
+    
+  def forward_pre_ln(self, x, sublayer):
       out = self.norm(x)
       out = sublayer(out)
       x = x + self.dropout(out)
-  
 
     # (batch_size , seq_len, d_model)
     return x
   
 class EncoderBlock(nn.Module):
   def __init__(self, 
-               features: int,
                self_attention_block: MultiHeadAttentionBlock,
                feed_forward_block: FeedForwardBlock, 
                dropout: float = 0.1,
-               normalization='layer',
-               location='post'):
+               norm_layer=nn.Module,
+               residual_type='post_ln'):
     super().__init__()
     self.self_attention_block = self_attention_block
     self.feed_forward_block =  feed_forward_block
-    self.residual_connection_1 = ResidualConnection(features, dropout, normalization, location)
-    self.residual_connection_2 = ResidualConnection(features, dropout, normalization, location)
+    self.residual_connection_1 = ResidualConnection(dropout, norm_layer, residual_type)
+    self.residual_connection_2 = ResidualConnection(dropout, norm_layer, residual_type)
 
-    # self.residual_1 = ResidualConnection(dropout)
-    # self.residual_2 = ResidualConnection(dropout)
+  
 
   def forward(self, x, src_mask):
     # x = self.residual_1(x, lambda x: self.self_attention_block(x, x, x, src_mask))
@@ -565,13 +558,10 @@ class VanillaEncoderTransformer(nn.Module):
 
 
 class Encoder(nn.Module):
-  def __init__(self, features: int, layers: nn.ModuleList, normalization='layer') -> None:
+  def __init__(self, layers: nn.ModuleList, norm_layer=nn.Module) -> None:
     super().__init__()
     self.layers = layers
-    if normalization == 'layer':
-      self.norm = LayerNormalization(features=features)
-    else:
-      self.norm = BatchNormalization(features=features)  
+    self.norm = norm_layer
     
 
   def forward(self, x, mask=None):
@@ -598,9 +588,19 @@ class EncoderTransformer(nn.Module):
                src_embed: List[InputEmbeddings], 
                src_pos: List[PositionalEncoding],
                final_block: FinalBlock,
-               encoding_type: str = 'normal'
+               encoding_type: str = 'normal',
+               residual_type: str = 'post_ln',
+               norm_layer=nn.Module
+
                ) -> None:
     super().__init__()
+
+    if residual_type == 'post_ln':
+      self.norm = nn.Identity()
+    elif residual_type == 'pre_ln':
+      self.norm = norm_layer
+
+
 
     if encoding_type == 'bypass':
       for i, encoder in enumerate(encoders):
@@ -637,6 +637,8 @@ class EncoderTransformer(nn.Module):
     src = self.encoder(src, src_mask)
     # print(f"Encoder output standard deviation: {src.std().item()} ", end=' ')
 
+    src = self.norm(src)
+
     src = self.final_block(src)
     # print(f"Final block output standard deviation: {src.std().item()} ", end='\r')
     return src
@@ -660,6 +662,8 @@ class EncoderTransformer(nn.Module):
 
     src = torch.cat(src_encoders, dim=-1)
 
+    src = self.norm(src)
+
     src = self.final_block(src)
 
     return src
@@ -680,8 +684,9 @@ def build_encoder_transformer(config):
   encoder_type =  config['architecture'].get('encoder_type', 'normal') 
   config['architecture']['encoder_type'] = encoder_type 
   normalization = config['architecture'].get('normalization', 'layer')
-  config['architecture']['normalization'] = normalization 
-  location =      config['architecture'].get('location', 'post')
+  # config['architecture']['normalization'] = normalization 
+  residual_type =      config['architecture'].get('residual_type', 'post_ln')
+  
   activation =    config['architecture']['activation']
   n_ant =         config['architecture']['n_ant'] 
   max_relative_position = config['architecture'].get('max_relative_position', 100)
@@ -706,6 +711,16 @@ def build_encoder_transformer(config):
     by_pass = False 
     channels = n_ant
     num_embeddings = 1  
+
+  #########################################################
+  # Create Layer Normalization                            #
+  #########################################################
+  if normalization == 'layer':
+    norm = LayerNormalization(features=features)  
+  elif normalization == 'batch':
+    norm = BatchNormalization(features=features)
+  else:
+    raise ValueError(f"Unsupported Normalization type: {normalizing}")    
   
 
   #########################################################
@@ -753,16 +768,14 @@ def build_encoder_transformer(config):
           encoder_self_attention_block = MultiHeadAttentionBlock(d_model, h, dropout)
 
         feed_forward_block = FeedForwardBlock(d_model, d_ff, dropout, activation=activation)
-        encoder_block = EncoderBlock(features=features, 
-                                    self_attention_block=encoder_self_attention_block, 
+        encoder_block = EncoderBlock(self_attention_block=encoder_self_attention_block, 
                                     feed_forward_block=feed_forward_block, 
                                     dropout=dropout,
-                                    normalization=normalization,
-                                    location=location)
+                                    norm_layer=norm,
+                                    residual_type=residual_type)
         encoder_blocks.append(encoder_block)
-      encoders.append(Encoder(features=features,
-                              layers=nn.ModuleList(encoder_blocks), 
-                              normalization='layer'))
+      encoders.append(Encoder(flayers=nn.ModuleList(encoder_blocks), 
+                              norm_layers=norm)
   elif encoder_type == 'none':
     encoders = [None]
   elif encoder_type == 'vanilla':
@@ -797,7 +810,9 @@ def build_encoder_transformer(config):
                                            src_embed=src_embed,
                                            src_pos= src_pos, 
                                            final_block=final_block,
-                                           encoding_type=encoder_type)
+                                           encoding_type=encoder_type,
+                                           residual_type=residual_type,
+                                           norm_layer=norm)
 
   # Initialize the parameters
   for p in encoder_transformer.parameters():

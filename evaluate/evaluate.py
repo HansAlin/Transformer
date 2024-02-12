@@ -131,20 +131,20 @@ def get_gpu_info():
         return gpu_info
     except Exception as e:
         print(f"Error: {e}")
-        return None
+        return 0
 
 
 def get_energy(device_number):
     gpu_info = get_gpu_info()
     if gpu_info is None:
-        return None
+        return 0
     try:
         energy = gpu_info[device_number][-1]
         energy = float(energy.split(' ')[0])
         return energy
     except Exception as e:
         print(f"Error: {e}")
-        return None
+        return 0
     
 def get_MMac(model, batch_size=1,  seq_len=256, channels=4, verbose=False):
   """

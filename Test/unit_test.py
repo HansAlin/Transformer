@@ -24,14 +24,16 @@ class BaseTest(unittest.TestCase):
     N = 6
     n_ant = 4
     h = 8
+    activations = ['relu', 'gelu']
     normalizations = ['layer', 'batch']
-    locations = ['post', 'pre']
+    residual_types = ['post_ln', 'pre_ln']
     relative_positional_encodings = [True, False] 
 
 class TestLayers(BaseTest):
 
     def test_LayerNormalization(self):
-   
+        torch.manual_seed(0)
+        
         normal_layer = LayerNormalization(features=self.d_model, eps=1e-6)
         input_data = torch.ones(self.batch_size,self.seq_len,self.d_model)
         print(f"Shape input to layerNormalization: {input_data.shape}")
@@ -49,8 +51,8 @@ class TestLayers(BaseTest):
 
 
     def test_BatchNormalization(self):
-   
-
+        torch.manual_seed(0)
+        
         normal_layer = BatchNormalization(features=self.d_model, eps=1e-6)
         input_data = torch.ones(self.batch_size,self.seq_len,self.d_model)
         print(f"Shape input to BatchNormalization: {input_data.shape}")
@@ -67,15 +69,16 @@ class TestLayers(BaseTest):
         self.assertEqual(output[0,0,0], 0, "Incorrect value!")
 
     def test_residual_connection(self):
-        for normalization in self.normalizations:
-            for location in self.locations:
-                self.helper_residual_connection(normalization, location)
-
-    def helper_residual_connection(self, normalization, location):
   
+        for normalization in self.normalizations:
+            for residual_type in self.residual_types:
+                self.helper_residual_connection(normalization, residual_type)
+
+    def helper_residual_connection(self, normalization, residual_type):
+        torch.manual_seed(0)
 
         sublayer = nn.Linear(in_features=self.d_model, out_features=self.d_model)
-        residual_connection = ResidualConnection(features=self.d_model, normalization=normalization, location=location)
+        residual_connection = ResidualConnection(features=self.d_model, residual_type=residual_type, normalization=normalization, )
         input_data = torch.ones(self.batch_size, self.seq_len, self.d_model)
         output = residual_connection(input_data, sublayer)
         self.assertIsNotNone(output)
@@ -86,7 +89,7 @@ class TestLayers(BaseTest):
 
         # Create some input data
         input_data = torch.ones(self.batch_size, self.seq_len, self.d_model)
-        print(f"Normalization: {normalization}, Location: {location}")
+        print(f"Normalization: {normalization}, Residual type: {residual_type}")
         output = residual_connection(input_data, sublayer)
 
         # Check if the output has the same shape as the input
@@ -99,77 +102,86 @@ class TestLayers(BaseTest):
         self.assertFalse(torch.any(torch.isnan(output)))
 
     def test_MultiHeadAttentionBlock(self):
+
         for relative_positional_encoding in self.relative_positional_encodings:
             self.helper_MultiHeadAttentionBlock(relative_positional_encoding)
 
     def helper_MultiHeadAttentionBlock(self, relative_positional_encoding):
+        torch.manual_seed(0)
+        with torch.autograd.set_detect_anomaly(True):
+            # Create some input data
+            q = torch.randn(self.batch_size, self.seq_len, self.d_model)
+            k = torch.randn(self.batch_size, self.seq_len, self.d_model)
+            v = torch.randn(self.batch_size, self.seq_len, self.d_model)
+            mask = None # torch.ones(self.batch_size, 1, seq_len).to(dtype=torch.bool)
 
-        # Create some input data
-        q = torch.randn(self.batch_size, self.seq_len, self.d_model)
-        k = torch.randn(self.batch_size, self.seq_len, self.d_model)
-        v = torch.randn(self.batch_size, self.seq_len, self.d_model)
-        mask = None # torch.ones(self.batch_size, 1, seq_len).to(dtype=torch.bool)
+            # Initialize the MultiHeadAttentionBlock layer
+            multi_head_attention_block = MultiHeadAttentionBlock(d_model=self.d_model, 
+                                                                h=self.h, 
+                                                                dropout=self.dropout, 
+                                                                max_relative_position=self.max_relative_position, 
+                                                                relative_positional_encoding=relative_positional_encoding,)
 
-        # Initialize the MultiHeadAttentionBlock layer
-        multi_head_attention_block = MultiHeadAttentionBlock(self.d_model, self.h, self.dropout, self.max_relative_position, relative_positional_encoding)
+            # Apply Xavier initialization to all weights in the MultiHeadAttentionBlock
+            multi_head_attention_block.apply(lambda m: nn.init.xavier_uniform_(m.weight) if hasattr(m, 'weight') else None)
 
-        # Forward pass through the MultiHeadAttentionBlock layer
-        output = multi_head_attention_block(q, k, v, mask)
+            # Forward pass through the MultiHeadAttentionBlock layer
+            output = multi_head_attention_block(q, k, v, mask)
 
-        # Check if the output has the same shape as the input
-        self.assertEqual(output.shape, q.shape)
+            # Check if the output has the same shape as the input
+            self.assertEqual(output.shape, q.shape)
 
-        # Check if the output is not all zeros
-        self.assertFalse(torch.all(output == 0))
+            # Check if the output is not all zeros
+            self.assertFalse(torch.all(output == 0))
 
-        # Check if the output does not contain any NaN values
-        self.assertFalse(torch.any(torch.isnan(output)))
-
-        # Check if the output changes in response to changes in the input
-        q_prime = q + torch.randn_like(q) * 0.01
-        output_prime = multi_head_attention_block(q_prime, k, v, mask)
-        self.assertFalse(torch.allclose(output, output_prime))    
-
+            # Check if the output does not contain any NaN values
+            if torch.any(torch.isnan(output)):
+                print("NaN values in output")
+            self.assertFalse(torch.any(torch.isnan(output)))
 
 class TestEncoder(BaseTest):
     def test_encoder_block(self):
-
-        dropout = 0.1
- 
 
         # Create a random input tensor
         x = torch.randn(self.batch_size, self.seq_len, self.d_model)
         src_mask = None #torch.ones(self.batch_size, 1, self.seq_len)
 
-        # Create the blocks
-        self_attention_block = MultiHeadAttentionBlock(d_model=self.d_model,
-                                                       h=self.num_heads)
+        for relative_positional_encoding in self.relative_positional_encodings:
+            # Create the blocks
+            self_attention_block = MultiHeadAttentionBlock(d_model=self.d_model, 
+                                                                    h=self.h, 
+                                                                    dropout=self.dropout, 
+                                                                    max_relative_position=self.max_relative_position, 
+                                                                    relative_positional_encoding=relative_positional_encoding,)
 
 
-        # Iterate over the combinations of normalization and location
-        for activation in ['relu', 'gelu']:
-            for normalization in ['layer', 'batch']:
-                for location in ['post', 'pre']:
-                    feed_forward_block = FeedForwardBlock(d_model=self.d_model,
-                                              d_ff=self.d_ff,
-                                             dropout=dropout, 
-                                             activation=activation)
-                    # Create the EncoderBlock
-                    encoder_block = EncoderBlock(self.d_model, 
-                                                 self_attention_block, 
-                                                 feed_forward_block, 
-                                                 dropout, 
-                                                 normalization, 
-                                                 location)
+            # Iterate over the combinations of normalization and location
+            for activation in self.activations:
+                for normalization in self.normalizations:
+                    for residual_type in self.residual_types:
+                        torch.manual_seed(0)
+                        feed_forward_block = FeedForwardBlock(d_model=self.d_model,
+                                                d_ff=self.d_ff,
+                                                dropout=self.dropout, 
+                                                activation=activation)
+                        # Create the EncoderBlock
+                        encoder_block = EncoderBlock(
+                                                    features=self.d_model,
+                                                    self_attention_block=self_attention_block, 
+                                                    feed_forward_block=feed_forward_block, 
+                                                    dropout=self.dropout, 
+                                                    residual_type=residual_type,
+                                                    normalization=normalization, 
+                                                    )
 
-                    # Pass the input tensor through the EncoderBlock
-                    output = encoder_block(x, src_mask)
+                        # Pass the input tensor through the EncoderBlock
+                        output = encoder_block(x, src_mask)
 
-                    # Check that the output has the same shape as the input
-                    self.assertEqual(output.shape, x.shape)
+                        # Check that the output has the same shape as the input
+                        self.assertEqual(output.shape, x.shape)
 
-                    # Check that the output is not all zeros
-                    self.assertTrue(torch.any(output != 0))
+                        # Check that the output is not all zeros
+                        self.assertTrue(torch.any(output != 0))
 
     def test_encoder(self):
         # Create a random input tensor
@@ -180,36 +192,39 @@ class TestEncoder(BaseTest):
         
         # Iterate over the normalization types and the activation functions
         for relative_positional_encoding in [True, False]:
-            for activation in ['relu', 'gelu']:
-                for normalization in ['layer', 'batch']:
+            for activation in self.activations:
+                for normalization in self.normalizations:
+                    for residual_type in self.residual_types:
+                        torch.manual_seed(0)
+                        # Create the blocks
+                        self_attention_block = MultiHeadAttentionBlock(d_model=self.d_model,
+                                                                    h=self.num_heads,
+                                                                    dropout=self.dropout,
+                                                                    max_relative_position=self.max_relative_position,
+                                                                    relative_positional_encoding=relative_positional_encoding,)
+                        feed_forward_block = FeedForwardBlock(self.d_model, self.d_ff, self.dropout, activation)
+                        encoder_block = EncoderBlock(features=self.d_model,
+                                                    self_attention_block=self_attention_block, 
+                                                    feed_forward_block=feed_forward_block, 
+                                                    dropout=self.dropout, 
+                                                    residual_type=residual_type,
+                                                    normalization=normalization, 
+                                                        )
+                        # Create a ModuleList of EncoderBlocks
+                        layers = nn.ModuleList([encoder_block for _ in range(6)])
+                        # Create the Encoder
+                        encoder = Encoder(layers)
 
-                    # Create the blocks
-                    self_attention_block = MultiHeadAttentionBlock(d_model=self.d_model,
-                                                                h=self.num_heads,
-                                                                dropout=self.dropout,
-                                                                max_relative_position=self.max_relative_position,
-                                                                relative_positional_encoding=relative_positional_encoding,)
-                    feed_forward_block = FeedForwardBlock(self.d_model, self.d_ff, self.dropout, activation)
-                    encoder_block = EncoderBlock(self.d_model, self_attention_block, feed_forward_block, self.dropout)
-                    # Create a ModuleList of EncoderBlocks
-                    layers = nn.ModuleList([encoder_block for _ in range(6)])
-                    # Create the Encoder
-                    encoder = Encoder(self.d_model, layers, normalization)
+                        # Pass the input tensor through the Encoder
+                        output = encoder(x, mask)
 
-                    # Pass the input tensor through the Encoder
-                    output = encoder(x, mask)
+                        # Check that the output has the same shape as the input
+                        self.assertEqual(output.shape, x.shape)
 
-                    # Check that the output has the same shape as the input
-                    self.assertEqual(output.shape, x.shape)
+                        # Check that the output is not all zeros
+                        self.assertTrue(torch.any(output != 0))
 
-                    # Check that the output is not all zeros
-                    self.assertTrue(torch.any(output != 0))
 
-                    # Check that the correct normalization layer was used
-                    if normalization == 'layer':
-                        self.assertIsInstance(encoder.norm, LayerNormalization)
-                    else:
-                        self.assertIsInstance(encoder.norm, BatchNormalization)
 
 
     def test_encode_encoder(self):

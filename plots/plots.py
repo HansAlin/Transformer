@@ -559,7 +559,7 @@ def get_area_under_curve(x,y):
 
 def plot_common_values(df, keys, save_path=''):
     print(df.dtypes)
-    common_keys = ['N', 'activation', 'dff', 'd_model', 'embed_type', 'final_type', 'h', 'location', 'max_relative_position', 'n_ant', 'normalization', 'pos_enc_type', 'seq_len', 'batch_size', 'decrease_factor', 'dropout', 'learning_rate', 'loss_function', 'step_size']
+    common_keys = ['N', 'activation', 'd_ff', 'd_model', 'embed_type', 'final_type', 'h', 'location', 'max_relative_position', 'n_ant', 'normalization', 'pos_enc_type', 'seq_len', 'batch_size', 'decrease_factor', 'dropout', 'learning_rate', 'loss_function', 'step_size']
     common_keys = [common_key for common_key in common_keys if not common_key in keys]
     common = find_constant_columns(df, column_names=['batch_size', 'seq_len', 'learning_rate' ])
     print('1')

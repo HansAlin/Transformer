@@ -443,16 +443,16 @@ class ResidualConnection(nn.Module):
   """ This layer adds the residual connection from sublayer to the input.
       It also appies a 
   """
-  def __init__(self, dropout: float = 0.1, norm_layer: nn.Module, residual_type='post_ln'):
+  def __init__(self, norm_layer: nn.Module, dropout: float = 0.1, residual_type='post_ln'):
     super().__init__()
     self.dropout = nn.Dropout(dropout)
     self.residual_type = residual_type
     self.norm = norm_layer
     self.residual_type = residual_type
 
-    if self.residual = 'post_ln':
+    if self.residual == 'post_ln':
       self.forward = self.forward_post_ln
-    elif self.residual = 'pre_ln':
+    elif self.residual == 'pre_ln':
       self.forward = self.forward_pre_ln
 
   def forward_post_ln(self, x, sublayer):
@@ -462,9 +462,9 @@ class ResidualConnection(nn.Module):
     return x
     
   def forward_pre_ln(self, x, sublayer):
-      out = self.norm(x)
-      out = sublayer(out)
-      x = x + self.dropout(out)
+    out = self.norm(x)
+    out = sublayer(out)
+    x = x + self.dropout(out)
 
     # (batch_size , seq_len, d_model)
     return x
@@ -720,7 +720,7 @@ def build_encoder_transformer(config):
   elif normalization == 'batch':
     norm = BatchNormalization(features=features)
   else:
-    raise ValueError(f"Unsupported Normalization type: {normalizing}")    
+    raise ValueError(f"Unsupported Normalization type: {normalization}")    
   
 
   #########################################################
@@ -775,7 +775,7 @@ def build_encoder_transformer(config):
                                     residual_type=residual_type)
         encoder_blocks.append(encoder_block)
       encoders.append(Encoder(flayers=nn.ModuleList(encoder_blocks), 
-                              norm_layers=norm)
+                              norm_layers=norm))
   elif encoder_type == 'none':
     encoders = [None]
   elif encoder_type == 'vanilla':

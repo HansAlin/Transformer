@@ -8,7 +8,7 @@ import matplotlib.gridspec as gridspec
 from matplotlib.ticker import MultipleLocator
 import os
 import pandas as pd
-from pandas.io.json import json_normalize
+from pandas import json_normalize
 import pickle
 import sys
 import time

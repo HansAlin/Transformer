@@ -27,12 +27,13 @@ class BaseTest(unittest.TestCase):
     activations = ['relu', 'gelu']
     normalizations = ['layer', 'batch']
     residual_types = ['post_ln', 'pre_ln']
-    relative_positional_encodings = [True, False] 
+    relative_positional_encodings = [True] 
+    GSAs = [True]
 
 class TestLayers(BaseTest):
 
     def test_LayerNormalization(self):
-        torch.manual_seed(0)
+        #torch.manual_seed(0)
         
         normal_layer = LayerNormalization(features=self.d_model, eps=1e-6)
         input_data = torch.ones(self.batch_size,self.seq_len,self.d_model)
@@ -51,7 +52,7 @@ class TestLayers(BaseTest):
 
 
     def test_BatchNormalization(self):
-        torch.manual_seed(0)
+        #torch.manual_seed(0)
         
         normal_layer = BatchNormalization(features=self.d_model, eps=1e-6)
         input_data = torch.ones(self.batch_size,self.seq_len,self.d_model)
@@ -69,13 +70,13 @@ class TestLayers(BaseTest):
         self.assertEqual(output[0,0,0], 0, "Incorrect value!")
 
     def test_residual_connection(self):
-  
+        torch.manual_seed(0)
         for normalization in self.normalizations:
             for residual_type in self.residual_types:
                 self.helper_residual_connection(normalization, residual_type)
 
     def helper_residual_connection(self, normalization, residual_type):
-        torch.manual_seed(0)
+        #torch.manual_seed(0)
 
         sublayer = nn.Linear(in_features=self.d_model, out_features=self.d_model)
         residual_connection = ResidualConnection(features=self.d_model, residual_type=residual_type, normalization=normalization, )
@@ -101,15 +102,26 @@ class TestLayers(BaseTest):
         # Check if the output does not contain any NaN values
         self.assertFalse(torch.any(torch.isnan(output)))
 
-    def test_MultiHeadAttentionBlock(self):
+class TestMultiHeadAttentionBlock(BaseTest):
 
-        for relative_positional_encoding in self.relative_positional_encodings:
-            self.helper_MultiHeadAttentionBlock(relative_positional_encoding)
-
-    def helper_MultiHeadAttentionBlock(self, relative_positional_encoding):
+    def setUp(self) -> None:
         torch.manual_seed(0)
+
+    def tearDown(self):
+        torch.cuda.empty_cache()    
+
+    def test_MultiHeadAttentionBlock(self):
+        #torch.manual_seed(10)
+        for relative_positional_encoding in self.relative_positional_encodings:
+            for GSA in self.GSAs:
+                self.helper_MultiHeadAttentionBlock(relative_positional_encoding, GSA)
+
+    def helper_MultiHeadAttentionBlock(self, relative_positional_encoding, GSA):
+        #torch.manual_seed(0)
+        print(f"Relative positional encoding: {relative_positional_encoding}, GSA: {GSA}")
         with torch.autograd.set_detect_anomaly(True):
             # Create some input data
+            torch.manual_seed(100)
             q = torch.randn(self.batch_size, self.seq_len, self.d_model)
             k = torch.randn(self.batch_size, self.seq_len, self.d_model)
             v = torch.randn(self.batch_size, self.seq_len, self.d_model)
@@ -118,9 +130,12 @@ class TestLayers(BaseTest):
             # Initialize the MultiHeadAttentionBlock layer
             multi_head_attention_block = MultiHeadAttentionBlock(d_model=self.d_model, 
                                                                 h=self.h, 
+                                                                max_seq_len=1024,
                                                                 dropout=self.dropout, 
                                                                 max_relative_position=self.max_relative_position, 
-                                                                relative_positional_encoding=relative_positional_encoding,)
+                                                                relative_positional_encoding=relative_positional_encoding,
+                                                                GSA=GSA,
+                                                                )
 
             # Apply Xavier initialization to all weights in the MultiHeadAttentionBlock
             multi_head_attention_block.apply(lambda m: nn.init.xavier_uniform_(m.weight) if hasattr(m, 'weight') else None)
@@ -267,12 +282,13 @@ class TestEncoder(BaseTest):
 
 if __name__ == '__main__':
     suite = unittest.TestSuite()
-    suite.addTest(TestLayers('test_LayerNormalization'))
-    suite.addTest(TestLayers('test_BatchNormalization'))
-    suite.addTest(TestLayers('test_residual_connection'))
-    suite.addTest(TestLayers('test_MultiHeadAttentionBlock'))
+    # suite.addTest(TestLayers('test_LayerNormalization'))
+    # suite.addTest(TestLayers('test_BatchNormalization'))
+    
+    
+    # suite.addTest(TestMultiHeadAttentionBlock('test_MultiHeadAttentionBlock'))
 
-
+    # suite.addTest(TestLayers('test_residual_connection'))
 
     suite.addTest(TestEncoder('test_encoder_block'))
     suite.addTest(TestEncoder('test_encoder'))

@@ -19,11 +19,11 @@ from analysis_tools.config import GetConfig
 #################################################################################
 #  Get new values for a model                                                   #
 #################################################################################
-model_number = 200
+model_number = 201
 config = get_model_config(model_num=model_number, type_of_file='yaml')
 text = 'early_stop'
 model = build_encoder_transformer(config)
-model_path = get_model_path(config, text=f'_{text}')
+model_path = get_model_path(config, text=f'{text}')
 
 print(f'Preloading model {model_path}')
 state = torch.load(model_path)

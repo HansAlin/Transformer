@@ -13,7 +13,7 @@ import itertools
 import glob
 
 from models.models import ModelWrapper, get_n_params, build_encoder_transformer
-from dataHandler.datahandler import get_model_config, get_data, save_data, get_model_path
+from dataHandler.datahandler import get_model_config, get_chunked_data, save_data, get_model_path
 
 CODE_DIR_1  ='/home/acoleman/software/NuRadioMC/'
 sys.path.append(CODE_DIR_1)

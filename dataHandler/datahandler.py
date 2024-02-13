@@ -389,7 +389,7 @@ def plot_examples(background,waveforms,sampling_rate, config, output_plot_dir='/
   fig.savefig(example_plot_name, bbox_inches="tight")
   plt.close()
 
-def get_data(batch_size, seq_len, subset=True, data_config_path='/home/halin/Master/Transformer/data_config.yaml'):
+def get_chunked_data(batch_size, seq_len, subset=True, data_config_path='/home/halin/Master/Transformer/data_config.yaml'):
   """
   This function loads data from XXXX and returns train, test and validation data
   as DatasetContinuousStreamStitchless objects. It needs a data_config_path to
@@ -437,19 +437,25 @@ def get_data(batch_size, seq_len, subset=True, data_config_path='/home/halin/Mas
   # Read the configuration for this training/network
  
   config = GetConfig(data_config_path)
-  model_string = config["name"]
+  #model_string = config["name"]
 
   band_flow = config["sampling"]["band"]["low"]
   band_fhigh = config["sampling"]["band"]["high"]
   sampling_rate = config["sampling"]["rate"]
   wvf_length = config["input_length"]
 
-  config['training']['batch_size'] = batch_size
-  config['input_length'] = seq_len
+  # config['training']['batch_size'] = batch_size
+  # config['input_length'] = seq_len
 
   random_seed = 123
   np_rng = np.random.default_rng(random_seed)
 
+
+  #####################################################
+  ############## Load in the data
+  #####################################################
+
+  print("READING IN DATA...")
   waveform_filenames = data_locations.NoiselessSigFiles(
       cdf=config["training"]["cdf"], config=config, nu="*", inter="cc", lgE="1?.??"
   )
@@ -470,7 +476,9 @@ def get_data(batch_size, seq_len, subset=True, data_config_path='/home/halin/Mas
   print("\t\tCalculating required size")
   for filename in waveform_filenames:
       shape = np.load(filename, mmap_mode="r")["wvf"].shape
+
       total_len += shape[0]
+
   waveforms = np.zeros((total_len, shape[1], shape[2]))
   signal_labels = np.zeros((total_len, shape[1], shape[2]))
   snrs = np.zeros((total_len, shape[1]))
@@ -525,20 +533,21 @@ def get_data(batch_size, seq_len, subset=True, data_config_path='/home/halin/Mas
   #######################################################
   ############## Renormalizing the data into units of SNR
   #######################################################
-
+  #TODO This is comment out!!!! in radio-analysis
+  """
   rms_noise = GetRMSNoise(float(band_flow), float(band_fhigh), sampling_rate, 300 * units.kelvin)
   print(f"Scaling all values by 1 / {rms_noise / (1e-6 * units.volt):0.4f} uV to normalize to SNR")
   waveforms /= rms_noise
-
+  """
 
   #####################################################
   ############## Permuting everything
   #####################################################
-
-  print("Performing initial scramble")
-  p_data = np_rng.permutation(len(waveforms))
-  waveforms = waveforms[p_data]
-  signal_labels = signal_labels[p_data]
+  # TODO this is not in the original code
+  # print("Performing initial scramble")
+  # p_data = np_rng.permutation(len(waveforms))
+  # waveforms = waveforms[p_data]
+  # signal_labels = signal_labels[p_data]
 
   # Make a plot of a waveform with the labels
   #PlotWaveformExample(waveforms[0], signal_labels[0], f"{output_plot_dir}/{base_output}_Labels.pdf")
@@ -548,13 +557,35 @@ def get_data(batch_size, seq_len, subset=True, data_config_path='/home/halin/Mas
   #####################################################
 
   print("Joining the label windows")
+
+  ## only do this for LPDAs
+
   signal_labels = np.max(signal_labels, axis=1)
-  for i in range(len(signal_labels)):
-      ones = np.where(signal_labels[i] > 0)[0]
-      if len(ones):
-          signal_labels[i, min(ones) : max(ones)] = 1
 
+  ## delete *wrong* waveforms that overlap with boundary
+  index=np.where( (signal_labels[:,0]>0) | (signal_labels[:,-1]>0))[0]
+  signal_labels=np.delete(signal_labels, index, axis=0)
+  waveforms=np.delete(waveforms, index, axis=0)
 
+  index=np.where( signal_labels.sum(axis=1)==0)[0]
+
+  if(len(index)>0):
+
+      signal_labels=np.delete(signal_labels, index, axis=0)
+      waveforms=np.delete(waveforms, index, axis=0)
+
+  if(config["sampling"]["band"]["low"]==0.08):
+    print("------ MAKING SURE LABELS FOR TRAINING ARE ALWAYS A SINGLE GROUP - ONLY FOR LPDA!!! -----")
+    ## only merge for LPDA.. not really needed probably, just to make sure
+    for i in range(len(signal_labels)):
+        ones = np.where(signal_labels[i] > 0)[0]
+        if len(ones):
+            signal_labels[i, min(ones) : max(ones)] = 1
+
+  print("Performing initial scramble")
+  p_data = np_rng.permutation(len(waveforms))
+  waveforms = waveforms[p_data]
+  signal_labels = signal_labels[p_data]
 
   ###########################
   ### Setting up data sets
@@ -565,6 +596,8 @@ def get_data(batch_size, seq_len, subset=True, data_config_path='/home/halin/Mas
   wvf_length = config["input_length"]
 
   mixture = np.linspace(0.0, 1.0, batch_size)  # Percentage of background waveforms in each batch
+  mixture[:]=1.0
+  mixture[0]=0.0
 
   # Where to split the dataset into training/validation/testing
   train_fraction = 0.8
@@ -582,19 +615,33 @@ def get_data(batch_size, seq_len, subset=True, data_config_path='/home/halin/Mas
   print(f"Training on {len(x_train)} waveforms")
   print(f"Testing on {len(x_test)} waveforms")
   print(f"Number of signals in test set: {np.sum(y_test)}")
-    # For costum dataloader
-  mixture = np.linspace(0.0, 1.0, batch_size)
+
+  np_rng = np.random.default_rng(random_seed)
+  
   train_loader = DatasetContinuousStreamStitchless(waveforms=x_train,
-                                                   signal_labels=y_train,
-                                                  config=config, 
-                                                  mixture=mixture, 
-                                                  np_rng=np_rng)
+                          signal_labels=y_train,
+                        config=config, 
+                        mixture=mixture, 
+                        np_rng=np_rng,
+                        permute_for_RNN_input=False, 
+                        scale_output_by_expected_rms=True,
+                        noise_relative_amplitude_scaling=1.0,
+                        randomize_batchitem_start_position=-1,
+                        shift_signal_region_away_from_boundaries=config["training"]["shift_signal_region_away_from_boundaries"],
+                        set_spurious_signal_to_zero=config["training"]["set_spurious_signal_to_zero"],
+                        extra_gap_per_waveform=config["training"]["extra_gap_per_waveform"]
+                                                  )
   del x_train
   del y_train
+
+  np_rng_validation = np.random.default_rng(random_seed + 1)
+
+  val_mixture=np.linspace(0.0, 1.0, batch_size)
+
   val_loader = DatasetContinuousStreamStitchless(waveforms=x_val,
                                                    signal_labels=y_val,
                                                   config=config, 
-                                                  mixture=mixture, 
+                                                  mixture=val_mixture, 
                                                   np_rng=np_rng)
   del x_val
   del y_val

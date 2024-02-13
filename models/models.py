@@ -125,11 +125,11 @@ class InputEmbeddings(nn.Module):
 
 class PositionalEncoding(nn.Module):
    
-  def __init__(self, d_model: int, dropout: float, seq_len: int, omega: float) -> None:
+  def __init__(self, d_model: int, dropout: float, max_seq_len: int, omega: float) -> None:
     super().__init__()
     self.d_model = d_model
     self.dropout = nn.Dropout(p=dropout)
-    self.seq_len = seq_len
+    self.max_seq_len = max_seq_len
     self.omega = omega
     
     # Create a matrix of shape (seq_len, d_model) 
@@ -137,9 +137,9 @@ class PositionalEncoding(nn.Module):
     # and the seq_len is originaly the max length of the sentence that can
     # be considered in the model. In this case it is eseentially the max length
     # of the data that we have, in this case 100.
-    pe = torch.zeros(seq_len, d_model)
+    pe = torch.zeros(max_seq_len, d_model)
     # Create a vector of shape (seq_len, 1)
-    position = torch.arange(0, seq_len, dtype=torch.float).unsqueeze(1)
+    position = torch.arange(0, max_seq_len, dtype=torch.float).unsqueeze(1)
     # The exponential form is used here for stabilty purposes
     div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(omega) / d_model))  # 1/10000^(2i/d_model)
     # Apply the sin to even indices in the array; 2i
@@ -300,7 +300,7 @@ class FinalBlock(nn.Module):
     return x
 
 class MultiHeadAttentionBlock(nn.Module):
-  def __init__(self, d_model: int, h: int, dropout: float = 0.1, max_relative_position = 10, relative_positional_encoding: bool = False):
+  def __init__(self, d_model: int, h: int, max_seq_len: int = 128, dropout: float = 0.1, max_relative_position = 10, relative_positional_encoding: bool = False, GSA=False):
     super().__init__()
     self.d_model = d_model
     self.h = h
@@ -325,8 +325,20 @@ class MultiHeadAttentionBlock(nn.Module):
     self.relative_positional_encoding = relative_positional_encoding
 
 
+    self.GSA = GSA
+    if GSA:
+      row = torch.arange(max_seq_len).reshape(-1, 1)
+      col = torch.arange(max_seq_len)
+      self.sigma = nn.Parameter(torch.ones(1))
+      self.G = torch.exp(-((row - col).float()/ self.sigma)**2)
+    else:
+      self.G = None  
+
+      
+
+
   @staticmethod # Be able to call this method without instantiating the class
-  def attention(query, key, value, mask, dropout : nn.Dropout):
+  def attention(query, key, value, mask, dropout : nn.Dropout, G=None, GSA=False):
     # mask is used for sentences and to ignore the padding
     # that is used to fill out a sentence to the max length
     d_h = query.shape[-1] # Get the last dimension of the query matrix
@@ -341,6 +353,9 @@ class MultiHeadAttentionBlock(nn.Module):
       attention_scores.masked_fill(mask == 0, -1e9)
 
     attention_scores = attention_scores.softmax(dim=-1) # (batch_size, h, seq_len, seq_len)
+    if GSA:
+      seq_len = attention_scores.shape[-1]
+      attention_scores = attention_scores * G[:seq_len, :seq_len]
 
     # Apply the dropout
     if dropout is not None:
@@ -428,7 +443,7 @@ class MultiHeadAttentionBlock(nn.Module):
       key = key.view(key.shape[0], key.shape[1], self.h, self.d_h).transpose(1,2) # (batch_size, seq_len, d_model) --> (batch_size, h, seq_len, d_h)
       value = value.view(value.shape[0], value.shape[1], self.h, self.d_h).transpose(1,2) # (batch_size, seq_len, d_model) --> (batch_size, h, seq_len, d_h)
 
-      x, self.attention_scores = MultiHeadAttentionBlock.attention(query, key, value, mask, self.dropout)  
+      x, self.attention_scores = MultiHeadAttentionBlock.attention(query, key, value, mask, self.dropout, self.G, self.GSA)  
     # Concatenate the heads
     # (batch_size, h, seq_len, d_h) --> (batch_size, seq_len, h, d_h) -->
     #  (batch_size, seq_len, h*d_h) = (batch_size, seq_len, d_model)
@@ -509,7 +524,7 @@ class EncoderBlock(nn.Module):
 
   
 class VanillaEncoderBlock(nn.Module):
-  def __init__(self, d_model: int, h: int, d_ff: int, dropout: float = 0.1, normalization='layer', activation='relu'):
+  def __init__(self, d_model: int, h: int, d_ff: int, dropout: float = 0.1, normalization='layer', activation='relu', residual_type='post_ln'):
     super().__init__()
     self.self_attention_block = MultiheadAttention(d_model, h, dropout)
     self.dropout_1 = nn.Dropout(dropout)
@@ -522,21 +537,40 @@ class VanillaEncoderBlock(nn.Module):
       self.norm_2 = BatchNormalization(d_model)  
  
     self.feed_forward_block = FeedForwardBlock(d_model, d_ff, dropout, activation)
+    self.residual_type = residual_type
 
   def forward(self, x, src_mask, src_key_padding_mask=None):
     # (batch_size, seq_len, d_model)
     # Multi head attention block
-    x = x.permute(1, 0, 2) # --> (seq_len, batch_size, d_model)
-    x2  = self.self_attention_block(x, x, x, attn_mask=src_mask, key_padding_mask=src_key_padding_mask)[0]# --> (seq_len, batch_size, d_model)
+    
+
     # Residual connection and normalization
-    x = x + self.dropout_1(x2) # --> (seq_len, batch_size, d_model)
-    x = x.permute(1, 0, 2) # --> (batch_size, seq_len, d_model)
-    x = self.norm_1(x) # --> (batch_size, seq_len, d_model)
-    # Feed forward block
-    x2 = self.feed_forward_block(x) # --> (batch_size, seq_len, d_model)
-    # Residual connection and normalization
-    x = x + self.dropout_2(x2) # --> (batch_size, seq_len, d_model)
-    x = self.norm_2(x) # --> (batch_size, seq_len, d_model)
+    if self.residual_type == 'pre_ln':
+      x2 = self.norm_1(x) # --> (seq_len, batch_size, d_model)
+      x2 = x2.permute(1, 0, 2) # --> (seq_len, batch_size, d_model)
+      x2  = self.self_attention_block(x2, x2, x2, attn_mask=src_mask, key_padding_mask=src_key_padding_mask)[0]# --> (seq_len, batch_size, d_model)
+      x = x.permute(1, 0, 2) # --> (seq_len, batch_size, d_model)
+      x = x + self.dropout_1(x2) # --> (seq_len, batch_size, d_model)
+      x = x.permute(1, 0, 2) # --> (batch_size, seq_len, d_model)
+
+      # Feed forward block
+      x2 = self.norm_2(x) # --> (seq_len, batch_size, d_model)
+      x2 = self.feed_forward_block(x2) # --> (seq_len, batch_size, d_model)
+      x = x + self.dropout_2(x2)
+
+    elif self.residual_type == 'post_ln':
+      x2  = self.self_attention_block(x, x, x, attn_mask=src_mask, key_padding_mask=src_key_padding_mask)[0]
+      x = x + self.dropout_1(x2) # --> (seq_len, batch_size, d_model)
+      x = x.permute(1, 0, 2) # --> (batch_size, seq_len, d_model)
+      x = self.norm_1(x) # --> (batch_size, seq_len, d_model)
+      
+      # Feed forward block
+      x2 = self.feed_forward_block(x) # --> (batch_size, seq_len, d_model)
+      # Residual connection and normalization
+      x = x + self.dropout_2(x2) # --> (batch_size, seq_len, d_model)
+      x = self.norm_2(x) # --> (batch_size, seq_len, d_model)
+
+
 
     return x
                
@@ -545,6 +579,9 @@ class VanillaEncoderTransformer(nn.Module):
               src_embed: List[InputEmbeddings], 
                src_pos: List[PositionalEncoding],   
                final_block: FinalBlock,
+               residual_type: str = 'post_ln',
+               normalization: str = 'layer',
+               features: int = 512
                ) -> None:
     super().__init__()
 
@@ -552,6 +589,15 @@ class VanillaEncoderTransformer(nn.Module):
     self.src_embed = src_embed[0]
     self.src_pos = src_pos[0]
     self.final_block = final_block
+    self.residual_type = residual_type
+    if residual_type == 'post_ln':
+      self.norm = nn.Identity()
+    elif residual_type == 'pre_ln':
+      if normalization == 'layer':
+        self.norm = LayerNormalization(features=features)
+      elif normalization == 'batch':
+        self.norm = BatchNormalization(features=features)
+
 
   def encode(self, src, src_mask=None, src_key_padding_mask=None): 
     # (batch_size, seq_len, d_model)
@@ -706,7 +752,7 @@ def build_encoder_transformer(config):
   normalization = config['architecture'].get('normalization', 'layer')
   # config['architecture']['normalization'] = normalization 
   residual_type =      config['architecture'].get('residual_type', 'post_ln')
-  
+  max_seq_len =    config['architecture']['seq_len'] # TODO make some other implementation
   activation =    config['architecture']['activation']
   n_ant =         config['architecture']['n_ant'] 
   max_relative_position = config['architecture'].get('max_relative_position', 100)
@@ -744,10 +790,10 @@ def build_encoder_transformer(config):
   # Create the positional encodings                       #
   #########################################################
   pos_enc_config = {
-      'Sinusoidal': lambda: PositionalEncoding(d_model=d_model, dropout=dropout, seq_len=seq_len, omega=omega),
+      'Sinusoidal': lambda: PositionalEncoding(d_model=d_model, dropout=dropout, max_seq_len=max_seq_len, omega=omega),
       'None': lambda: nn.Identity(),
       'Relative': lambda: nn.Identity(),
-      'Learnable': lambda: LearnablePositionalEncoding(d_model=d_model, max_len=2048, dropout=dropout)
+      'Learnable': lambda: LearnablePositionalEncoding(d_model=d_model, max_len=max_seq_len, dropout=dropout)
   }
 
   pos_enc_type = config['architecture']['pos_enc_type'] 
@@ -774,7 +820,7 @@ def build_encoder_transformer(config):
       encoder_blocks = []
       for _ in range(N):
         if config['architecture']['pos_enc_type'] == 'Relative':
-          encoder_self_attention_block = MultiHeadAttentionBlock(d_model, h, dropout, max_relative_position=max_relative_position, relative_positional_encoding=relative_positional_encoding)
+          encoder_self_attention_block = MultiHeadAttentionBlock(d_model, h, dropout, max_seq_len=max_seq_len, max_relative_position=max_relative_position, relative_positional_encoding=relative_positional_encoding)
         else:
           encoder_self_attention_block = MultiHeadAttentionBlock(d_model, h, dropout)
 
@@ -790,7 +836,13 @@ def build_encoder_transformer(config):
   elif encoder_type == 'none':
     encoders = [None]
   elif encoder_type == 'vanilla':
-    vanilla_layer = VanillaEncoderBlock(d_model, h, d_ff, dropout)
+    vanilla_layer = VanillaEncoderBlock(d_model=d_model, 
+                                        h=h, 
+                                        d_ff=d_ff, 
+                                        dropout=dropout,
+                                        normalization=normalization,
+                                        activation=activation,
+                                        residual_type=residual_type)
     encoders = nn.TransformerEncoder(vanilla_layer, num_layers=N)
   else:
     raise ValueError(f"Unsupported encoding type: {encoder_type}")        
@@ -815,7 +867,10 @@ def build_encoder_transformer(config):
     encoder_transformer = VanillaEncoderTransformer(encoders=encoders,
                                                     src_embed=src_embed,
                                                     src_pos= src_pos, 
-                                                    final_block=final_block)
+                                                    final_block=final_block,
+                                                    residual_type=residual_type,
+                                                    normalization=normalization,
+                                                    features=features)
   else:
     encoder_transformer = EncoderTransformer(features=features,
                                             encoders=encoders,

@@ -4,7 +4,7 @@ architecture:
   by_pass: false
   d_ff: 256
   d_model: 128 # Have to be dividable by h
-  data_type: trigger # Possible options: 'trigger', 'chunked'
+  data_type: chunked # Possible options: 'trigger', 'chunked'
   embed_type: linear # Posible options: 'lin_relu_drop', 'lin_gelu_drop', 'linear',
   encoder_type: normal # Posible options: 'normal', 'none', 'bypass', 'vanilla'
   final_type: d_model_average_linear # Posible options: 'double_linear', 'single_linear', 'seq_average_linear', 'd_model_average_linear' for unknown seq_len chose 'd_model_average_linear'
@@ -16,7 +16,7 @@ architecture:
   normalization: layer # Posible options: 'layer', 'batch'
   omega: 10000
   output_shape: null
-  output_size: null
+  output_size: 128
   pos_enc_type: Sinusoidal # Posible options: 'Sinusoidal', 'Relative',  'Learnable''None',
   pretrained: null
   seq_len: 128

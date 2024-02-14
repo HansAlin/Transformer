@@ -15,7 +15,7 @@ import time
 from tqdm import tqdm
 import tensorboard
 from models.models import build_encoder_transformer
-from dataHandler.datahandler import save_data, save_model, create_model_folder, get_model_path, get_chunked_data, get_data_binary_class
+from dataHandler.datahandler import save_data, save_model, create_model_folder, get_model_path, get_chunked_data, get_trigger_data
 from evaluate.evaluate import test_model, validate, get_energy, get_MMac, count_parameters
 
 
@@ -26,7 +26,7 @@ def training(configs, cuda_device, batch_size=32, channels=4, model_folder='', t
   if data_type == 'chunked':
     train_loader, val_loader, test_loader = get_chunked_data(batch_size=batch_size, seq_len=configs[0]['architecture']['seq_len'], subset=test) # 
   else:
-    train_loader, val_loader, test_loader = get_data_binary_class(batch_size=batch_size, seq_len=configs[0]['architecture']['seq_len'], subset=test) # 
+    train_loader, val_loader, test_loader = get_trigger_data(batch_size=batch_size, seq_len=configs[0]['architecture']['seq_len'], subset=test) # 
   # else:  
   #   train_loader, val_loader, test_loader = get_test_data(batch_size=batch_size, seq_len=configs[0]['architecture']['seq_len'], n_antennas=channels) # configs[0]['architecture']['seq_len']
 
@@ -90,7 +90,11 @@ def training(configs, cuda_device, batch_size=32, channels=4, model_folder='', t
      
       state = torch.load(model_folder + f"model_{config['basic']['model_num']}/saved_model/model_{config['basic']['model_num']}early_stop.pth") # config[architecture]['inherit_model']
       model.load_state_dict(state['model_state_dict'])
+      optimizer.load_state_dict(state['optimizer_state_dict'])
+      scheduler.load_state_dict(state['scheduler_state_dict'])
       initial_epoch = config['results']['current_epoch']
+
+      
     
     writer = SummaryWriter(config['basic']['model_path'] + '/trainingdata')
     print(f"Follow on tensorboard: python3 -m tensorboard.main --logdir={config['basic']['model_path']}trainingdata")
@@ -200,7 +204,7 @@ def training(configs, cuda_device, batch_size=32, channels=4, model_folder='', t
       df = pd.concat([df, temp_df], ignore_index=True)
       # TODO maybe use best_val_loss instead of best_accuracy
       if val_loss < min_val_loss:
-        save_model(model, optimizer, config, epoch, text='early_stop')
+        save_model(model, optimizer, scheduler, config, epoch, text='early_stop')
         print(f"Model saved at epoch {epoch + 1}")
       save_data(config, df)
 
@@ -232,7 +236,7 @@ def training(configs, cuda_device, batch_size=32, channels=4, model_folder='', t
     ###########################################
     # Training done                           #
     ###########################################  
-    save_model(model, optimizer, config, epoch, text='final')  
+    save_model(model, optimizer, scheduler, config, epoch, text='final')  
     writer.close()   
     total_training_time = time.time() - total_time   
     print(f"Total time: {total_training_time} s")

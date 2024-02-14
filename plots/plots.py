@@ -12,7 +12,7 @@ import torch
 
 
 from models.models import build_encoder_transformer
-from dataHandler.datahandler import get_test_data, get_data_binary_class, get_model_path
+from dataHandler.datahandler import get_chunked_data, get_model_path
 from evaluate.evaluate import get_model_path
 
 def histogram(y_pred, y, config, bins=100, save_path='', text=''):

@@ -8,7 +8,7 @@ import sys
 CODE_DIR_1  ='/home/halin/Master/Transformer/'
 sys.path.append(CODE_DIR_1)
 from models.models import LayerNormalization, BatchNormalization, ResidualConnection, MultiHeadAttentionBlock, FeedForwardBlock, EncoderBlock, Encoder, InputEmbeddings, PositionalEncoding, FinalBlock, EncoderTransformer, build_encoder_transformer
-from dataHandler.datahandler import get_data, prepare_data
+from dataHandler.datahandler import prepare_data, get_chunked_data, get_trigger_data
 from model_configs.config import get_config
 
 
@@ -277,7 +277,40 @@ class TestEncoder(BaseTest):
                             self.assertTrue(torch.any(output != 0))
             
 
+class TestDataLoader(BaseTest):
 
+    def test_chunked_data(self):
+       
+        train_loader, val_loader, test_loader = get_chunked_data(
+                                                                batch_size=self.batch_size,
+                                                                seq_len=self.seq_len,
+                                                                subset=True,
+                                                                )
+        train_item = next(iter(train_loader))
+        val_item = next(iter(val_loader))
+        test_item = next(iter(test_loader))
+        print(f"Train item: {train_item[0].shape}")
+        self.assertEqual(train_item[0].shape, (self.batch_size, self.seq_len, self.n_ant))
+        print(f"Val item: {val_item[0].shape}")
+        self.assertEqual(val_item[0].shape, (self.batch_size, self.seq_len, self.n_ant))
+        print(f"Test item: {test_item[0].shape}")
+        self.assertEqual(test_item[0].shape, (self.batch_size, self.seq_len, self.n_ant))
+
+    def test_trigger_data(self):
+        train_loader, val_loader, test_loader = get_trigger_data(
+                                                                batch_size=self.batch_size,
+                                                                seq_len=self.seq_len,
+                                                                subset=True,
+                                                                )
+        train_item = next(iter(train_loader))
+        val_item = next(iter(val_loader))
+        test_item = next(iter(test_loader))
+        print(f"Train item: {train_item[0].shape}")
+        self.assertEqual(train_item[0].shape, (self.batch_size, self.seq_len, self.n_ant))
+        print(f"Val item: {val_item[0].shape}")
+        self.assertEqual(val_item[0].shape, (self.batch_size, self.seq_len, self.n_ant))
+        print(f"Test item: {test_item[0].shape}")
+        self.assertEqual(test_item[0].shape, (self.batch_size, self.seq_len, self.n_ant))
 
 
 if __name__ == '__main__':
@@ -290,9 +323,12 @@ if __name__ == '__main__':
 
     # suite.addTest(TestLayers('test_residual_connection'))
 
-    suite.addTest(TestEncoder('test_encoder_block'))
-    suite.addTest(TestEncoder('test_encoder'))
-    suite.addTest(TestEncoder('test_encode_encoder'))
+    # suite.addTest(TestEncoder('test_encoder_block'))
+    # suite.addTest(TestEncoder('test_encoder'))
+    # suite.addTest(TestEncoder('test_encode_encoder'))
+
+    # suite.addTest(TestDataLoader('test_chunked_data'))
+    suite.addTest(TestDataLoader('test_trigger_data'))
 
 
     runner = unittest.TextTestRunner()

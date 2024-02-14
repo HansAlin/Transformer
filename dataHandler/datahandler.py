@@ -105,7 +105,7 @@ def load_raw_data(data_path='/home/halin/Autoencoder/Data/',
 #               )
 
 
-def get_data_binary_class(data_config_path='/home/halin/Master/Transformer/data_config.yaml', seq_len=None, random_seed=123, batch_size=32, subset=False, save_test_set=False):
+def get_trigger_data(data_config_path='/home/halin/Master/Transformer/data_config.yaml', seq_len=None, random_seed=123, batch_size=32, subset=False, save_test_set=False):
  
   """ Most of the code is copied from https://github.com/colemanalan/nuradio-analysis/blob/main/trigger-dev/TrainCnn.py
       
@@ -407,8 +407,8 @@ def get_chunked_data(batch_size, seq_len, subset=True, data_config_path='/home/h
   CODE_DIR_2 = '/home/acoleman/work/rno-g/'
   sys.path.append(CODE_DIR_2)
   type(sys.path)
-  for path in sys.path:
-    print(path)
+  # for path in sys.path:
+  #   print(path)
 
 
   from NuRadioReco.utilities import units
@@ -618,38 +618,71 @@ def get_chunked_data(batch_size, seq_len, subset=True, data_config_path='/home/h
 
   np_rng = np.random.default_rng(random_seed)
   
-  train_loader = DatasetContinuousStreamStitchless(waveforms=x_train,
-                          signal_labels=y_train,
-                        config=config, 
-                        mixture=mixture, 
-                        np_rng=np_rng,
-                        permute_for_RNN_input=False, 
-                        scale_output_by_expected_rms=True,
-                        noise_relative_amplitude_scaling=1.0,
-                        randomize_batchitem_start_position=-1,
-                        shift_signal_region_away_from_boundaries=config["training"]["shift_signal_region_away_from_boundaries"],
-                        set_spurious_signal_to_zero=config["training"]["set_spurious_signal_to_zero"],
-                        extra_gap_per_waveform=config["training"]["extra_gap_per_waveform"]
-                                                  )
+  train_loader = DatasetContinuousStreamStitchless(
+      waveforms = x_train,
+      signal_labels = y_train,
+      config = config, 
+      mixture = mixture, 
+      np_rng = np_rng,
+      permute_for_RNN_input = config["training"]["permute_for_RNN_input"],  
+      scale_output_by_expected_rms = True,
+      noise_relative_amplitude_scaling = 1.0,
+      randomize_batchitem_start_position = -1,
+      shift_signal_region_away_from_boundaries = config["training"]["shift_signal_region_away_from_boundaries"],
+      set_spurious_signal_to_zero = config["training"]["set_spurious_signal_to_zero"],
+      extra_gap_per_waveform = config["training"]["extra_gap_per_waveform"],
+      probabilistic_sampling_ensure_signal_region = config["training"]["probabilistic_sampling_ensure_signal_region"],
+      probabilistic_sampling_oversampling = config["training"]["probabilistic_sampling_oversampling"]
+       )
+  
   del x_train
   del y_train
 
   np_rng_validation = np.random.default_rng(random_seed + 1)
 
-  val_mixture=np.linspace(0.0, 1.0, batch_size)
+  val_mixture = np.linspace(0.0, 1.0, batch_size)
 
-  val_loader = DatasetContinuousStreamStitchless(waveforms=x_val,
-                                                   signal_labels=y_val,
-                                                  config=config, 
-                                                  mixture=val_mixture, 
-                                                  np_rng=np_rng)
+  val_loader = DatasetContinuousStreamStitchless(
+      waveforms = x_val,
+      signal_labels = y_val,
+      config = config, 
+      mixture = val_mixture, 
+      np_rng = np_rng_validation,
+      permute_for_RNN_input = config["training"]["permute_for_RNN_input"], 
+      scale_output_by_expected_rms = True,
+      noise_relative_amplitude_scaling = 1.0,
+      randomize_batchitem_start_position = -1,
+      shift_signal_region_away_from_boundaries = config["training"]["shift_signal_region_away_from_boundaries"],
+      set_spurious_signal_to_zero = config["training"]["set_spurious_signal_to_zero"],
+      extra_gap_per_waveform = config["training"]["extra_gap_per_waveform"],
+      probabilistic_sampling_ensure_signal_region = config["training"]["probabilistic_sampling_ensure_signal_region"],
+      probabilistic_sampling_oversampling = config["training"]["probabilistic_sampling_oversampling"]
+       )
+  
   del x_val
   del y_val
-  test_loader = DatasetContinuousStreamStitchless(waveforms=x_test,
-                                                   signal_labels=y_test,
-                                                  config=config, 
-                                                  mixture=mixture, 
-                                                  np_rng=np_rng)
+
+  np_rng_test = np.random.default_rng(random_seed + 2)
+
+  test_mixture = np.linspace(0.0, 1.0, batch_size)
+
+  test_loader = DatasetContinuousStreamStitchless(
+        waveforms=x_test,
+        signal_labels=y_test,
+        config=config, 
+        mixture=test_mixture, 
+        np_rng=np_rng_test,
+        permute_for_RNN_input=config["training"]["permute_for_RNN_input"],
+        scale_output_by_expected_rms=True,
+        noise_relative_amplitude_scaling=1.0,
+        randomize_batchitem_start_position=-1,
+        shift_signal_region_away_from_boundaries = config["training"]["shift_signal_region_away_from_boundaries"],
+        set_spurious_signal_to_zero=config["training"]["set_spurious_signal_to_zero"],
+        extra_gap_per_waveform=config["training"]["extra_gap_per_waveform"],
+        probabilistic_sampling_ensure_signal_region=config["training"]["probabilistic_sampling_ensure_signal_region"],
+        probabilistic_sampling_oversampling=config["training"]["probabilistic_sampling_oversampling"]
+        )
+  
   del x_test
   del y_test
 
@@ -724,7 +757,7 @@ def standardScaler(x):
   x /= std
   return x
 
-def save_model(trained_model, optimizer, config, global_step, text='early_stop'):
+def save_model(trained_model, optimizer, scheduler, config, global_step, text='early_stop'):
 
   path = config['basic']['model_path']
 
@@ -737,6 +770,7 @@ def save_model(trained_model, optimizer, config, global_step, text='early_stop')
               'epoch': config['results']['current_epoch'],
               'model_state_dict': trained_model.state_dict(), 
               'optimizer_state_dict': optimizer.state_dict(),
+              'scheduler_state_dict': scheduler.state_dict(),
               'global_step': global_step},
               saved_model_path + f'/model_{config["basic"]["model_num"]}{text}.pth')
 

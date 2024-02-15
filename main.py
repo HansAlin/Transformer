@@ -54,10 +54,11 @@ def main(start_model_num, epochs, test, cuda_device, config_number, inherit_mode
   else:
     config = get_config(config_number)
     #config = old_config.copy()
-    hyper_param = {'N':[5]
+    hyper_param = {
+              #'N':[5]
                 # 'pos_enc_type':['Relative'],
                 #   'h': [2,4,8],
-                #  'd_model': [64,128,256],
+                 'd_model': [512],
                   }
 
     # Get all combinations
@@ -156,7 +157,7 @@ if __name__ == "__main__":
   parser.add_argument('--cuda_device', type=int,help='Default 0', default=0)
   parser.add_argument('--config_number', type=int,help='Default 1', default=0)
   parser.add_argument('--inherit_model', type=int,help='Default 18', default=201)
-  parser.add_argument('--retrain', type=bool,help='Default False', default=True)
+  parser.add_argument('--retrain', type=bool,help='Default False', default=False)
   
   args = parser.parse_args()
   main(args.start_model_num, args.epochs, args.test, args.cuda_device, args.config_number, args.inherit_model, args.retrain)

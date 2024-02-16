@@ -12,7 +12,7 @@ import torch
 
 
 from models.models import build_encoder_transformer
-from dataHandler.datahandler import get_trigger_data, get_model_path
+from dataHandler.datahandler import get_trigger_data, get_model_path, get_model_config
 from evaluate.evaluate import get_model_path
 
 def histogram(y_pred, y, config, bins=100, save_path='', text=''):
@@ -894,3 +894,13 @@ def plot_attention_scores(model, x, save_path):
     # plt.tight_layout()
     plt.savefig(save_path)
     plt.close()
+
+def plot_veff(models):
+
+  for model in models:
+    config = get_model_config(model_num=model, type_of_file='yaml') 
+    lgEs = []
+    avg = []
+    for key, value in config['results']['veff'].items():
+      lgEs.append(key)
+      avg.append(value['avg'])

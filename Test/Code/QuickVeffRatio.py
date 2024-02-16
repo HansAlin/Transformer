@@ -50,7 +50,7 @@ parser = argparse.ArgumentParser()
 # final_type [105, 121,] [126, 128]
 # normalization [125,127]
 # pos_enc_type [116, 128, 129]
-transformer_models = [202] #args.models #
+transformer_models = [201,202] #args.models #
 
 def qualitative_colors(length, darkening_factor=0.6):
     colors = [cm.Set3(i) for i in np.linspace(0, 1, length)]
@@ -58,7 +58,7 @@ def qualitative_colors(length, darkening_factor=0.6):
     return darker_colors
 
 
-device = 2
+device = 0
 torch.cuda.set_device(device)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}, name of GPU: {torch.cuda.get_device_name(device=device)}")
@@ -72,46 +72,46 @@ file_list =[data_path + 'VeffData_nu_mu_cc_16.00eV.npz',
             data_path + 'VeffData_nu_mu_cc_17.00eV.npz',
             data_path + 'VeffData_nu_mu_cc_17.50eV.npz',
             data_path + 'VeffData_nu_mu_cc_18.00eV.npz',
-            data_path + 'VeffData_nu_mu_cc_18.50eV.npz',
-            data_path + 'VeffData_nu_mu_cc_19.00eV.npz',
-            data_path + 'VeffData_nu_mu_nc_16.00eV.npz',
-            data_path + 'VeffData_nu_mu_nc_16.50eV.npz',
-            data_path + 'VeffData_nu_mu_nc_17.00eV.npz',
-            data_path + 'VeffData_nu_mu_nc_17.50eV.npz',
-            data_path + 'VeffData_nu_mu_nc_18.00eV.npz',
-            data_path + 'VeffData_nu_mu_nc_18.50eV.npz',
-            data_path + 'VeffData_nu_mu_nc_19.00eV.npz',
+            # data_path + 'VeffData_nu_mu_cc_18.50eV.npz',
+            # data_path + 'VeffData_nu_mu_cc_19.00eV.npz',
+            # data_path + 'VeffData_nu_mu_nc_16.00eV.npz',
+            # data_path + 'VeffData_nu_mu_nc_16.50eV.npz',
+            # data_path + 'VeffData_nu_mu_nc_17.00eV.npz',
+            # data_path + 'VeffData_nu_mu_nc_17.50eV.npz',
+            # data_path + 'VeffData_nu_mu_nc_18.00eV.npz',
+            # data_path + 'VeffData_nu_mu_nc_18.50eV.npz',
+            # data_path + 'VeffData_nu_mu_nc_19.00eV.npz',
 
 
-            data_path + 'VeffData_nu_e_cc_16.00eV.npz',
-            data_path + 'VeffData_nu_e_cc_16.50eV.npz',
-            data_path + 'VeffData_nu_e_cc_17.00eV.npz',
-            data_path + 'VeffData_nu_e_cc_17.50eV.npz',
-            data_path + 'VeffData_nu_e_cc_18.00eV.npz',
-            data_path + 'VeffData_nu_e_cc_18.50eV.npz',
-            data_path + 'VeffData_nu_e_cc_19.00eV.npz',
-            data_path + 'VeffData_nu_e_nc_16.00eV.npz',
-            data_path + 'VeffData_nu_e_nc_16.50eV.npz',
-            data_path + 'VeffData_nu_e_nc_17.00eV.npz',
-            data_path + 'VeffData_nu_e_nc_17.50eV.npz',
-            data_path + 'VeffData_nu_e_nc_18.00eV.npz',
-            data_path + 'VeffData_nu_e_nc_18.50eV.npz',
-            data_path + 'VeffData_nu_e_nc_19.00eV.npz',
+            # data_path + 'VeffData_nu_e_cc_16.00eV.npz',
+            # data_path + 'VeffData_nu_e_cc_16.50eV.npz',
+            # data_path + 'VeffData_nu_e_cc_17.00eV.npz',
+            # data_path + 'VeffData_nu_e_cc_17.50eV.npz',
+            # data_path + 'VeffData_nu_e_cc_18.00eV.npz',
+            # data_path + 'VeffData_nu_e_cc_18.50eV.npz',
+            # data_path + 'VeffData_nu_e_cc_19.00eV.npz',
+            # data_path + 'VeffData_nu_e_nc_16.00eV.npz',
+            # data_path + 'VeffData_nu_e_nc_16.50eV.npz',
+            # data_path + 'VeffData_nu_e_nc_17.00eV.npz',
+            # data_path + 'VeffData_nu_e_nc_17.50eV.npz',
+            # data_path + 'VeffData_nu_e_nc_18.00eV.npz',
+            # data_path + 'VeffData_nu_e_nc_18.50eV.npz',
+            # data_path + 'VeffData_nu_e_nc_19.00eV.npz',
 
-            data_path + 'VeffData_nu_tau_cc_16.00eV.npz',
-            data_path + 'VeffData_nu_tau_cc_16.50eV.npz',
-            data_path + 'VeffData_nu_tau_cc_17.00eV.npz',
-            data_path + 'VeffData_nu_tau_cc_17.50eV.npz',
-            data_path + 'VeffData_nu_tau_cc_18.00eV.npz',
-            data_path + 'VeffData_nu_tau_cc_18.50eV.npz',
-            data_path + 'VeffData_nu_tau_cc_19.00eV.npz',
-            data_path + 'VeffData_nu_tau_nc_16.00eV.npz',
-            data_path + 'VeffData_nu_tau_nc_16.50eV.npz',
-            data_path + 'VeffData_nu_tau_nc_17.00eV.npz',
-            data_path + 'VeffData_nu_tau_nc_17.50eV.npz',
-            data_path + 'VeffData_nu_tau_nc_18.00eV.npz',
-            data_path + 'VeffData_nu_tau_nc_18.50eV.npz',
-            data_path + 'VeffData_nu_tau_nc_19.00eV.npz',
+            # data_path + 'VeffData_nu_tau_cc_16.00eV.npz',
+            # data_path + 'VeffData_nu_tau_cc_16.50eV.npz',
+            # data_path + 'VeffData_nu_tau_cc_17.00eV.npz',
+            # data_path + 'VeffData_nu_tau_cc_17.50eV.npz',
+            # data_path + 'VeffData_nu_tau_cc_18.00eV.npz',
+            # data_path + 'VeffData_nu_tau_cc_18.50eV.npz',
+            # data_path + 'VeffData_nu_tau_cc_19.00eV.npz',
+            # data_path + 'VeffData_nu_tau_nc_16.00eV.npz',
+            # data_path + 'VeffData_nu_tau_nc_16.50eV.npz',
+            # data_path + 'VeffData_nu_tau_nc_17.00eV.npz',
+            # data_path + 'VeffData_nu_tau_nc_17.50eV.npz',
+            # data_path + 'VeffData_nu_tau_nc_18.00eV.npz',
+            # data_path + 'VeffData_nu_tau_nc_18.50eV.npz',
+            # data_path + 'VeffData_nu_tau_nc_19.00eV.npz',
 
 
                 
@@ -515,7 +515,7 @@ ax.set_xlabel("SNR")
 ax.set_ylabel("Weighted Counts (arb)")
 ax.set_yscale("log")
 ax.set_xlim(0, max(snr_edges))
-ax.legend(prop={"size": "x-small"})
+ax.legend( loc="lower right")
 plot_name = ''
 for model_num in transformer_models:
     plot_name += f'_{model_num}'
@@ -532,7 +532,7 @@ linestyles = itertools.cycle(("-", "--", ":", "dashdot", (0, (3, 5, 1, 5))))
 nrows = 1
 ncols = 1
 fig, ax = plt.subplots(
-    ncols=ncols, nrows=nrows, figsize=(ncols * 12 * 0.7, nrows * 8 * 0.7), gridspec_kw={"wspace": 0.2, "hspace": 0.2}
+    ncols=ncols, nrows=nrows, figsize=(ncols * 8 * 0.7, nrows * 6 * 0.7), gridspec_kw={"wspace": 0.2, "hspace": 0.2}
 )
 
 
@@ -565,7 +565,7 @@ for i, name in enumerate(standard_triggers + list(all_models.keys())):
 style.use('seaborn-colorblind')
 ymin, ymax = ax.get_ylim()
 ax.set_ylim(0.9, ymax)
-ax.legend(prop={"size": 6})
+ax.legend(loc="upper right")
 ax.set_xlabel(r"lg(E$_{\nu}$ / eV)")
 ax.set_ylabel(r"V$_{\rm eff}$ / (" + reference_trigger.replace("_", " ") + ")")
 ax.tick_params(axis="both", which="both", direction="in")

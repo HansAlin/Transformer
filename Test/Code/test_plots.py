@@ -86,23 +86,23 @@ def condense_sequence(match):
 ###################################################################
 # Plot tabel of hyperparameters                                   #
 ###################################################################
-# models_path = '/mnt/md0/halin/Models/'
+# # models_path = '/mnt/md0/halin/Models/'
 
-models = [118,119]
-str_models = '_'.join(map(str, models))
-sort = True
-if sort:
-    save_path = f'/home/halin/Master/Transformer/Test/presentation/model_{str_models}_table_sorted.png'
-    df = collect_config_to_df(model_numbers=models, save_path=save_path)
-    df = df.sort_values('NSE_AT_10KNRF', ascending=False)
-else:
-    save_path = f'/home/halin/Master/Transformer/Test/presentation/model_{str_models}_table.png'
-    df = collect_config_to_df(model_numbers=models, save_path=save_path)
-pattern = r'(\d+(_\d+)+)'
+# models = [118,119]
+# str_models = '_'.join(map(str, models))
+# sort = True
+# if sort:
+#     save_path = f'/home/halin/Master/Transformer/Test/presentation/model_{str_models}_table_sorted.png'
+#     df = collect_config_to_df(model_numbers=models, save_path=save_path)
+#     df = df.sort_values('NSE_AT_10KNRF', ascending=False)
+# else:
+#     save_path = f'/home/halin/Master/Transformer/Test/presentation/model_{str_models}_table.png'
+#     df = collect_config_to_df(model_numbers=models, save_path=save_path)
+# pattern = r'(\d+(_\d+)+)'
 
-save_path = re.sub(pattern, condense_sequence, save_path)
-keys = ['model_num', 'pos_enc_type','d_model', 'd_ff', 'N', 'h', "num_param", 'NSE_AT_10KNRF', 'MACs' ]
-plot_table(df, keys, save_path=save_path, print_common_values=True)
+# save_path = re.sub(pattern, condense_sequence, save_path)
+# keys = ['model_num', 'pos_enc_type','d_model', 'd_ff', 'N', 'h', "num_param", 'NSE_AT_10KNRF', 'MACs' ]
+# plot_table(df, keys, save_path=save_path, print_common_values=True)
 
 ###################################################################
 # Plot performance of a model                                     #
@@ -185,3 +185,7 @@ plot_table(df, keys, save_path=save_path, print_common_values=True)
 # df = pd.read_pickle(f'/mnt/md0/halin/Models/model_{model_num}/y_pred_data.pkl')
 # print(df)
 
+########################################################################
+# Plot veff                                                            #
+########################################################################
+models = [201,202]

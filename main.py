@@ -58,7 +58,8 @@ def main(start_model_num, epochs, test, cuda_device, config_number, inherit_mode
               #'N':[5]
                 # 'pos_enc_type':['Relative'],
                 #   'h': [2,4,8],
-                 'd_model': [512],
+                 #'d_model': [512],
+                  'd_ff': [64],
                   }
 
     # Get all combinations

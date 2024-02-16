@@ -165,7 +165,7 @@ def plot_results(model_number, config, path=''):
   ax.plot(df.Epochs, df.Train_loss, label='Training')
   ax.plot(df.Epochs, df.Val_loss, label='Validation')
   ax2 = ax.twinx()
-  ax2.plot(df.Epochs, df.lr, label='Learning rate', color='black')
+  ax2.plot(df.Epochs, df.lr, label='Learning rate', color='gray')
   ax.set_title("Loss and learning rate")
   plt.legend()
   plt.savefig(loss_path)
@@ -289,6 +289,7 @@ def plot_examples(data, config=None, save_path=''):
   for i in range(4):
     ax[i].plot(data[:,i])
   plt.savefig(save_path)
+  plt.clf()
   plt.close()  
 
 def plot_performance(config, device, x_batch=None, y_batch=None,lim_value=0.2, model_path='/mnt/md0/halin/Models/', save_path=''):
@@ -389,7 +390,7 @@ def plot_performance(config, device, x_batch=None, y_batch=None,lim_value=0.2, m
         ax[i].plot(x[:,i], color='grey')
         ax[i].plot(pred_y, label='Prediction')
         ax[i].plot(y, label='True signal')
-      if config["architecture"]["data_type"] != "classic":
+      if config["architecture"]["data_type"] == "chunked":
         plt.legend()
       
       fig.suptitle(f"Model {config['basic']['model_num']} - {text} treshold: {lim_value}")
@@ -397,6 +398,7 @@ def plot_performance(config, device, x_batch=None, y_batch=None,lim_value=0.2, m
         path = config['basic']['model_path'] + f'plot/performance_{text.replace(" ", "_")}.png'
       else:
         path = save_path + f'performance_{text.replace(" ", "_")}.png'  
+      plt.tight_layout()  
       plt.savefig(path)
       count += 1
       plt.clf()

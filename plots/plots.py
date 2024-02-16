@@ -12,7 +12,7 @@ import torch
 
 
 from models.models import build_encoder_transformer
-from dataHandler.datahandler import get_chunked_data, get_model_path
+from dataHandler.datahandler import get_trigger_data, get_model_path
 from evaluate.evaluate import get_model_path
 
 def histogram(y_pred, y, config, bins=100, save_path='', text=''):
@@ -305,7 +305,7 @@ def plot_performance(config, device, x_batch=None, y_batch=None,lim_value=0.2, m
   """
   model_num = config['basic']['model_num']
   if x_batch == None and y_batch == None:
-    train_data, val_data, test_data = get_data_binary_class(seq_len=config['seq_len'], 
+    train_data, val_data, test_data = get_trigger_data(seq_len=config['seq_len'], 
                                                             batch_size=config['batch_size'], 
                                                             )
     del train_data
@@ -648,6 +648,67 @@ def plot_table(df, keys, save_path='', print_common_values=False):
   df.to_csv(save_path.replace('.png', '.csv'), index=False)
 
 
+def plot_common(df, row_height=0.4, col_width=2.9, exclude_columns=['pos_param']):
+  df = df.drop([col for col in exclude_columns if col in df.columns], axis=1)
+  df = df.dropna(axis=1, how='all')
+  df = change_format_units(df)
+  df = change_headers(df)
+  dfT = df.transpose().reset_index()
+  dfT.columns = ["Common", "Hyperparameters"]
+
+  rows = dfT.shape[0]
+  cols = dfT.shape[1]
+  height = row_height * rows + 0.6
+  width = col_width * cols
+  fig, ax = plt.subplots(figsize=(width,height)) # set size frame 
+
+  ax.axis('off')
+  
+  
+  table = plt.table(cellText=dfT.values, 
+                    colLabels=dfT.columns, 
+                    cellLoc = 'center', 
+                    loc='center')
+  table.auto_set_font_size(False)
+  table.set_fontsize(12)
+  table.scale(1, 2)  # Play with this to adjust the height of the cells.
+  plt.subplots_adjust(left=0.2, bottom=0.1, right=0.8, top=0.8)
+  plt.show()
+  plt.close()
+
+def plot_comparing_models(df, row_height=0.35, col_width=1.8, exclude_columns=['pos_param','input_param' ], sort=False):
+  if sort:
+    df = df.sort_values(by='NSE_AT_10KNRF', ascending=False)
+  df = df.drop([col for col in exclude_columns if col in df.columns], axis=1)
+  df = df.dropna(axis=1, how='all')
+  df = df.loc[:, (df != '').all()]
+  df = change_format_units(df)
+  rows = df.shape[0]
+  cols = df.shape[1]
+  height = row_height * rows + 0.5
+  width = col_width * cols
+  fig, ax = plt.subplots(figsize=(width,height)) # set size frame
+
+  # Hide axes
+  ax.axis('off')
+  # plt.title('Hyperparamters')
+  # Create table and set its properties
+  df = change_headers(df)
+  table = plt.table(cellText=df.values, 
+                    colLabels=df.columns, 
+                    cellLoc = 'center', 
+                    loc='center')
+
+  table.auto_set_font_size(False)
+  table.set_fontsize(12)
+  table.scale(1, 2)  # Play with this to adjust the height of the cells.
+
+  # Adjust layout to make room for the table:
+    # Adjust layout to make room for the table:
+  plt.subplots_adjust(left=0.2, bottom=0.1, right=0.8, top=0.8)
+  plt.show()  
+  plt.close()
+
 
 
 
@@ -683,6 +744,7 @@ def change_to_kilo(value):
   except:
     return value
 
+
 def change_headers(df):
   """ This function changes the headers of the dataframe df
       to make it more readable:
@@ -691,6 +753,7 @@ def change_headers(df):
         df (pd.DataFrame): dataframe to change headers of
 
   """
+  df = df.copy()  # Make a copy of the DataFrame
   if 'model_num' in df.columns:
     df.rename(columns={'model_num': 'Model number'}, inplace=True)
   if 'pos_enc_type' in df.columns:
@@ -708,10 +771,11 @@ def change_headers(df):
   if 'NSE_AT_10KNRF' in df.columns:
     df.rename(columns={'NSE_AT_10KNRF': 'NSE at 10k NRF'}, inplace=True)
   if 'activation' in df.columns:
-    df.rename(columns={'activation': 'Activation function'}, inplace=True)
+    df.rename(columns={'activation': 'Act. function'}, inplace=True)
   if 'embed_type' in df.columns:
-    df.rename(columns={'embed_type': 'Input embedding type'}, inplace=True)
+    df.rename(columns={'embed_type': 'Input embed. type'}, inplace=True)
   if 'final_type' in df.columns:
+    df['final_type'] = df['final_type'].apply(abbreviate)
     df.rename(columns={'final_type': 'Final layer type'}, inplace=True)
   if 'location' in df.columns:
     df.rename(columns={'location': 'Residual location'}, inplace=True)
@@ -725,8 +789,6 @@ def change_headers(df):
     df.rename(columns={'seq_len': 'Seq. length'}, inplace=True)
   if 'batch_size' in df.columns:
     df.rename(columns={'batch_size': 'Batch size'}, inplace=True)
-  if 'decrease_factor' in df.columns:
-    df.rename(columns={'decrease_factor': 'Decr. factor'}, inplace=True)
   if 'dropout' in df.columns:
     df.rename(columns={'dropout': 'Dropout'}, inplace=True)
   if 'learning_rate' in df.columns:
@@ -735,8 +797,18 @@ def change_headers(df):
     df.rename(columns={'loss_function': 'Loss function'}, inplace=True)
   if 'step_size' in df.columns:
     df.rename(columns={'step_size': 'Step size'}, inplace=True)
-
-
+  if 'decreas_factor' in df.columns:
+    df.rename(columns={'decreas_factor': 'Decr. factor'}, inplace=True)
+  if 'encoder_param' in df.columns:
+    df.rename(columns={'encoder_param': 'Encoder param.'}, inplace=True)
+  if 'input_param' in df.columns:
+    df.rename(columns={'input_param': 'Input param.'}, inplace=True)
+  if 'pos_param' in df.columns:
+    df.rename(columns={'pos_param': 'Pos. param.'}, inplace=True)
+  if 'final_param' in df.columns:
+    df.rename(columns={'final_param': 'Final param.'}, inplace=True)
+  if 'encoder_type' in df.columns:
+    df.rename(columns={'encoder_type': 'Encoder type'}, inplace=True)
 
   return df
 

@@ -799,16 +799,42 @@ def get_model_path(config, text=''):
 
   model_path = config['basic']['model_path'] + 'saved_model/' 
 
+
+def get_same_diff_df(df):
+    # Create two empty dataframes
+  df_same = pd.DataFrame()
+  df_diff = pd.DataFrame()
+
+  # Iterate over each column
+  for col in df.columns:
+      # If the column has only one unique value, add it to df_same
+      if df[col].nunique() == 1:
+          df_same[col] = df[col]
+      # If the column has more than one unique value, add it to df_diff
+      else:
+          df_diff[col] = df[col]
+  return df_same, df_diff   
+
+def get_model_path(config, text=''):
+    
+  folder = config['basic']['model_path'] + 'saved_model/' 
+  # List all files in the given folder
+  files = os.listdir(folder)
+
+  # If a specific text is given, look for a file containing that text
   if text != '':
-     model_path = model_path + f'model_{config["basic"]["model_num"]}{text}.pth'
-  elif file_exist(model_path, f'model_{config["basic"]["model_num"]}_final.pth'):
-    model_path = model_path + f'model_{config["basic"]["model_num"]}_final.pth'
-  elif file_exist(model_path, f'model_{config["basic"]["model_num"]}_early_stop.pth'):
-    model_path = model_path + f'model_{config["basic"]["model_num"]}_early_stop.pth'
-  else:
-    model_path = find_file(model_path, 'pth')   
-   
-  return model_path 
+      for file in files:
+          if text in file and file.endswith('.pth'):
+              return os.path.join(folder, file)
+
+  # If no specific text is given or no file containing the text is found,
+  # return the first file with the '.pth' extension
+  for file in files:
+      if file.endswith('.pth'):
+          return os.path.join(folder, file)
+
+  # If no '.pth' file is found, return None
+  return None
 
 def save_data(config, df=None, y_pred_data=None, text=''):
 
@@ -923,18 +949,48 @@ def modify_keys(dictionary):
             new_dict[key] = value
     return new_dict
 
-def collect_config_to_df(model_numbers, model_path='/mnt/md0/halin/Models/', save_path='', save=False):
+def collect_config_to_df(model_numbers, model_path='/home/hansalin/mnt/Models/', save_path='', save=False, type_of_file='yaml'):
   df = pd.DataFrame()
   counter = 0
   for model_num in model_numbers:
-    config = get_model_config(model_num, model_path)
+    config = get_model_config(model_num, model_path, type_of_file=type_of_file)
 
     flatt_dict = pd.json_normalize(config)
     flatt_dict = modify_keys(flatt_dict)
     flatt_dict_df = pd.DataFrame(flatt_dict, index=[0])
     df = pd.concat([df, flatt_dict_df])
+    header_order = ['model_num', 
+                'embed_type', 
+                'pos_enc_type', 
+                'max_relative_position', 
+                'encoder_type',
+                'final_type',
+                'location',
+                'normalization',
+                'activation',
+                'N',
+                'd_model',
+                'd_ff',
+                'h',
+                'n_ant',
+                'seq_len',
+                'batch_size',
+                'loss_function',
+                'learning_rate',
+                'step_size',
+                'decreas_factor',
+                'dropout',
+                'num_param',
+                'input_param',
+                'pos_param',
+                'encoder_param',
+                'final_param',
+                'NSE_AT_10KNRF',
+                'MACs'
 
 
+                ]
+    df = df.reindex(columns=header_order)
 
     if save:
       if save_path == '':
@@ -943,6 +999,7 @@ def collect_config_to_df(model_numbers, model_path='/mnt/md0/halin/Models/', sav
         df.to_pickle(save_path + 'dataframe.pkl')  
     counter += 1
   return df  
+
 
 def get_predictions(model_number, model_path='/mnt/md0/halin/Models/'):
   """ This function loads the predictions from a model

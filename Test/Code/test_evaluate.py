@@ -12,7 +12,7 @@ sys.path.append(CODE_DIR_2)
 from evaluate.evaluate import test_model, get_results, count_parameters, get_MMac,  get_quick_veff_ratio
 from models.models import build_encoder_transformer
 from model_configs.config import get_config
-from dataHandler.datahandler import get_model_config, get_model_path, get_data_binary_class, save_data
+from dataHandler.datahandler import get_model_config, get_model_path, save_data, get_trigger_data
 from plots.plots import histogram, plot_performance_curve, plot_performance, plot_collections, plot_table, plot_attention_scores
 from analysis_tools.config import GetConfig
 
@@ -62,7 +62,7 @@ for model_key, model_shape, loaded_key, loaded_shape in zip_longest(model_keys, 
 
 model.load_state_dict(state_dict)
 
-train_data, val_data, test_data = get_data_binary_class(seq_len=config['architecture']['seq_len'],
+train_data, val_data, test_data = get_trigger_data(seq_len=config['architecture']['seq_len'],
                                                           batch_size=config['training']['batch_size'], 
                                                           subset=False, save_test_set=False)
 del train_data

@@ -32,7 +32,7 @@ from analysis_tools.model_loaders import LoadModelFromConfig
 
 from models.models import build_encoder_transformer
 from model_configs.config import get_config
-from dataHandler.datahandler import get_model_config, get_model_path
+from dataHandler.datahandler import get_model_config, get_model_path, save_data
 from evaluate.evaluate import get_transformer_triggers
 
 ABS_PATH_HERE = str(os.path.dirname(os.path.realpath(__file__)))
@@ -50,7 +50,7 @@ parser = argparse.ArgumentParser()
 # final_type [105, 121,] [126, 128]
 # normalization [125,127]
 # pos_enc_type [116, 128, 129]
-transformer_models = [131] #args.models #
+transformer_models = [202] #args.models #
 
 def qualitative_colors(length, darkening_factor=0.6):
     colors = [cm.Set3(i) for i in np.linspace(0, 1, length)]
@@ -58,7 +58,7 @@ def qualitative_colors(length, darkening_factor=0.6):
     return darker_colors
 
 
-device = 0
+device = 2
 torch.cuda.set_device(device)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}, name of GPU: {torch.cuda.get_device_name(device=device)}")
@@ -266,7 +266,7 @@ def LoadTransformerModel(model_num, model_list):
     model_list[name]["config"] = config
     model = build_encoder_transformer(config)
     model_list[name]["data_config"] = GetConfig('/home/halin/Master/Transformer/data_config.yaml')
-    model_path = get_model_path(config=config)
+    model_path = get_model_path(config=config, text='early_stop')
     print(f'Preloading model {model_path}')
     state = torch.load(model_path)
     state_dict = state['model_state_dict']
@@ -545,6 +545,14 @@ for i, name in enumerate(standard_triggers + list(all_models.keys())):
 
     print(lgEs)
     print(avg)
+    if name != reference_trigger and name != pre_trigger:
+        config = get_model_config(model_num=int(name))
+        if 'veff' not in config['results']:
+            config['results']['veff'] = {}
+
+        for energy in lgEs:
+            config['results']['veff'][energy] = float(avg[lgEs.index(energy)][0])
+        save_data(config=config)    
 
     ax.plot(
         lgEs,

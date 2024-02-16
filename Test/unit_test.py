@@ -29,6 +29,7 @@ class BaseTest(unittest.TestCase):
     residual_types = ['post_ln', 'pre_ln']
     relative_positional_encodings = [True] 
     GSAs = [True]
+    input_embeddings = ['lin_relu_drop', 'lin_gelu_drop', 'linear', 'cnn']
 
 class TestLayers(BaseTest):
 
@@ -101,6 +102,32 @@ class TestLayers(BaseTest):
 
         # Check if the output does not contain any NaN values
         self.assertFalse(torch.any(torch.isnan(output)))
+
+class TestInputEmbeddings(BaseTest):
+
+    def test_input_embeddings(self):
+        #torch.manual_seed(0)
+        for embedding_type in self.input_embeddings:
+            self.helper_input_embeddings(embedding_type)
+
+    def helper_input_embeddings(self, embedding_type, kernel_size=3, stride=1, padding=1):
+        #torch.manual_seed(0)
+        input_embeddings = InputEmbeddings(
+            d_model=self.d_model, 
+            channels=self.n_ant, 
+            embed_type=embedding_type,
+            padding=padding,
+            kernel_size=kernel_size,
+            stride=stride,
+            )
+        if embedding_type == 'cnn':
+            expected_seq_len = (self.seq_len + 2 * padding - kernel_size) // stride + 1
+        else:
+            expected_seq_len = self.seq_len
+        input_data = torch.randn(self.batch_size, self.seq_len, self.n_ant)
+        output = input_embeddings(input_data)
+        self.assertEqual(output.shape, (self.batch_size, expected_seq_len, self.d_model))
+
 
 class TestMultiHeadAttentionBlock(BaseTest):
 
@@ -328,7 +355,9 @@ if __name__ == '__main__':
     # suite.addTest(TestEncoder('test_encode_encoder'))
 
     # suite.addTest(TestDataLoader('test_chunked_data'))
-    suite.addTest(TestDataLoader('test_trigger_data'))
+    # suite.addTest(TestDataLoader('test_trigger_data'))
+
+    suite.addTest(TestInputEmbeddings('test_input_embeddings'))
 
 
     runner = unittest.TextTestRunner()

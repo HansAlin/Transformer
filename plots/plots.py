@@ -155,19 +155,24 @@ def plot_results(model_number, config, path=''):
   df = pd.read_pickle(path + 'dataframe.pkl')
 
   # Loss plot 
-  fig,ax = plt.subplots()
+  fig, ax = plt.subplots()
   plot_path = path + f'plot/' 
   isExist = os.path.exists(plot_path)
   if not isExist:
-    os.makedirs(plot_path)
-    print("The new directory is created!")
+      os.makedirs(plot_path)
+      print("The new directory is created!")
   loss_path = plot_path + f'model_{model_number}_loss_plot.png'  
-  ax.plot(df.Epochs, df.Train_loss, label='Training')
-  ax.plot(df.Epochs, df.Val_loss, label='Validation')
+  line1, = ax.plot(df.Epochs, df.Train_loss, label='Training')
+  line2, = ax.plot(df.Epochs, df.Val_loss, label='Validation')
   ax2 = ax.twinx()
-  ax2.plot(df.Epochs, df.lr, label='Learning rate', color='black')
+  line3, = ax2.plot(df.Epochs, df.lr, label='Learning rate', color='gray')
   ax.set_title("Loss and learning rate")
-  plt.legend()
+
+  # Create a legend for all lines in both subplots
+  lines = [line1, line2, line3]
+  labels = [l.get_label() for l in lines]
+  ax.legend(lines, labels)
+
   plt.savefig(loss_path)
   plt.cla()
   plt.clf()

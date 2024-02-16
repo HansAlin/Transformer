@@ -82,6 +82,23 @@ class FeedForwardBlock(nn.Module):
     # (batch_size, seq_len, d_model)
     return x
 
+class CnnInputEmbeddings(nn.Module):
+  def __init__(self, channels, d_model, padding: int = 1, stride: int = 1, kernel_size: int = 3):
+    super().__init__()
+
+    self.conv1 = nn.Conv2d(channels, d_model, kernel_size=(kernel_size, 1), padding=(padding, 0), stride=(stride, 1))
+    self.conv2 = nn.Conv2d(channels, d_model, kernel_size=(stride, kernel_size), padding=(0, padding), stride=(stride, 1))
+
+  def forward(self, x):
+    # x: (batch_size, seq_len, channels)
+    x = x.transpose(1, 2).unsqueeze(-1)  # now x: (batch_size, channels, seq_len, 1)
+    out1 = self.conv1(x).squeeze(-1)  # out1: (batch_size, d_model, seq_len)
+    out1 = out1.transpose(1, 2)  # swap d_model with seq_len, now out1: (batch_size, seq_len, d_model)
+    out2 = self.conv2(x).squeeze(-1)  # out2: (batch_size, d_model, seq_len)
+    out2 = out2.transpose(1, 2)  # swap d_model with seq_len, now out2: (batch_size, seq_len, d_model)
+    out = out1 + out2  # add the outputs
+    return out
+
 
 class InputEmbeddings(nn.Module):
   """This layer maps feature space from the input to the d_model space.
@@ -94,9 +111,10 @@ class InputEmbeddings(nn.Module):
       activation (str, optional): The activation function. Defaults to 'relu'.
   
   """
-  def __init__(self, d_model: int, dropout: float = 0.1, channels: int = 4, embed_type='lin_relu_drop'):
+  def __init__(self, d_model: int, dropout: float = 0.1, channels: int = 4, embed_type='lin_relu_drop', **kwargs) -> None:
     super().__init__()
     self.d_model = d_model
+    self.channels = channels
 
     if embed_type == 'lin_relu_drop':
       self.embedding = nn.Linear(channels, d_model)
@@ -109,11 +127,14 @@ class InputEmbeddings(nn.Module):
     elif embed_type == 'linear':
       self.embedding = nn.Linear(channels, d_model)
       self.activation = nn.Identity()
-      self.dropout = nn.Dropout(0)    
+      self.dropout = nn.Dropout(0)  
+    elif embed_type == 'cnn':
+      self.embedding = CnnInputEmbeddings(channels, d_model, **kwargs)
+      self.activation = nn.ReLU()
+      self.dropout = nn.Dropout(dropout)
+
     else:
       raise ValueError(f"Unsupported embed type: {embed_type}")
-
-
 
   def forward(self, x):
     # (batch_size, seq_len, channels)
@@ -752,7 +773,7 @@ def build_encoder_transformer(config):
   normalization = config['architecture'].get('normalization', 'layer')
   # config['architecture']['normalization'] = normalization 
   residual_type =      config['architecture'].get('residual_type', 'post_ln')
-  max_seq_len =    config['architecture']['seq_len'] # TODO make some other implementation
+  max_seq_len =    1024 #config['architecture']['seq_len'] # TODO make some other implementation
   activation =    config['architecture']['activation']
   n_ant =         config['architecture']['n_ant'] 
   max_relative_position = config['architecture'].get('max_relative_position', 100)

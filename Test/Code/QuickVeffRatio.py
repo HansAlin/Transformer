@@ -50,7 +50,7 @@ parser = argparse.ArgumentParser()
 # final_type [105, 121,] [126, 128]
 # normalization [125,127]
 # pos_enc_type [116, 128, 129]
-transformer_models = [206,201,207] #args.models #
+transformer_models = [204,201,205] #args.models #
 
 def qualitative_colors(length, darkening_factor=0.6):
     colors = [cm.Set3(i) for i in np.linspace(0, 1, length)]
@@ -260,7 +260,7 @@ def LoadModel(filename, model_list):
     return name
 
 def LoadTransformerModel(model_num, model_list):
-    config = get_model_config(model_num=model_num)
+    config = get_model_config(model_num=model_num, sufix='_early_stop')
     name = str(config['basic']["model_num"])
     model_list[name] = dict()
     model_list[name]["config"] = config

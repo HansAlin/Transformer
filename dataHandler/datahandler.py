@@ -866,13 +866,13 @@ def save_example_data(save_path='/home/halin/Master/Transformer/Test/data/'):
       break
     count += 1
 
-def get_model_config(model_num, path='/mnt/md0/halin/Models/', type_of_file='txt'):
+def get_model_config(model_num, path='/mnt/md0/halin/Models/', type_of_file='txt', sufix=''):
     if type_of_file == 'txt':  
-      CONFIG_PATH = path + f'model_{model_num}/config.txt'
+      CONFIG_PATH = path + f'model_{model_num}/config{sufix}.txt'
       with open(CONFIG_PATH, 'rb') as f:
           config = pickle.load(f)
     else:
-      CONFIG_PATH = path + f'model_{model_num}/config.yaml'
+      CONFIG_PATH = path + f'model_{model_num}/config{sufix}.yaml'
       with open(CONFIG_PATH, 'r') as file:
           config = yaml.safe_load(file)
 

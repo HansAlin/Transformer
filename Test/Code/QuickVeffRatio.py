@@ -50,7 +50,7 @@ parser = argparse.ArgumentParser()
 # final_type [105, 121,] [126, 128]
 # normalization [125,127]
 # pos_enc_type [116, 128, 129]
-transformer_models = [131] #args.models #
+transformer_models = [206,201,207] #args.models #
 
 def qualitative_colors(length, darkening_factor=0.6):
     colors = [cm.Set3(i) for i in np.linspace(0, 1, length)]
@@ -58,7 +58,7 @@ def qualitative_colors(length, darkening_factor=0.6):
     return darker_colors
 
 
-device = 0
+device = 1
 torch.cuda.set_device(device)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}, name of GPU: {torch.cuda.get_device_name(device=device)}")

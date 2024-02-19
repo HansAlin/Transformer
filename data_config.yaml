@@ -24,3 +24,9 @@ training:
   trigger_time: 200
   test_frac: 0.1
   val_frac: 0.1
+  shift_signal_region_away_from_boundaries: False
+  set_spurious_signal_to_zero: -1
+  extra_gap_per_waveform: 0
+  permute_for_RNN_input: True
+  probabilistic_sampling_ensure_signal_region: False
+  probabilistic_sampling_oversampling: 1.0

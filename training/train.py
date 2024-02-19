@@ -15,7 +15,7 @@ import time
 from tqdm import tqdm
 import tensorboard
 from models.models import build_encoder_transformer
-from dataHandler.datahandler import save_data, save_model, create_model_folder, get_model_path, get_chunked_data, get_data_binary_class
+from dataHandler.datahandler import save_data, save_model, create_model_folder, get_model_path, get_chunked_data, get_trigger_data
 from evaluate.evaluate import test_model, validate, get_energy, get_MMac, count_parameters
 
 
@@ -26,7 +26,7 @@ def training(configs, cuda_device, batch_size=32, channels=4, model_folder='', t
   if data_type == 'chunked':
     train_loader, val_loader, test_loader = get_chunked_data(batch_size=batch_size, seq_len=configs[0]['architecture']['seq_len'], subset=test) # 
   else:
-    train_loader, val_loader, test_loader = get_data_binary_class(batch_size=batch_size, seq_len=configs[0]['architecture']['seq_len'], subset=test) # 
+    train_loader, val_loader, test_loader = get_trigger_data(batch_size=batch_size, seq_len=configs[0]['architecture']['seq_len'], subset=test) # 
   # else:  
   #   train_loader, val_loader, test_loader = get_test_data(batch_size=batch_size, seq_len=configs[0]['architecture']['seq_len'], n_antennas=channels) # configs[0]['architecture']['seq_len']
 
@@ -40,6 +40,8 @@ def training(configs, cuda_device, batch_size=32, channels=4, model_folder='', t
   print(f"Using device: {device}, name of GPU: {torch.cuda.get_device_name(device=device)}")
   
   for config in configs:
+
+ 
     df = pd.DataFrame([], columns= ['Train_loss', 'Val_loss', 'metric', 'Epochs', 'lr'])
     if not retrained:
       
@@ -49,31 +51,14 @@ def training(configs, cuda_device, batch_size=32, channels=4, model_folder='', t
       
       if config['basic']['model_type'] == "base_encoder": # config['basic']['model_type']
         model = build_encoder_transformer(config)
-        # TODO fix this
-        # if config['architecture']['inherit_model'] != None : # config[architecture]['inherit_model']
 
-        #   new_state_dic = model.state_dict()
-        #   old_state = torch.load(model_folder + f"model_{config['architecture']['inherit_model']}/saved_model/model_{config['architecture']['inherit_model']}.pth") # config[architecture]['inherit_model']
-          
-        #   for name, param in old_state.items():
-        #     if name not in new_state_dic:
-        #       print(f"Parameter {name} not in model")
-        #       continue
-        #     if new_state_dic[name].shape != param.shape:
-        #       print(f"Parameter {name} not in model")
-        #       continue
-        #     new_state_dic[name].copy_(param)  
-
-        #   model.load_state_dict(new_state_dic)
-        #   config['basic']['global_epoch'] = config['basic']['current_epoch']
-          
-        #   config['basic']['current_epoch'] = 0
-        # else:
-        #   config['basic']['global_epoch'] = 0 
+        optimizer = torch.optim.Adam(model.parameters(), lr=config['training']['learning_rate']) #
+      
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=config['training']['step_size'], gamma=config['training']['decreas_factor']) #
 
       else:
-        print("No model found")
-        return None
+          print("No model found")
+          return None
       
       
       config['num of parameters']['MACs'], config['num of parameters']['num_param'] = get_MMac(model, batch_size=batch_size,  seq_len=config['architecture']['seq_len'], channels=channels) # 
@@ -84,17 +69,32 @@ def training(configs, cuda_device, batch_size=32, channels=4, model_folder='', t
       config['num of parameters']['final_param'] = results['final_param'] # 
       config['num of parameters']['pos_param'] = results['buf_param'] 
       print(f"Number of paramters: {config['num of parameters']['num_param']} input: {config['num of parameters']['input_param']} encoder: {config['num of parameters']['encoder_param']} final: {config['num of parameters']['final_param']} pos: {config['num of parameters']['pos_param']}")
-      initial_epoch = 0
+      initial_epoch = 1
     else:
       model = build_encoder_transformer(config) 
-     
+      optimizer = torch.optim.Adam(model.parameters(), lr=config['training']['learning_rate']) #
+      scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=config['training']['step_size'], gamma=config['training']['decreas_factor']) #
+
       state = torch.load(model_folder + f"model_{config['basic']['model_num']}/saved_model/model_{config['basic']['model_num']}early_stop.pth") # config[architecture]['inherit_model']
       model.load_state_dict(state['model_state_dict'])
+
+      scheduler.load_state_dict(state['scheduler_state_dict'])
       initial_epoch = config['results']['current_epoch']
+      optimizer.load_state_dict(state['optimizer_state_dict'])
+      # Move optimizer state to the same device
+      for state in optimizer.state.values():
+          for k, v in state.items():
+              if isinstance(v, torch.Tensor):
+                  state[k] = v.to(device)
+
+      
     
     writer = SummaryWriter(config['basic']['model_path'] + '/trainingdata')
     print(f"Follow on tensorboard: python3 -m tensorboard.main --logdir={config['basic']['model_path']}trainingdata")
     #  python3 -m tensorboard.main --logdir=/mnt/md0/halin/Models/model_1/trainingdata
+    
+
+    model.to(device) 
     
     loss_type = config['training'].get('loss_function', 'BCE')
     if loss_type == 'BCE':
@@ -105,18 +105,6 @@ def training(configs, cuda_device, batch_size=32, channels=4, model_folder='', t
       print("No loss function found")
       return None
    
-    optimizer = torch.optim.Adam(model.parameters(), lr=config['training']['learning_rate']) # 
-    # scheduler = ReduceLROnPlateau(optimizer=optimizer,
-    #                             mode='min',
-    #                             factor=config['training']['decreas_factor'],      # 
-    #                             patience=4,
-    #                             verbose=True)
-  
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=config['training']['step_size'], gamma=config['training']['decreas_factor']) #
-
-    model.to(device) 
-    
-    
     
 
     early_stop_count = 0
@@ -126,8 +114,6 @@ def training(configs, cuda_device, batch_size=32, channels=4, model_folder='', t
     for epoch in range(initial_epoch, config['training']['num_epochs']):
 
       epoch_time = time.time()
-
-      config['results']['current_epoch'] = epoch + 1
       
       # set the model in training mode
       model.train()
@@ -200,7 +186,7 @@ def training(configs, cuda_device, batch_size=32, channels=4, model_folder='', t
       df = pd.concat([df, temp_df], ignore_index=True)
       # TODO maybe use best_val_loss instead of best_accuracy
       if val_loss < min_val_loss:
-        save_model(model, optimizer, config, epoch, text='early_stop')
+        save_model(model, optimizer, scheduler, config, epoch, text='early_stop')
         print(f"Model saved at epoch {epoch + 1}")
       save_data(config, df)
 
@@ -226,13 +212,14 @@ def training(configs, cuda_device, batch_size=32, channels=4, model_folder='', t
         print("Early stopping!")
         break
       
+      config['results']['current_epoch'] += 1
       config['results']['global_epoch'] += 1
 
       config['results']['power'] = ((config['results']['current_epoch'])*config['results']['power'] + get_energy(cuda_device))/(config['results']['current_epoch'] + 1)
     ###########################################
     # Training done                           #
     ###########################################  
-    save_model(model, optimizer, config, epoch, text='final')  
+    save_model(model, optimizer, scheduler, config, epoch, text='final')  
     writer.close()   
     total_training_time = time.time() - total_time   
     print(f"Total time: {total_training_time} s")

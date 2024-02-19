@@ -13,32 +13,37 @@ import pandas as pd
 import sys
 import time
 from tqdm import tqdm
+import subprocess
+
 import tensorboard
-from models.models import build_encoder_transformer
+from models.models import TransformerModel
 from dataHandler.datahandler import save_data, save_model, create_model_folder, get_model_path, get_chunked_data, get_trigger_data
 from evaluate.evaluate import test_model, validate, get_energy, get_MMac, count_parameters
 
 
+def get_least_utilized_gpu():
+    gpu_utilization = []
+    gpu_output = subprocess.check_output("nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits", shell=True)
+    for x in gpu_output.decode('utf-8').split('\n')[:-1]:
+        gpu_utilization.append(int(x))
 
-def training(configs, cuda_device, batch_size=32, channels=4, model_folder='', test=False, retrained=False):
-  # if not test:
+    return gpu_utilization
+
+def training(configs, cuda_device, second_device=None, batch_size=32, channels=4, model_folder='', test=False, retrained=False):
+
   data_type = configs[0]['architecture'].get('data_type', 'chunked')
   if data_type == 'chunked':
     train_loader, val_loader, test_loader = get_chunked_data(batch_size=batch_size, seq_len=configs[0]['architecture']['seq_len'], subset=test) # 
   else:
     train_loader, val_loader, test_loader = get_trigger_data(batch_size=batch_size, seq_len=configs[0]['architecture']['seq_len'], subset=test) # 
-  # else:  
-  #   train_loader, val_loader, test_loader = get_test_data(batch_size=batch_size, seq_len=configs[0]['architecture']['seq_len'], n_antennas=channels) # configs[0]['architecture']['seq_len']
 
 
   item = next(iter(train_loader))
   output_size = item[1].shape[-1]
   print(f"Output shape: {output_size}")
 
-  torch.cuda.set_device(cuda_device)
-  device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-  print(f"Using device: {device}, name of GPU: {torch.cuda.get_device_name(device=device)}")
-  
+
+
   for config in configs:
 
  
@@ -50,7 +55,7 @@ def training(configs, cuda_device, batch_size=32, channels=4, model_folder='', t
       config['architecture']['out_put_shape'] = output_size # config['architecture']['out_put_shape']
       
       if config['basic']['model_type'] == "base_encoder": # config['basic']['model_type']
-        model = build_encoder_transformer(config)
+        model = TransformerModel(config)
 
         optimizer = torch.optim.Adam(model.parameters(), lr=config['training']['learning_rate']) #
       
@@ -71,7 +76,7 @@ def training(configs, cuda_device, batch_size=32, channels=4, model_folder='', t
       print(f"Number of paramters: {config['num of parameters']['num_param']} input: {config['num of parameters']['input_param']} encoder: {config['num of parameters']['encoder_param']} final: {config['num of parameters']['final_param']} pos: {config['num of parameters']['pos_param']}")
       initial_epoch = 1
     else:
-      model = build_encoder_transformer(config) 
+      model = TransformerModel(config) 
       optimizer = torch.optim.Adam(model.parameters(), lr=config['training']['learning_rate']) #
       scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=config['training']['step_size'], gamma=config['training']['decreas_factor']) #
 
@@ -94,7 +99,32 @@ def training(configs, cuda_device, batch_size=32, channels=4, model_folder='', t
     #  python3 -m tensorboard.main --logdir=/mnt/md0/halin/Models/model_1/trainingdata
     
 
-    model.to(device) 
+    #######################################################################
+    #  Set up the GPU's to use                                           #
+    #######################################################################
+    if torch.cuda.is_available(): 
+      if second_device == None:
+        device = torch.device(f'cuda:{cuda_device}')
+        print(f"Let's use GPU {cuda_device}!")
+        model = model.to(device)  
+      else:  
+        if torch.cuda.device_count() > 1 and get_least_utilized_gpu()[second_device] == 0 :
+            print(f"Let's use GPU {cuda_device} and {second_device}!")
+            model = model.to(f'cuda:{cuda_device}')
+            model = nn.DataParallel(model, device_ids=[cuda_device, second_device])
+            device = 'cuda'
+
+        else:
+            print(f"Let's use GPU {cuda_device}!")
+            device = torch.device(f'cuda:{cuda_device}')
+            model = model.to(device)
+
+    else:
+        device = torch.device("cpu")
+
+
+ 
+    
     
     loss_type = config['training'].get('loss_function', 'BCE')
     if loss_type == 'BCE':
@@ -135,7 +165,7 @@ def training(configs, cuda_device, batch_size=32, channels=4, model_folder='', t
         x_batch, y_batch = train_loader.__getitem__(istep)
         x_batch, y_batch = x_batch.to(device), y_batch.to(device)
         
-        outputs = model.encode(x_batch, src_mask=None)
+        outputs = model(x_batch, src_mask=None)
 
         loss = criterion(outputs, y_batch.squeeze())
 
@@ -159,7 +189,7 @@ def training(configs, cuda_device, batch_size=32, channels=4, model_folder='', t
 
           x_batch, y_batch = val_loader.__getitem__(istep)
           x_batch, y_batch = x_batch.to(device), y_batch.to(device)
-          outputs = model.encode(x_batch,src_mask=None)
+          outputs = model(x_batch,src_mask=None)
           loss = criterion(outputs, y_batch.squeeze())
           if  config['training']['loss_function']== 'BCEWithLogits':      #
             outputs = torch.sigmoid(outputs)
@@ -233,6 +263,13 @@ def training(configs, cuda_device, batch_size=32, channels=4, model_folder='', t
     print(f'Preloading model {model_path}')
     state = torch.load(model_path)
     model.load_state_dict(state['model_state_dict'])
+
+    if torch.cuda.is_available(): 
+
+      device = torch.device(f'cuda:{cuda_device}')
+    else:
+      device = torch.device("cpu")
+
     y_pred_data, accuracy , efficiency, precision = test_model(model=model, 
                                                                 test_loader=test_loader,
                                                                 device=device, 

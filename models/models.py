@@ -83,6 +83,15 @@ class FeedForwardBlock(nn.Module):
     return x
 
 class CnnInputEmbeddings(nn.Module):
+  """This layer maps the input to the d_model space using a CNN.
+
+  Args:
+      channels (int): The number of channels in the input.
+      d_model (int): The dimension of the model.
+      padding (int, optional): The padding. Defaults to 1.
+      stride (int, optional): The stride. Defaults to 1.
+      kernel_size (int, optional): The kernel size. Defaults to 3.
+  """
   def __init__(self, channels, d_model, padding: int = 1, stride: int = 1, kernel_size: int = 3):
     super().__init__()
 
@@ -106,9 +115,10 @@ class InputEmbeddings(nn.Module):
   
   Args:
       d_model (int): The dimension of the model.
-      channels (int, optional): The number of channels in the input. Defaults to 1.
       dropout (float, optional): The dropout rate. Defaults to 0.1.
-      activation (str, optional): The activation function. Defaults to 'relu'.
+      channels (int, optional): The number of channels in the input. Defaults to 1.
+      embed_type (str, optional): The type of the embedding. Defaults to 'lin_relu_drop'.
+      kwargs: Additional arguments for the CnnInputEmbeddings layer, padding, stride, kernel_size.
   
   """
   def __init__(self, d_model: int, dropout: float = 0.1, channels: int = 4, embed_type='lin_relu_drop', **kwargs) -> None:
@@ -758,6 +768,15 @@ class EncoderTransformer(nn.Module):
   def encode(self, src, src_mask=None):
     return self.encode_type(src, src_mask)
   
+class TransformerModel(nn.Module):
+  def __init__(self, config):
+    super(TransformerModel, self).__init__()
+    self.encoder = build_encoder_transformer(config)
+
+  def forward(self, x):
+    x = x.permute(0,2,1)
+    return self.encoder.encode(x, src_mask=None)
+
 def build_encoder_transformer(config): 
 
   seq_len=        config['architecture']['seq_len'] 
@@ -841,7 +860,7 @@ def build_encoder_transformer(config):
       encoder_blocks = []
       for _ in range(N):
         if config['architecture']['pos_enc_type'] == 'Relative':
-          encoder_self_attention_block = MultiHeadAttentionBlock(d_model, h, dropout, max_seq_len=max_seq_len, max_relative_position=max_relative_position, relative_positional_encoding=relative_positional_encoding)
+          encoder_self_attention_block = MultiHeadAttentionBlock(d_model, h, max_seq_len=max_seq_len, dropout=dropout, max_relative_position=max_relative_position, relative_positional_encoding=relative_positional_encoding)
         else:
           encoder_self_attention_block = MultiHeadAttentionBlock(d_model, h, dropout)
 
@@ -947,7 +966,7 @@ class ModelWrapper(nn.Module):
         # Reshape the input to the correct shape
         x = x.view(self.batch_size, self.seq_len, self.channels)
         src_mask = None #torch.zeros(self.batch_size, self.seq_len, self.seq_len)
-        return self.model.encode(x, src_mask=src_mask)
+        return self.model(x, src_mask=src_mask)
     
 
 

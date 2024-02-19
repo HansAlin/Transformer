@@ -12,7 +12,7 @@ import matplotlib
 import itertools
 import glob
 
-from models.models import ModelWrapper, get_n_params, build_encoder_transformer
+from models.models import ModelWrapper, get_n_params, TransformerModel
 from dataHandler.datahandler import get_model_config, get_chunked_data, save_data, get_model_path
 
 CODE_DIR_1  ='/home/acoleman/software/NuRadioMC/'
@@ -59,7 +59,7 @@ def test_model(model, test_loader, device, config):
       x_test, y_test = test_loader.__getitem__(istep)
       x_test, y_test = x_test.to(device), y_test.to(device)
       y_test = y_test.squeeze() 
-      outputs = model.encode(x_test,src_mask=None)
+      outputs = model(x_test,src_mask=None)
       if config['training']['loss_function'] == 'BCEWithLogits':
         outputs = torch.sigmoid(outputs)
       y_pred.append(outputs.cpu().detach().numpy())
@@ -256,7 +256,7 @@ def count_parameters(model, verbose=False):
 def get_results(model_num, device=0):
 
     config = get_model_config(model_num=model_num)
-    model = build_encoder_transformer(config)
+    model = TransformerModel(config)
     torch.cuda.set_device(device)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     train_loader, val_loader, test_loader = get_data(batch_size=config['training']['batch_size'], seq_len=config['architecture']['seq_len'], subset=False)
@@ -302,7 +302,7 @@ def get_transformer_triggers(waveforms, trigger_times, model_name, pre_trig):
           try:
               x = this_wvf[cut_low_bin:cut_high_bin].swapaxes(0, 1).unsqueeze(0)
               x = x.transpose(1, 2)
-              yhat = model.encode(x, src_mask=None)
+              yhat = model(x, src_mask=None)
               yhat = torch.sigmoid(yhat)
               triggers[i] = yhat.cpu().squeeze() > config['results']['TRESH_AT_10KNRF']
               pct_pass += 1 * triggers[i]
@@ -326,7 +326,7 @@ def LoadModel(filename, model_list, device):
     name = config['basic']["model_num"]
     model_list[name] = dict()
     model_list[name]["config"] = config
-    model_list[name]["model"] = build_encoder_transformer(config)
+    model_list[name]["model"] = TransformerModel(config)
     model_list[name]["model"].to(device)
     model_list[name]["model"].eval()
     return name

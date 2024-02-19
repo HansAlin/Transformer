@@ -317,11 +317,11 @@ class TestDataLoader(BaseTest):
         val_item = next(iter(val_loader))
         test_item = next(iter(test_loader))
         print(f"Train item: {train_item[0].shape}")
-        self.assertEqual(train_item[0].shape, (self.batch_size, self.seq_len, self.n_ant))
+        self.assertEqual(train_item[0].shape, (self.batch_size, self.n_ant, self.seq_len ))
         print(f"Val item: {val_item[0].shape}")
-        self.assertEqual(val_item[0].shape, (self.batch_size, self.seq_len, self.n_ant))
+        self.assertEqual(val_item[0].shape, (self.batch_size, self.n_ant,   self.seq_len))
         print(f"Test item: {test_item[0].shape}")
-        self.assertEqual(test_item[0].shape, (self.batch_size, self.seq_len, self.n_ant))
+        self.assertEqual(test_item[0].shape, (self.batch_size, self.n_ant, self.seq_len))
 
     def test_trigger_data(self):
         train_loader, val_loader, test_loader = get_trigger_data(
@@ -342,7 +342,7 @@ class TestDataLoader(BaseTest):
 
 if __name__ == '__main__':
     suite = unittest.TestSuite()
-    # suite.addTest(TestLayers('test_LayerNormalization'))
+    suite.addTest(TestLayers('test_LayerNormalization'))
     # suite.addTest(TestLayers('test_BatchNormalization'))
     
     
@@ -357,7 +357,7 @@ if __name__ == '__main__':
     # suite.addTest(TestDataLoader('test_chunked_data'))
     # suite.addTest(TestDataLoader('test_trigger_data'))
 
-    suite.addTest(TestInputEmbeddings('test_input_embeddings'))
+    # suite.addTest(TestInputEmbeddings('test_input_embeddings'))
 
 
     runner = unittest.TextTestRunner()

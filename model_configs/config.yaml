@@ -1,16 +1,16 @@
 architecture:
-  N: 5
+  N: 2
   activation: 'relu' # Posible options: 'relu', 'gelu'
   by_pass: false
   d_ff: 256
   d_model: 128 # Have to be dividable by h
-  data_type: chunked # Possible options: 'trigger', 'chunked'
-  embed_type: linear # Posible options: 'lin_relu_drop', 'lin_gelu_drop', 'linear',
+  data_type: trigger # Possible options: 'trigger', 'chunked'
+  embed_type: linear # Posible options: 'lin_relu_drop', 'lin_gelu_drop', 'linear', 'cnn'
   encoder_type: normal # Posible options: 'normal', 'none', 'bypass', 'vanilla'
   final_type: d_model_average_linear # Posible options: 'double_linear', 'single_linear', 'seq_average_linear', 'd_model_average_linear' for unknown seq_len chose 'd_model_average_linear'
   h: 4
   inherit_model: null
-  max_relative_position: 100
+  max_relative_position: 32
   residual_type: 'pre_ln' # Posible options: 'pre_ln', 'post_ln'
   n_ant: 4
   normalization: layer # Posible options: 'layer', 'batch'

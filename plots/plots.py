@@ -11,7 +11,7 @@ import torch
 
 
 
-from models.models import build_encoder_transformer
+from models.models import TransformerModel
 from dataHandler.datahandler import get_trigger_data, get_model_path, get_model_config
 from evaluate.evaluate import get_model_path
 
@@ -216,7 +216,7 @@ def plot_weights(model, config, save_path='', block='self_attention_block', quie
     
   fig, ax = plt.subplots()
   if block == 'self_attention_block':
-    weight = model.encoder.layers[config['h'] - 1].self_attention_block.W_0.weight.data.numpy()
+    weight = model.layers[config['h'] - 1].self_attention_block.W_0.weight.data.numpy()
     x = ax.imshow(weight, cmap='coolwarm', interpolation='nearest')
     cbar = ax.figure.colorbar(x, ax=ax)
   elif block == 'final_binary_block':
@@ -227,7 +227,7 @@ def plot_weights(model, config, save_path='', block='self_attention_block', quie
      weight = model.src_embed.embedding.weight.data.numpy()
      ax.plot(range(len(weight)), weight)   
   elif block == 'feed_forward_block':
-     weight = model.encoder.layers[config['h'] - 1].feed_forward_block.linear_2.weight.data.numpy()
+     weight = model.layers[config['h'] - 1].feed_forward_block.linear_2.weight.data.numpy()
      x = ax.imshow(weight, cmap='coolwarm', interpolation='nearest')
      cbar = ax.figure.colorbar(x, ax=ax)
   if not quiet:
@@ -330,14 +330,14 @@ def plot_performance(config, device, x_batch=None, y_batch=None,lim_value=0.2, m
   with open(CONFIG_PATH, 'rb') as f:
     config = pickle.load(f)
 
-  model = build_encoder_transformer(config)
+  model = TransformerModel(config)
   state = torch.load(MODEL_PATH)
   model.load_state_dict(state['model_state_dict'])
 
   model.to(device)
   x_test, y_test = x_test.to(device), y_test.to(device)
   model.eval()
-  pred = model.encode(x_test,src_mask=None)
+  pred = model(x_test,src_mask=None)
   index = 0
 
   pred = pred.cpu().detach().numpy()
@@ -858,9 +858,9 @@ def change_format_units(df):
 def plot_attention_scores(model, x, save_path):
     model.eval()
 
-    out = model.encode(x, src_mask=None)
+    out = model(x, src_mask=None)
     x = x.detach().numpy()
-    first_att = model.encoder.layers[0].self_attention_block.attention_scores
+    first_att = model.layers[0].self_attention_block.attention_scores
     first_att = first_att.detach().numpy()
 
     fig = plt.figure(figsize=(10, 10))

@@ -30,7 +30,7 @@ from analysis_tools.config import GetConfig
 from analysis_tools.Filters import GetRMSNoise
 from analysis_tools.model_loaders import LoadModelFromConfig
 
-from models.models import build_encoder_transformer
+from models.models import TransformerModel
 from model_configs.config import get_config
 from dataHandler.datahandler import get_model_config, get_model_path
 from evaluate.evaluate import get_transformer_triggers
@@ -264,7 +264,7 @@ def LoadTransformerModel(model_num, model_list):
     name = str(config['basic']["model_num"])
     model_list[name] = dict()
     model_list[name]["config"] = config
-    model = build_encoder_transformer(config)
+    model = TransformerModel(config)
     model_list[name]["data_config"] = GetConfig('/home/halin/Master/Transformer/data_config.yaml')
     model_path = get_model_path(config=config)
     print(f'Preloading model {model_path}')

@@ -49,10 +49,12 @@ def main(start_model_num, epochs, test, cuda_device, config_number, inherit_mode
 
   if inherit_model != None and retrain == True:
     old_config = dh.get_model_config(inherit_model, type_of_file='yaml' )
+
     config = old_config.copy()
     configs = [config]
   else:
     config = get_config(config_number)
+
     #config = old_config.copy()
     hyper_param = {
                 #  'N':[15]
@@ -70,12 +72,12 @@ def main(start_model_num, epochs, test, cuda_device, config_number, inherit_mode
     if start_model_num == None:
       if test:
         print("Test mode")
+        start_model_num = 1000
       else:
         print("Training mode") 
-      start_model_num = input("Enter start model number: ")
-      check_path = models_path + f"model_{start_model_num}"
-
-      if check_directory_exists(check_path):
+        start_model_num = input("Enter start model number: ")
+        check_path = models_path + f"model_{start_model_num}"
+        if check_directory_exists(check_path):
           print("File exists")
           over_write = input("Do you want to overwrite the model? (y/n): ")
           if over_write == 'y':
@@ -83,8 +85,12 @@ def main(start_model_num, epochs, test, cuda_device, config_number, inherit_mode
           else:
             print("Not overwriting model")
             sys.exit()  
-      else:
-        print('Model not exisiting')
+        else:
+          print('Model not exisiting')
+
+
+
+
   
       start_model_num = int(start_model_num)
     
@@ -100,50 +106,48 @@ def main(start_model_num, epochs, test, cuda_device, config_number, inherit_mode
       config = old_config.copy()
 
 
-      config['architecture']['inherit_model'] = inherit_model
-
-      config['architecture']['pretrained'] = False 
-      
-      config['basic']['model_path'] = ''
-      config['training']['num_epochs'] = epochs
-      config['results']['Accuracy'] = 0
-      config['results']['Efficiency'] = 0
-      config['results']['Precission'] = 0
-      config['results']['training_time'] = 0
-      config['results']['energy'] = 0
-      config['results']['trained'] = False
-      config['results']['power'] = 0
-      config['results']['roc_area'] = 0
-      config['results']['nr_area'] = 0
-      config['results']['NSE_AT_10KNRF'] = 0
-      config['results']['TRESH_AT_10KNRF'] = 0
-      config['results']['NSE_AT_100KNRF'] = 0
-      config['num of parameters']['MACs'] = 0
-      config['num of parameters']['encoder_param'] = 0
-      config['num of parameters']['final_param'] = 0
-      config['num of parameters']['input_param'] = 0
-      config['num of parameters']['num_param'] = 0
-      config['num of parameters']['pos_param'] = 0  
-      config['results']['current_epoch'] = 0
-      config['results']['global_epoch'] = 0
+      config['transformer']['architecture']['inherit_model'] = inherit_model
+      config['transformer']['architecture']['pretrained'] = False 
+      config['transformer']['basic']['model_path'] = ''
+      config['transformer']['training']['num_epochs'] = epochs
+      config['transformer']['results']['Accuracy'] = 0
+      config['transformer']['results']['Efficiency'] = 0
+      config['transformer']['results']['Precission'] = 0
+      config['transformer']['results']['training_time'] = 0
+      config['transformer']['results']['energy'] = 0
+      config['transformer']['results']['trained'] = False
+      config['transformer']['results']['power'] = 0
+      config['transformer']['results']['roc_area'] = 0
+      config['transformer']['results']['nr_area'] = 0
+      config['transformer']['results']['NSE_AT_10KNRF'] = 0
+      config['transformer']['results']['TRESH_AT_10KNRF'] = 0
+      config['transformer']['results']['NSE_AT_100KNRF'] = 0
+      config['transformer']['num of parameters']['MACs'] = 0
+      config['transformer']['num of parameters']['encoder_param'] = 0
+      config['transformer']['num of parameters']['final_param'] = 0
+      config['transformer']['num of parameters']['input_param'] = 0
+      config['transformer']['num of parameters']['num_param'] = 0
+      config['transformer']['num of parameters']['pos_param'] = 0  
+      config['transformer']['results']['current_epoch'] = 0
+      config['transformer']['results']['global_epoch'] = 0
 
  
-    config['basic']['model_num'] = model_num
-    config['training']['num_epochs'] = epochs
+    config['transformer']['basic']['model_num'] = model_num
+    config['transformer']['training']['num_epochs'] = epochs
 
     for combination in combinations:
       params = dict(zip(hyper_param.keys(), combination))
       print(params)
       for hyper_param_key, hyper_paramter in params.items():
-        config['architecture'][hyper_param_key] = hyper_paramter
-      config['basic']['model_num'] = model_num
+        config['transformer']['architecture'][hyper_param_key] = hyper_paramter
+      config['transformer']['basic']['model_num'] = model_num
       configs.append(copy.deepcopy(config))
       model_num += 1
 
   training(configs=configs, 
           cuda_device=cuda_device,
-          batch_size=configs[0]['training']['batch_size'], 
-          channels=configs[0]['architecture']['n_ant'],
+          batch_size=configs[0]['transformer']['training']['batch_size'], 
+          channels=configs[0]['transformer']['architecture']['n_ant'],
           model_folder=models_path,
           test=test,
           retrained=retrain)
@@ -155,9 +159,9 @@ if __name__ == "__main__":
   parser = argparse.ArgumentParser()
   parser.add_argument('--start_model_num', help='Check for no interference', type=int)
 
-  parser.add_argument('--epochs', type=int, help='Default 100', default=100)
-  parser.add_argument('--test', type=bool, help='Default False', default=False)
-  parser.add_argument('--cuda_device', type=int,help='Default 0', default=0)
+  parser.add_argument('--epochs', type=int, help='Default 100', default=2)
+  parser.add_argument('--test', type=bool, help='Default False', default=True)
+  parser.add_argument('--cuda_device', type=int,help='Default 0', default=1)
   parser.add_argument('--config_number', type=int,help='Default 1', default=0)
   parser.add_argument('--inherit_model', type=int,help='Default 18', default=None)
   parser.add_argument('--retrain', type=bool,help='Default False', default=False)

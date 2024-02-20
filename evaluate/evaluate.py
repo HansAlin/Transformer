@@ -59,7 +59,7 @@ def test_model(model, test_loader, device, config):
       x_test, y_test = test_loader.__getitem__(istep)
       x_test, y_test = x_test.to(device), y_test.to(device)
       y_test = y_test.squeeze() 
-      outputs = model(x_test,src_mask=None)
+      outputs = model(x_test)
       if config['training']['loss_function'] == 'BCEWithLogits':
         outputs = torch.sigmoid(outputs)
       y_pred.append(outputs.cpu().detach().numpy())
@@ -146,7 +146,7 @@ def get_energy(device_number):
         print(f"Error: {e}")
         return 0
     
-def get_MMac(model, batch_size=1,  seq_len=256, channels=4, verbose=False):
+def get_MMac(model, config, verbose=False):
   """
     This code was provided by Copilot AI
     This function calculates the number of multiply-accumulate operations (MACs)
@@ -163,12 +163,18 @@ def get_MMac(model, batch_size=1,  seq_len=256, channels=4, verbose=False):
       params: The number of parameters in the model.
 
   """
+  seq_len = config['transformer']['architecture']['seq_len']
+  channels = config['transformer']['architecture']['n_ant']
+  batch_size = 1
+
   wrapped_model = ModelWrapper(model, batch_size=batch_size,  seq_len=seq_len, channels=channels)
 
   # Specify the input size of your model
   # This should match the input size your model expects
-  input_size = (batch_size,seq_len, channels)  # example input size
-
+  if config['transformer']['architecture']['data_type'] == 'trigger':
+    input_size = (batch_size,seq_len, channels)  
+  elif config['transformer']['architecture']['data_type'] == 'chunked':
+    input_size = (batch_size, channels, seq_len)  
   # Calculate FLOPs
   macs, params = get_model_complexity_info(wrapped_model, input_size, as_strings=False,
                                           print_per_layer_stat=False, verbose=False)

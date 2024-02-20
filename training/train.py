@@ -31,9 +31,9 @@ def get_least_utilized_gpu():
 
 def training(configs, cuda_device, second_device=None, batch_size=32, channels=4, model_folder='', test=False, retrained=False):
 
-  data_type = configs[0]['architecture'].get('data_type', 'chunked')
+  data_type = configs[0]['transformer']['architecture'].get('data_type', 'chunked')
   if data_type == 'chunked':
-    train_loader, val_loader, test_loader = get_chunked_data(batch_size=batch_size, seq_len=configs[0]['architecture']['seq_len'], subset=test) # 
+    train_loader, val_loader, test_loader = get_chunked_data(batch_size=batch_size, config=configs[0], subset=test) # 
   else:
     train_loader, val_loader, test_loader = get_trigger_data(batch_size=batch_size, seq_len=configs[0]['architecture']['seq_len'], subset=test) # 
 
@@ -50,41 +50,41 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
     df = pd.DataFrame([], columns= ['Train_loss', 'Val_loss', 'metric', 'Epochs', 'lr'])
     if not retrained:
       
-      config['results']['power'  ] = 0 # get_energy(cuda_device) # 
-      config['architecture']['output_size'] = output_size #
-      config['architecture']['out_put_shape'] = output_size # config['architecture']['out_put_shape']
+      config['transformer']['results']['power'  ] = 0 # get_energy(cuda_device) # 
+      config['transformer']['architecture']['output_size'] = output_size #
+      config['transformer']['architecture']['out_put_shape'] = output_size # config['transformer']['architecture']['out_put_shape']
       
-      if config['basic']['model_type'] == "base_encoder": # config['basic']['model_type']
+      if config['transformer']['basic']['model_type'] == "base_encoder": # config['transformer']['basic']['model_type']
         model = TransformerModel(config)
 
-        optimizer = torch.optim.Adam(model.parameters(), lr=config['training']['learning_rate']) #
+        optimizer = torch.optim.Adam(model.parameters(), lr=config['transformer']['training']['learning_rate']) #
       
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=config['training']['step_size'], gamma=config['training']['decreas_factor']) #
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=config['transformer']['training']['step_size'], gamma=config['transformer']['training']['decreas_factor']) #
 
       else:
           print("No model found")
           return None
       
       
-      config['num of parameters']['MACs'], config['num of parameters']['num_param'] = get_MMac(model, batch_size=batch_size,  seq_len=config['architecture']['seq_len'], channels=channels) # 
-      config['basic']['model_path'] = create_model_folder(config['basic']['model_num'], path=model_folder) # 
+      config['transformer']['num of parameters']['MACs'], config['transformer']['num of parameters']['num_param'] = get_MMac(model, config) # 
+      config['transformer']['basic']['model_path'] = create_model_folder(config['transformer']['basic']['model_num'], path=model_folder) # 
       results = count_parameters(model, verbose=False)
-      config['num of parameters']['encoder_param'] = results['encoder_param'] # 
-      config['num of parameters']['input_param'] = results['src_embed_param'] # 
-      config['num of parameters']['final_param'] = results['final_param'] # 
-      config['num of parameters']['pos_param'] = results['buf_param'] 
-      print(f"Number of paramters: {config['num of parameters']['num_param']} input: {config['num of parameters']['input_param']} encoder: {config['num of parameters']['encoder_param']} final: {config['num of parameters']['final_param']} pos: {config['num of parameters']['pos_param']}")
+      config['transformer']['num of parameters']['encoder_param'] = results['encoder_param'] # 
+      config['transformer']['num of parameters']['input_param'] = results['src_embed_param'] # 
+      config['transformer']['num of parameters']['final_param'] = results['final_param'] # 
+      config['transformer']['num of parameters']['pos_param'] = results['buf_param'] 
+      print(f"Number of paramters: {config['transformer']['num of parameters']['num_param']} input: {config['transformer']['num of parameters']['input_param']} encoder: {config['transformer']['num of parameters']['encoder_param']} final: {config['transformer']['num of parameters']['final_param']} pos: {config['transformer']['num of parameters']['pos_param']}")
       initial_epoch = 1
     else:
       model = TransformerModel(config) 
-      optimizer = torch.optim.Adam(model.parameters(), lr=config['training']['learning_rate']) #
-      scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=config['training']['step_size'], gamma=config['training']['decreas_factor']) #
+      optimizer = torch.optim.Adam(model.parameters(), lr=config['transformer']['training']['learning_rate']) #
+      scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=config['transformer']['training']['step_size'], gamma=config['transformer']['training']['decreas_factor']) #
 
-      state = torch.load(model_folder + f"model_{config['basic']['model_num']}/saved_model/model_{config['basic']['model_num']}early_stop.pth") # config[architecture]['inherit_model']
+      state = torch.load(model_folder + f"model_{config['transformer']['basic']['model_num']}/saved_model/model_{config['transformer']['basic']['model_num']}early_stop.pth") # config['transformer'][architecture]['inherit_model']
       model.load_state_dict(state['model_state_dict'])
 
       scheduler.load_state_dict(state['scheduler_state_dict'])
-      initial_epoch = config['results']['current_epoch']
+      initial_epoch = config['transformer']['results']['current_epoch']
       optimizer.load_state_dict(state['optimizer_state_dict'])
       # Move optimizer state to the same device
       for state in optimizer.state.values():
@@ -94,8 +94,8 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
 
       
     
-    writer = SummaryWriter(config['basic']['model_path'] + '/trainingdata')
-    print(f"Follow on tensorboard: python3 -m tensorboard.main --logdir={config['basic']['model_path']}trainingdata")
+    writer = SummaryWriter(config['transformer']['basic']['model_path'] + '/trainingdata')
+    print(f"Follow on tensorboard: python3 -m tensorboard.main --logdir={config['transformer']['basic']['model_path']}trainingdata")
     #  python3 -m tensorboard.main --logdir=/mnt/md0/halin/Models/model_1/trainingdata
     
 
@@ -126,7 +126,7 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
  
     
     
-    loss_type = config['training'].get('loss_function', 'BCE')
+    loss_type = config['transformer']['training'].get('loss_function', 'BCE')
     if loss_type == 'BCE':
       criterion = nn.BCELoss().to(device)
     elif loss_type == 'BCEWithLogits':
@@ -141,7 +141,7 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
     min_val_loss = float('inf')
     total_time = time.time()
 
-    for epoch in range(initial_epoch, config['training']['num_epochs']):
+    for epoch in range(initial_epoch, config['transformer']['training']['num_epochs']):
 
       epoch_time = time.time()
       
@@ -160,12 +160,12 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
       num_of_bathes = int(len(train_loader))
       for istep in tqdm(range(len(train_loader))):
 
-        print(f"Epoch {epoch + 1}/{config['training']['num_epochs']} Batch {batch_num}/{num_of_bathes}", end="\r") # config['training']['num_epochs']
+        print(f"Epoch {epoch + 1}/{config['transformer']['training']['num_epochs']} Batch {batch_num}/{num_of_bathes}", end="\r") # config['transformer']['training']['num_epochs']
   
         x_batch, y_batch = train_loader.__getitem__(istep)
         x_batch, y_batch = x_batch.to(device), y_batch.to(device)
         
-        outputs = model(x_batch, src_mask=None)
+        outputs = model(x_batch)
 
         loss = criterion(outputs, y_batch.squeeze())
 
@@ -189,12 +189,12 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
 
           x_batch, y_batch = val_loader.__getitem__(istep)
           x_batch, y_batch = x_batch.to(device), y_batch.to(device)
-          outputs = model(x_batch,src_mask=None)
+          outputs = model(x_batch)
           loss = criterion(outputs, y_batch.squeeze())
-          if  config['training']['loss_function']== 'BCEWithLogits':      #
+          if  config['transformer']['training']['loss_function']== 'BCEWithLogits':      #
             outputs = torch.sigmoid(outputs)
           pred = outputs.round()
-          met = validate(y_batch.cpu().detach().numpy(), pred.cpu().detach().numpy(), config['training']['metric'])  # config['training']['metric']
+          met = validate(y_batch.cpu().detach().numpy(), pred.cpu().detach().numpy(), config['transformer']['training']['metric'])  # config['transformer']['training']['metric']
             
           val_loss.append(loss.item())
           metric.append(met)
@@ -225,10 +225,10 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
       ############################################
       writer.add_scalar('Training Loss' , train_loss, epoch)
       writer.add_scalar('Validation Loss' , val_loss, epoch)
-      writer.add_scalar(config['training']['metric'], metric, epoch)    # config['training']['metric']
+      writer.add_scalar(config['transformer']['training']['metric'], metric, epoch)    # config['transformer']['training']['metric']
       writer.flush()
 
-      print(f"Training Loss: {train_loss:.4f}, Validation Loss: {val_loss:.4f}, Val {config['training']['metric']}: {metric:.6f}, Time: {time.time() - epoch_time:.2f} s")
+      print(f"Training Loss: {train_loss:.4f}, Validation Loss: {val_loss:.4f}, Val {config['transformer']['training']['metric']}: {metric:.6f}, Time: {time.time() - epoch_time:.2f} s")
 
       #############################################
       # Early stopping
@@ -238,14 +238,14 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
         early_stop_count = 0
       else:
         early_stop_count += 1
-      if early_stop_count >= config['training']['early_stop']: # config['training']['early_stop']
+      if early_stop_count >= config['transformer']['training']['early_stop']: # config['transformer']['training']['early_stop']
         print("Early stopping!")
         break
       
-      config['results']['current_epoch'] += 1
-      config['results']['global_epoch'] += 1
+      config['transformer']['results']['current_epoch'] += 1
+      config['transformer']['results']['global_epoch'] += 1
 
-      config['results']['power'] = ((config['results']['current_epoch'])*config['results']['power'] + get_energy(cuda_device))/(config['results']['current_epoch'] + 1)
+      config['transformer']['results']['power'] = ((config['transformer']['results']['current_epoch'])*config['transformer']['results']['power'] + get_energy(cuda_device))/(config['transformer']['results']['current_epoch'] + 1)
     ###########################################
     # Training done                           #
     ###########################################  
@@ -254,9 +254,9 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
     total_training_time = time.time() - total_time   
     print(f"Total time: {total_training_time} s")
 
-    config['results']['trained'] = True
-    config['results']['training_time'] = total_training_time
-    config['results']['energy'] = config['results']['power']*total_training_time
+    config['transformer']['results']['trained'] = True
+    config['transformer']['results']['training_time'] = total_training_time
+    config['transformer']['results']['energy'] = config['transformer']['results']['power']*total_training_time
 
     model_path = get_model_path(config)
     
@@ -273,27 +273,27 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
     y_pred_data, accuracy , efficiency, precision = test_model(model=model, 
                                                                 test_loader=test_loader,
                                                                 device=device, 
-                                                                config=config)    
-    config['results']['Accuracy'] = float(accuracy)
-    config['results']['Efficiency'] = float(efficiency)
-    config['results']['Precission'] = float(precision)
+                                                                config=config['transformer'])    
+    config['transformer']['results']['Accuracy'] = float(accuracy)
+    config['transformer']['results']['Efficiency'] = float(efficiency)
+    config['transformer']['results']['Precission'] = float(precision)
 
-    print(f"Test efficiency: {config['results']['Efficiency']:.4f}")
+    print(f"Test efficiency: {config['transformer']['results']['Efficiency']:.4f}")
 
-    histogram(y_pred_data['y_pred'], y_pred_data['y'], config)
-    nr_area, nse, threshold = plot_performance_curve([y_pred_data['y_pred']], [y_pred_data['y']], [config], curve='nr', x_lim=[0,1], bins=10000)
-    config['results']['nr_area'] = float(nr_area)
-    config['results']['NSE_AT_10KNRF'] = float(nse)
-    roc_area, nse, threshold = plot_performance_curve([y_pred_data['y_pred']], [y_pred_data['y']], [config], curve='roc', bins=10000)
-    config['results']['roc_area'] = float(roc_area)
-    config['results']['NSE_AT_10KROC'] = float(nse)
-    config['results']['TRESH_AT_10KNRF'] = float(threshold)
-    plot_results(config['basic']['model_num'], config)
+    histogram(y_pred_data['y_pred'], y_pred_data['y'], config['transformer'])
+    nr_area, nse, threshold = plot_performance_curve([y_pred_data['y_pred']], [y_pred_data['y']], [config], curve='nr', x_lim=[0,1], bins=100)
+    config['transformer']['results']['nr_area'] = float(nr_area)
+    config['transformer']['results']['NSE_AT_10KNRF'] = float(nse)
+    roc_area, nse, threshold = plot_performance_curve([y_pred_data['y_pred']], [y_pred_data['y']], [config], curve='roc', bins=100)
+    config['transformer']['results']['roc_area'] = float(roc_area)
+    config['transformer']['results']['NSE_AT_10KROC'] = float(nse)
+    config['transformer']['results']['TRESH_AT_10KNRF'] = float(threshold)
+    plot_results(config['transformer']['basic']['model_num'], config['transformer'])
 
 
     x_batch, y_batch = train_loader.__getitem__(0)
     data = x_batch.cpu().detach().numpy()
       
-    plot_examples(data, config=config)
-    plot_performance(config, device, x_batch=x_batch, y_batch=y_batch, lim_value=0.5, )
-    save_data(config, df, y_pred_data)
+    plot_examples(data, config=config['transformer'])
+    plot_performance(config['transformer'], device, x_batch=x_batch, y_batch=y_batch, lim_value=0.5, )
+    save_data(config['transformer'], df, y_pred_data)

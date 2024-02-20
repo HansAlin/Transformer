@@ -11,7 +11,7 @@ import torch
 
 
 
-from models.models import TransformerModel
+from models.models import TransformerModel, load_model
 from dataHandler.datahandler import get_trigger_data, get_model_path, get_model_config
 from evaluate.evaluate import get_model_path
 
@@ -83,7 +83,7 @@ def plot_performance_curve(y_preds, ys, configs, bins=1000, save_path='', text =
     length = len(y_preds)
 
     if save_path == '' and length == 0:
-      save_path = config['basic']['model_path'] + 'plot/' 
+      save_path = configs[0]['transformer']['basic']['model_path'] + 'plot/' 
       isExist = os.path.exists(save_path)
       if not isExist:
         os.makedirs(save_path)
@@ -91,7 +91,7 @@ def plot_performance_curve(y_preds, ys, configs, bins=1000, save_path='', text =
 
     if labels == None:
       if configs[0] != None:
-        ax.set_title(f"Model {configs[0]['basic']['model_num']} {text}")
+        ax.set_title(f"Model {configs[0]['transformer']['basic']['model_num']} {text}")
       else:
         ax.set_title(f"Model Test")  
     else:
@@ -121,7 +121,7 @@ def plot_performance_curve(y_preds, ys, configs, bins=1000, save_path='', text =
         if labels == None:
           ax.plot(x, y)   
         else:
-            ax.plot(x, y, label=f" {config['basic']['model_num']},     " + str(labels['hyper_parameters'][i]))
+            ax.plot(x, y, label=f" {config['transformer']['basic']['model_num']},     " + str(labels['hyper_parameters'][i]))
         
             
     if labels != None:
@@ -142,8 +142,8 @@ def plot_performance_curve(y_preds, ys, configs, bins=1000, save_path='', text =
     if text != '':
       text = ' ' + text
     if save_path == '':
-        save_path = config['basic']['model_path'] + 'plot/' + f'model_{config["basic"]["model_num"]}_{curve}_{text.replace(" ", "_")}.png'
-    plt.savefig(save_path + f'model_{config["basic"]["model_num"]}_{curve}_{text.replace(" ", "_")}.png')
+        save_path = config['transformer']['basic']['model_path'] + 'plot/' + f'model_{config["transformer"]["basic"]["model_num"]}_{curve}_{text.replace(" ", "_")}.png'
+    plt.savefig(save_path + f'model_{config["transformer"]["basic"]["model_num"]}_{curve}_{text.replace(" ", "_")}.png')
     plt.close()
 
     return get_area_under_curve(x,y), nse, threshold
@@ -311,7 +311,7 @@ def plot_performance(config, device, x_batch=None, y_batch=None,lim_value=0.2, m
   """
   model_num = config['basic']['model_num']
   if x_batch == None and y_batch == None:
-    train_data, val_data, test_data = get_trigger_data(seq_len=config['seq_len'], 
+    train_data, val_data, test_data = get_trigger_data(config, seq_len=config['seq_len'], 
                                                             batch_size=config['batch_size'], 
                                                             )
     del train_data
@@ -325,19 +325,11 @@ def plot_performance(config, device, x_batch=None, y_batch=None,lim_value=0.2, m
     y_test = y_batch
 
   device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  
-  MODEL_PATH = get_model_path(config)
-  CONFIG_PATH = model_path + f'model_{model_num}/config.txt'
-  with open(CONFIG_PATH, 'rb') as f:
-    config = pickle.load(f)
-
-  model = TransformerModel(config)
-  state = torch.load(MODEL_PATH)
-  model.load_state_dict(state['model_state_dict'])
-
+  model = load_model(config, text='final')
   model.to(device)
   x_test, y_test = x_test.to(device), y_test.to(device)
   model.eval()
-  pred = model(x_test,src_mask=None)
+  pred = model(x_test)
   index = 0
 
   pred = pred.cpu().detach().numpy()
@@ -908,6 +900,6 @@ def plot_veff(models):
     config = get_model_config(model_num=model, type_of_file='yaml') 
     lgEs = []
     avg = []
-    for key, value in config['results']['veff'].items():
+    for key, value in config['transformer']['results']['veff'].items():
       lgEs.append(key)
       avg.append(value['avg'])

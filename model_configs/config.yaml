@@ -1,65 +1,102 @@
-architecture:
-  N: 2
-  activation: 'relu' # Posible options: 'relu', 'gelu'
-  by_pass: false
-  d_ff: 256
-  d_model: 128 # Have to be dividable by h
-  data_type: trigger # Possible options: 'trigger', 'chunked'
-  embed_type: linear # Posible options: 'lin_relu_drop', 'lin_gelu_drop', 'linear', 'cnn'
-  encoder_type: normal # Posible options: 'normal', 'none', 'bypass', 'vanilla'
-  final_type: d_model_average_linear # Posible options: 'double_linear', 'single_linear', 'seq_average_linear', 'd_model_average_linear' for unknown seq_len chose 'd_model_average_linear'
-  h: 4
-  inherit_model: null
-  max_relative_position: 32
-  residual_type: 'pre_ln' # Posible options: 'pre_ln', 'post_ln'
-  n_ant: 4
-  normalization: layer # Posible options: 'layer', 'batch'
-  omega: 10000
-  output_shape: null
-  output_size: 128
-  pos_enc_type: Sinusoidal # Posible options: 'Sinusoidal', 'Relative',  'Learnable''None',
-  pretrained: null
-  seq_len: 128
-basic:
-  data_path: ''
-  model: null
-  model_name: Attention is all you need
-  model_num: 1
-  model_path: null
-  model_type: base_encoder
-num of parameters:
-  MACs: null
-  encoder_param: 0
-  final_param: 0
-  input_param: 0
-  num_param: 0
-  pos_param: 0
-  trained_noise: 0
-  trained_signal: 0
-results:
-  Accuracy: 0
-  Efficiency: 0
-  NSE_AT_100KNRF: 0
-  NSE_AT_10KNRF: 0
-  NSE_AT_10KROC: 0
-  Precission: 0
-  TRESH_AT_10KNRF: 0
-  current_epoch: 0
-  energy: 0
-  global_epoch: 0
-  nr_area: 0
-  power: 0
-  roc_area: 0
-  test_acc: 0
-  trained: false
-  training_time: 0
+arch: Transformer
+
+transformer: 
+  architecture:
+    N: 2
+    activation: 'relu' # Posible options: 'relu', 'gelu'
+    by_pass: false
+    d_ff: 64
+    d_model: 16 # Have to be dividable by h
+    data_type: chunked # Possible options: 'trigger', 'chunked'
+    embed_type: linear # Posible options: 'lin_relu_drop', 'lin_gelu_drop', 'linear',
+    encoder_type: normal # Posible options: 'normal', 'none', 'bypass', 'vanilla'
+    final_type: d_model_average_linear # Posible options: 'double_linear', 'single_linear', 'seq_average_linear', 'd_model_average_linear' for unknown seq_len chose 'd_model_average_linear'
+    h: 4
+    inherit_model: null
+    max_relative_position: 10
+    residual_type: 'pre_ln' # Posible options: 'pre_ln', 'post_ln'
+    n_ant: &n_ant 4
+    normalization: layer # Posible options: 'layer', 'batch'
+    omega: 10000
+    output_shape: null
+    output_size: 128
+    pos_enc_type: Sinusoidal # Posible options: 'Sinusoidal', 'Relative',  'Learnable''None',
+    pretrained: null
+    seq_len: &seq_len 128
+  basic:
+    data_path: ''
+    model: null
+    model_name: Attention is all you need
+    model_num: 1
+    model_path: null
+    model_type: base_encoder
+  num of parameters:
+    MACs: null
+    encoder_param: 0
+    final_param: 0
+    input_param: 0
+    num_param: 0
+    pos_param: 0
+    trained_noise: 0
+    trained_signal: 0
+  results:
+    Accuracy: 0
+    Efficiency: 0
+    NSE_AT_100KNRF: 0
+    NSE_AT_10KNRF: 0
+    NSE_AT_10KROC: 0
+    Precission: 0
+    TRESH_AT_10KNRF: 0
+    current_epoch: 0
+    energy: 0
+    global_epoch: 0
+    nr_area: 0
+    power: 0
+    roc_area: 0
+    test_acc: 0
+    trained: false
+    training_time: 0
+  training:
+    batch_size: &batch_size 32
+    decreas_factor: 0.7
+    dropout: 0
+    early_stop: 100
+    learning_rate: 0.001
+    loss_function: 'BCEWithLogits' # Posible options: 'BCE', 'BCEWithLogits'
+    metric: Efficiency # Posible options: 'Accuracy', 'Efficiency', 'Precision'
+    num_epochs: 100
+    step_size: 7
+
+input_length: *seq_len
+n_ant: *n_ant
+
+sampling:
+  band:
+    low: 0.08
+    high: 0.23
+  rate: 0.5
+  filter:
+    order_low: 5
+    order_high: 10
+    type: butter
+
+
 training:
-  batch_size: 64
-  decreas_factor: 0.7
-  dropout: 0
-  early_stop: 100
   learning_rate: 0.001
-  loss_function: 'BCEWithLogits' # Posible options: 'BCE', 'BCEWithLogits'
-  metric: Efficiency # Posible options: 'Accuracy', 'Efficiency', 'Precision'
-  num_epochs: 100
-  step_size: 7
+  batch_size: *batch_size
+  forward_skip_size: 200
+  cdf: 0.7
+  ns_readout_window: 800
+  consecutive_deadtime: 2
+  upsampling: 1
+  start_frac: 0.3
+  trigger_time: 200
+  test_frac: 0.1
+  val_frac: 0.1
+  randomize_batchitem_start_position: -1
+  shift_signal_region_away_from_boundaries: False
+  set_spurious_signal_to_zero: -1
+  extra_gap_per_waveform: 0
+  permute_for_RNN_input: False
+  probabilistic_sampling_ensure_signal_region: False
+  probabilistic_sampling_oversampling: 1.0

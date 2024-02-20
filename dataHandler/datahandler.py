@@ -105,7 +105,7 @@ def load_raw_data(data_path='/home/halin/Autoencoder/Data/',
 #               )
 
 
-def get_trigger_data(data_config_path='/home/halin/Master/Transformer/data_config.yaml', seq_len=None, random_seed=123, batch_size=32, subset=False, save_test_set=False):
+def get_trigger_data(config, seq_len=None, random_seed=123, batch_size=32, subset=False, save_test_set=False):
  
   """ Most of the code is copied from https://github.com/colemanalan/nuradio-analysis/blob/main/trigger-dev/TrainCnn.py
       
@@ -122,7 +122,7 @@ def get_trigger_data(data_config_path='/home/halin/Master/Transformer/data_confi
         train_data, val_data, test_data
 
   """
-  config = GetConfig(data_config_path)
+
   band_flow = config["sampling"]["band"]["low"]
   band_fhigh = config["sampling"]["band"]["high"]
   sampling_rate = config["sampling"]["rate"]
@@ -389,7 +389,7 @@ def plot_examples(background,waveforms,sampling_rate, config, output_plot_dir='/
   fig.savefig(example_plot_name, bbox_inches="tight")
   plt.close()
 
-def get_chunked_data(batch_size, seq_len, subset=True, data_config_path='/home/halin/Master/Transformer/data_config.yaml'):
+def get_chunked_data(batch_size, config, subset=True):
   """
   This function loads data from XXXX and returns train, test and validation data
   as DatasetContinuousStreamStitchless objects. It needs a data_config_path to
@@ -436,9 +436,9 @@ def get_chunked_data(batch_size, seq_len, subset=True, data_config_path='/home/h
 
   # Read the configuration for this training/network
  
-  config = GetConfig(data_config_path)
+  
   #model_string = config["name"]
-
+  
   band_flow = config["sampling"]["band"]["low"]
   band_fhigh = config["sampling"]["band"]["high"]
   sampling_rate = config["sampling"]["rate"]
@@ -627,7 +627,7 @@ def get_chunked_data(batch_size, seq_len, subset=True, data_config_path='/home/h
       permute_for_RNN_input = config["training"]["permute_for_RNN_input"],  
       scale_output_by_expected_rms = True,
       noise_relative_amplitude_scaling = 1.0,
-      randomize_batchitem_start_position = -1,
+      randomize_batchitem_start_position = config["training"]["randomize_batchitem_start_position"],
       shift_signal_region_away_from_boundaries = config["training"]["shift_signal_region_away_from_boundaries"],
       set_spurious_signal_to_zero = config["training"]["set_spurious_signal_to_zero"],
       extra_gap_per_waveform = config["training"]["extra_gap_per_waveform"],
@@ -759,7 +759,7 @@ def standardScaler(x):
 
 def save_model(trained_model, optimizer, scheduler, config, global_step, text='early_stop'):
 
-  path = config['basic']['model_path']
+  path = config['transformer']['basic']['model_path']
 
   saved_model_path = path + f'/saved_model'
   isExist = os.path.exists(saved_model_path)
@@ -767,12 +767,12 @@ def save_model(trained_model, optimizer, scheduler, config, global_step, text='e
     os.makedirs(saved_model_path)
     print("The new directory is created!")    
   torch.save({
-              'epoch': config['results']['current_epoch'],
+              'epoch': config['transformer']['results']['current_epoch'],
               'model_state_dict': trained_model.state_dict(), 
               'optimizer_state_dict': optimizer.state_dict(),
               'scheduler_state_dict': scheduler.state_dict(),
               'global_step': global_step},
-              saved_model_path + f'/model_{config["basic"]["model_num"]}{text}.pth')
+              saved_model_path + f'/model_{config["transformer"]["basic"]["model_num"]}{text}.pth')
 
 def file_exist(directory, filename):
    
@@ -795,9 +795,6 @@ def find_file(directory, extension):
    
   return None
 
-def get_model_path(config, text=''):
-
-  model_path = config['basic']['model_path'] + 'saved_model/' 
 
 
 def get_same_diff_df(df):
@@ -816,8 +813,11 @@ def get_same_diff_df(df):
   return df_same, df_diff   
 
 def get_model_path(config, text=''):
-    
-  folder = config['basic']['model_path'] + 'saved_model/' 
+  if 'transformer' in config:
+    folder = config['transformer']['basic']['model_path'] + 'saved_model/' 
+  else:
+    folder = config['basic']['model_path'] + 'saved_model/'
+
   # List all files in the given folder
   files = os.listdir(folder)
 
@@ -838,13 +838,17 @@ def get_model_path(config, text=''):
 
 def save_data(config, df=None, y_pred_data=None, text=''):
 
-  path = config["basic"]['model_path']
+  if 'transformer' in config:
+    path = config['transformer']['basic']['model_path']
+  else:
+     path = config['basic']['model_path']
+  
   if text != '':
     text = '_' + text
   with open(path + f'config{text}.txt', "wb") as fp:
     pickle.dump(config, fp)
 
-  with open(config['basic']['model_path'] + f'config{text}.yaml', 'w') as data:
+  with open(path + f'config{text}.yaml', 'w') as data:
         yaml.dump(config, data, default_flow_style=False) 
 
   # A easier to read part
@@ -954,6 +958,9 @@ def collect_config_to_df(model_numbers, model_path='/home/hansalin/mnt/Models/',
   counter = 0
   for model_num in model_numbers:
     config = get_model_config(model_num, model_path, type_of_file=type_of_file)
+
+    if 'transformer' in config:
+      config = config['transformer']
 
     flatt_dict = pd.json_normalize(config)
     flatt_dict = modify_keys(flatt_dict)

@@ -4,7 +4,7 @@ import math
 from typing import List
 from torch.nn.modules import MultiheadAttention, Linear, Dropout, BatchNorm1d, TransformerEncoderLayer
 from dataHandler.datahandler import save_data, get_model_path
-
+import sys
 
 # 
 class LayerNormalization(nn.Module):
@@ -148,6 +148,7 @@ class InputEmbeddings(nn.Module):
 
   def forward(self, x):
     # (batch_size, seq_len, channels)
+
     x = self.embedding(x)
     x = self.activation(x)
     x = self.dropout(x)
@@ -449,7 +450,8 @@ class MultiHeadAttentionBlock(nn.Module):
     query =self.W_q(q) # (batch_size, seq_len, d_model) --> (batch_size, seq_len, d_model)
     key = self.W_k(k) # (batch_size, seq_len, d_model) --> (batch_size, seq_len, d_model)
     value = self.W_v(v) # (batch_size, seq_len, d_model) --> (batch_size, seq_len, d_model)
-
+   
+          
     # Split the query, into h heads
     # query.shape[0] = batch_size
     # query.shape[1] = seq_len
@@ -771,18 +773,21 @@ class EncoderTransformer(nn.Module):
 class TransformerModel(nn.Module):
   def __init__(self, config):
     super(TransformerModel, self).__init__()
-    self.encoder = build_encoder_transformer(config)
     if 'transformer' in config:
       config = config['transformer']
+    self.encoder = build_encoder_transformer(config)
+  
 
-    if config['architecture']['output_size'] == 1:
+    if config['architecture']['data_type'] == 'trigger':
       self.first = 0
       self.second = 1
       self.third = 2
-    else:
+    elif config['architecture']['data_type'] == 'chunked':
       self.first = 0
       self.second = 2
-      self.third = 1  
+      self.third = 1
+    else:
+      raise ValueError(f"Unsupported data type: {config['architecture']['data_type']}")  
 
   def forward(self, x):
     x = x.permute(self.first,self.second,self.third)
@@ -975,9 +980,10 @@ class ModelWrapper(nn.Module):
 
   def forward(self, x):
     # Reshape the input to the correct shape
-    x = x.view(self.batch_size, self.seq_len, self.channels)
+    x = x.squeeze(0)
+    # x = x.view(self.batch_size, self.seq_len, self.channels)
     src_mask = None #torch.zeros(self.batch_size, self.seq_len, self.seq_len)
-    return self.model(x, src_mask=src_mask)
+    return self.model(x)
     
 def load_model(config, text='early_stop'):
   """
@@ -1013,16 +1019,14 @@ def load_model(config, text='early_stop'):
       # If the adjusted keys match and the sizes match, add it to the new state dict
       if adjusted_key_model == adjusted_key_state and v_model.size() == v_state.size():
           new_state_dict[k_model] = v_state
+      else:
+          print(f"Warning: {k_model} not found in loaded state dict")
+          return None
 
 
   # Now load the new state dict
   model.load_state_dict(new_state_dict, strict=False)
 
-  # Check if all weights are loaded
-  for k in model_dict.keys():
-    adjusted_key = '.'.join(k.split('.')[1:])
-    if adjusted_key not in state_dict:
-      print(f"Warning: {k} not found in loaded state dict")
-      return None
+
 
   return model

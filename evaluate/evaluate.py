@@ -302,11 +302,12 @@ def get_transformer_triggers(waveforms, trigger_times, model_name, pre_trig):
           try:
               x = this_wvf[cut_low_bin:cut_high_bin].swapaxes(0, 1).unsqueeze(0)
               x = x.transpose(1, 2)
-              yhat = model(x, src_mask=None)
+              yhat = model(x)
               yhat = torch.sigmoid(yhat)
               triggers[i] = yhat.cpu().squeeze() > config['results']['TRESH_AT_10KNRF']
               pct_pass += 1 * triggers[i]
           except Exception as e:
+              print("Exception: ", str(e))
               print("Yhat failed for ", this_wvf[cut_low_bin:cut_high_bin].swapaxes(0, 1).unsqueeze(0).shape)
               print(trig_bin, cut_low_bin, cut_high_bin, current_length)
               continue

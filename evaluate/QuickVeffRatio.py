@@ -30,12 +30,12 @@ from analysis_tools.config import GetConfig
 from analysis_tools.Filters import GetRMSNoise
 from analysis_tools.model_loaders import LoadModelFromConfig
 
-from models.models import TransformerModel
+from models.models import TransformerModel, load_model
 from model_configs.config import get_config
 from dataHandler.datahandler import get_model_config, get_model_path
-from evaluate.evaluate import get_transformer_triggers
+from evaluate import get_transformer_triggers
 
-ABS_PATH_HERE = str(os.path.dirname(os.path.realpath(__file__)))
+ABS_PATH_HERE = '/home/halin/Master/Transformer/'
 plt.rcParams["font.family"] = "serif"
 plt.rcParams["mathtext.fontset"] = "dejavuserif"
 
@@ -50,7 +50,10 @@ parser = argparse.ArgumentParser()
 # final_type [105, 121,] [126, 128]
 # normalization [125,127]
 # pos_enc_type [116, 128, 129]
-transformer_models = [131] #args.models #
+
+
+transformer_models = [201,202,203] #args.models #
+test = False
 
 def qualitative_colors(length, darkening_factor=0.6):
     colors = [cm.Set3(i) for i in np.linspace(0, 1, length)]
@@ -117,6 +120,9 @@ file_list =[data_path + 'VeffData_nu_mu_cc_16.00eV.npz',
                 
 
             ]
+
+if test:
+    file_list = file_list[:1]
 
 sampling_string = data_path.split("/")[-3]
 band_flow = float(sampling_string.split("-")[0].split("_")[1])
@@ -264,33 +270,10 @@ def LoadTransformerModel(model_num, model_list):
     name = str(config['basic']["model_num"])
     model_list[name] = dict()
     model_list[name]["config"] = config
-    model = TransformerModel(config)
-    model_list[name]["data_config"] = GetConfig('/home/halin/Master/Transformer/data_config.yaml')
-    model_path = get_model_path(config=config)
-    print(f'Preloading model {model_path}')
-    state = torch.load(model_path)
-    state_dict = state['model_state_dict']
-    ignore_keys = [
-            #  'encoder.layers.0.self_attention_block.relative_positional_k.embeddings_table', 
-            #    'encoder.layers.0.self_attention_block.relative_positional_v.embeddings_table',
-            #    'encoder.layers.1.self_attention_block.relative_positional_k.embeddings_table',
-            #    'encoder.layers.1.self_attention_block.relative_positional_v.embeddings_table'
-               ]
-    name_mapping = {
-        'encoder.layers.0.residual_connections.0.norm.alpha': 'encoder.layers.0.residual_connection_1.norm.alpha',
-        'encoder.layers.0.residual_connections.0.norm.bias':  'encoder.layers.0.residual_connection_1.norm.bias',
-        'encoder.layers.0.residual_connections.1.norm.alpha': 'encoder.layers.0.residual_connection_2.norm.alpha',
-        'encoder.layers.0.residual_connections.1.norm.bias':  'encoder.layers.0.residual_connection_2.norm.bias',
-        'encoder.layers.1.residual_connections.0.norm.alpha': 'encoder.layers.1.residual_connection_1.norm.alpha',
-        'encoder.layers.1.residual_connections.0.norm.bias':  'encoder.layers.1.residual_connection_1.norm.bias',
-        'encoder.layers.1.residual_connections.1.norm.alpha': 'encoder.layers.1.residual_connection_2.norm.alpha',
-        'encoder.layers.1.residual_connections.1.norm.bias':  'encoder.layers.1.residual_connection_2.norm.bias',
-        # Add more mappings here
-    }
+    model_list[name]['data_config'] = GetConfig('/home/halin/Master/Transformer/data_config.yaml')
+    
+    model = load_model(config, text='final')
 
-    state_dict = {name_mapping.get(k, k): v for k, v in state_dict.items() if k not in ignore_keys}
-
-    model.load_state_dict(state_dict)
     model_list[name]["model"] = model
     model_list[name]["model"].to(device)
     model_list[name]["model"].eval()
@@ -519,7 +502,7 @@ ax.legend(prop={"size": "x-small"})
 plot_name = ''
 for model_num in transformer_models:
     plot_name += f'_{model_num}'
-filename = os.path.join(ABS_PATH_HERE, "plots", f"EfficiencyVsSNR{plot_name}.png")
+filename = os.path.join(ABS_PATH_HERE, "figures/", f"EfficiencyVsSNR{plot_name}.png")
 print("Saving", filename)
 fig.savefig(filename, bbox_inches="tight")
 plt.close()
@@ -565,7 +548,7 @@ ax.yaxis.set_ticks_position("both")
 ax.xaxis.set_ticks_position("both")
 
 
-filename = os.path.join(ABS_PATH_HERE, "plots", f"QuickVeffRatio{plot_name}.png")
+filename = os.path.join(ABS_PATH_HERE, "figures/", f"QuickVeffRatio{plot_name}.png")
 print("Saving", filename)
 fig.savefig(filename, bbox_inches="tight")
 plt.close()

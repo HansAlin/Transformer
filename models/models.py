@@ -3,7 +3,7 @@ import torch.nn as nn
 import math
 from typing import List
 from torch.nn.modules import MultiheadAttention, Linear, Dropout, BatchNorm1d, TransformerEncoderLayer
-from dataHandler.datahandler import save_data
+from dataHandler.datahandler import save_data, get_model_path
 
 
 # 
@@ -772,9 +772,20 @@ class TransformerModel(nn.Module):
   def __init__(self, config):
     super(TransformerModel, self).__init__()
     self.encoder = build_encoder_transformer(config)
+    if 'transformer' in config:
+      config = config['transformer']
+
+    if config['architecture']['output_size'] == 1:
+      self.first = 0
+      self.second = 1
+      self.third = 2
+    else:
+      self.first = 0
+      self.second = 2
+      self.third = 1  
 
   def forward(self, x):
-    x = x.permute(0,2,1)
+    x = x.permute(self.first,self.second,self.third)
     return self.encoder.encode(x, src_mask=None)
 
 def build_encoder_transformer(config): 
@@ -941,32 +952,77 @@ def get_n_params(model):
 
 
 class ModelWrapper(nn.Module):
-    """
-      This code was provided by Copilot AI.
-      This wrapper makes it possible to use get_model_complexity_info() from 
-      ptflops. It is not possible to use the function directly on the model
-      because the get_model_complexity_info() adds a dimention.
-      Args:
-          model (torch.nn.Module): The PyTorch model.
-          batch_size (int): The batch size.
-          seq_len (int): The length of the sequence.
-          channels (int): The number of channels in the input.
-      Returns:
-          The model with the wrapper.    
-    """
-    def __init__(self, model, batch_size=1,  seq_len=256, channels=4):
-        super().__init__()
-        self.model = model
-        self.batch_size = batch_size
-        self.seq_len = seq_len
-        self.channels = channels
+  """
+    This code was provided by Copilot AI.
+    This wrapper makes it possible to use get_model_complexity_info() from 
+    ptflops. It is not possible to use the function directly on the model
+    because the get_model_complexity_info() adds a dimention.
+    Args:
+        model (torch.nn.Module): The PyTorch model.
+        batch_size (int): The batch size.
+        seq_len (int): The length of the sequence.
+        channels (int): The number of channels in the input.
+    Returns:
+        The model with the wrapper.    
+  """
+  def __init__(self, model, batch_size=1,  seq_len=256, channels=4):
+    super().__init__()
+    self.model = model
+    self.batch_size = batch_size
+    self.seq_len = seq_len
+    self.channels = channels
 
 
-    def forward(self, x):
-        # Reshape the input to the correct shape
-        x = x.view(self.batch_size, self.seq_len, self.channels)
-        src_mask = None #torch.zeros(self.batch_size, self.seq_len, self.seq_len)
-        return self.model(x, src_mask=src_mask)
+  def forward(self, x):
+    # Reshape the input to the correct shape
+    x = x.view(self.batch_size, self.seq_len, self.channels)
+    src_mask = None #torch.zeros(self.batch_size, self.seq_len, self.seq_len)
+    return self.model(x, src_mask=src_mask)
     
+def load_model(config, text='early_stop'):
+  """
+    Load model from config file
+    
+    Args:
+        config (dict): The configuration dictionary. Should be loaded from a yaml file and should be the
+                        same as the one used to train the model and also be the model config and not the 
+                        training config.
+        text (str, optional): The text to add to the model name. Defaults to 'early_stop'. Other options are
+                              'final'.
+    Returns:
+            model
+
+  """
+  
+  model = TransformerModel(config)
+  model_dict = model.state_dict()
+
+  model_path = get_model_path(config, text=f'{text}')
+
+  print(f'Preloading model {model_path}')
+  state = torch.load(model_path)
+
+  state_dict = state['model_state_dict']
+
+  # Create a new state dictionary with keys that match the model
+  new_state_dict = {}
+  for (k_model, v_model), (k_state, v_state) in zip(model_dict.items(), state_dict.items()):
+      # Adjust the keys to match each other
+      adjusted_key_model = '.'.join(k_model.split('.')[-2:])
+      adjusted_key_state = '.'.join(k_state.split('.')[-2:])
+      # If the adjusted keys match and the sizes match, add it to the new state dict
+      if adjusted_key_model == adjusted_key_state and v_model.size() == v_state.size():
+          new_state_dict[k_model] = v_state
 
 
+  # Now load the new state dict
+  model.load_state_dict(new_state_dict, strict=False)
+
+  # Check if all weights are loaded
+  for k in model_dict.keys():
+    adjusted_key = '.'.join(k.split('.')[1:])
+    if adjusted_key not in state_dict:
+      print(f"Warning: {k} not found in loaded state dict")
+      return None
+
+  return model

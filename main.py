@@ -58,7 +58,8 @@ def main(start_model_num, epochs, test, cuda_device, config_number, inherit_mode
     #config = old_config.copy()
     hyper_param = {
                 #  'N':[15]
-                'pos_enc_type':['Relative'],
+                # 'pos_enc_type':['Relative'],
+                'max_relative_position': [64],
                 #   'h': [2,4,8],
                 # 'd_model': [32],
                 # 'h': [16],
@@ -146,6 +147,7 @@ def main(start_model_num, epochs, test, cuda_device, config_number, inherit_mode
 
   training(configs=configs, 
           cuda_device=cuda_device,
+          second_device=1,
           batch_size=configs[0]['transformer']['training']['batch_size'], 
           channels=configs[0]['transformer']['architecture']['n_ant'],
           model_folder=models_path,
@@ -161,7 +163,7 @@ if __name__ == "__main__":
 
   parser.add_argument('--epochs', type=int, help='Default 100', default=2)
   parser.add_argument('--test', type=bool, help='Default False', default=True)
-  parser.add_argument('--cuda_device', type=int,help='Default 0', default=1)
+  parser.add_argument('--cuda_device', type=int,help='Default 0', default=0)
   parser.add_argument('--config_number', type=int,help='Default 1', default=0)
   parser.add_argument('--inherit_model', type=int,help='Default 18', default=None)
   parser.add_argument('--retrain', type=bool,help='Default False', default=False)

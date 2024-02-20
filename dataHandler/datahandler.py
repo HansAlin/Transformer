@@ -105,7 +105,7 @@ def load_raw_data(data_path='/home/halin/Autoencoder/Data/',
 #               )
 
 
-def get_trigger_data(config, seq_len=None, random_seed=123, batch_size=32, subset=False, save_test_set=False):
+def get_trigger_data(config, random_seed=123, subset=False, save_test_set=False):
  
   """ Most of the code is copied from https://github.com/colemanalan/nuradio-analysis/blob/main/trigger-dev/TrainCnn.py
       
@@ -122,7 +122,9 @@ def get_trigger_data(config, seq_len=None, random_seed=123, batch_size=32, subse
         train_data, val_data, test_data
 
   """
-
+  seq_len = config["input_length"]
+  batch_size = config["training"]["batch_size"]
+    
   band_flow = config["sampling"]["band"]["low"]
   band_fhigh = config["sampling"]["band"]["high"]
   sampling_rate = config["sampling"]["rate"]
@@ -939,7 +941,10 @@ def get_model_config(model_num, path='/mnt/md0/halin/Models/', type_of_file='txt
       CONFIG_PATH = path + f'model_{model_num}/config{sufix}.yaml'
       with open(CONFIG_PATH, 'r') as file:
           config = yaml.safe_load(file)
-
+    if 'transformer' in config:
+      return config
+    else:
+      return config['transformer']
     return config  
 
 

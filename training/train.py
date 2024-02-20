@@ -35,7 +35,7 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
   if data_type == 'chunked':
     train_loader, val_loader, test_loader = get_chunked_data(batch_size=batch_size, config=configs[0], subset=test) # 
   else:
-    train_loader, val_loader, test_loader = get_trigger_data(batch_size=batch_size, seq_len=configs[0]['architecture']['seq_len'], subset=test) # 
+    train_loader, val_loader, test_loader = get_trigger_data(configs[0], subset=test) # 
 
 
   item = next(iter(train_loader))
@@ -103,25 +103,25 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
     #  Set up the GPU's to use                                           #
     #######################################################################
     if torch.cuda.is_available(): 
+      device = torch.device(f'cuda:{cuda_device}')
       if second_device == None:
-        device = torch.device(f'cuda:{cuda_device}')
         print(f"Let's use GPU {cuda_device}!")
-        model = model.to(device)  
+
       else:  
         if torch.cuda.device_count() > 1 and get_least_utilized_gpu()[second_device] == 0 :
             print(f"Let's use GPU {cuda_device} and {second_device}!")
-            model = model.to(f'cuda:{cuda_device}')
             model = nn.DataParallel(model, device_ids=[cuda_device, second_device])
-            device = 'cuda'
+
 
         else:
             print(f"Let's use GPU {cuda_device}!")
             device = torch.device(f'cuda:{cuda_device}')
-            model = model.to(device)
+
 
     else:
         device = torch.device("cpu")
 
+    model = model.to(device)
 
  
     

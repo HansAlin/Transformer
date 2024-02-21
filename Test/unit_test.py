@@ -11,11 +11,14 @@ from models.models import LayerNormalization, BatchNormalization, ResidualConnec
 from dataHandler.datahandler import prepare_data, get_chunked_data, get_trigger_data
 from model_configs.config import get_config
 
+def count_parameters(layer):
+    return sum(p.numel() for p in layer.parameters() if p.requires_grad)
 
 class BaseTest(unittest.TestCase):
     batch_size = 32
     seq_len = 256
-    d_model = 512
+    channels = 4
+    d_model = 32
     num_heads = 8
     dropout = 0.1
     d_ff = 512
@@ -27,9 +30,10 @@ class BaseTest(unittest.TestCase):
     activations = ['relu', 'gelu']
     normalizations = ['layer', 'batch']
     residual_types = ['post_ln', 'pre_ln']
-    relative_positional_encodings = [True] 
+    pos_enc_types = ['Relative']  # Posible options: 'Sinusoidal', 'Relative',  'Learnable''None',
     GSAs = [True]
-    input_embeddings = ['lin_relu_drop', 'lin_gelu_drop', 'linear', 'cnn']
+    projection_types = ['linear']  # Posible options: 'linear', 'cnn'
+    input_embeddings = ['cnn'] # options 'lin_relu_drop', 'lin_gelu_drop', 'linear', 'cnn', 'ViT'
 
 class TestLayers(BaseTest):
 
@@ -110,7 +114,7 @@ class TestInputEmbeddings(BaseTest):
         for embedding_type in self.input_embeddings:
             self.helper_input_embeddings(embedding_type)
 
-    def helper_input_embeddings(self, embedding_type, kernel_size=3, stride=1, padding=1):
+    def helper_input_embeddings(self, embedding_type, kernel_size=3, stride=2, padding=0):
         #torch.manual_seed(0)
         input_embeddings = InputEmbeddings(
             d_model=self.d_model, 
@@ -121,12 +125,22 @@ class TestInputEmbeddings(BaseTest):
             stride=stride,
             )
         if embedding_type == 'cnn':
+            padding  = (kernel_size - self.seq_len % kernel_size) // 2
             expected_seq_len = (self.seq_len + 2 * padding - kernel_size) // stride + 1
+            batch_size = self.batch_size
+            d_model = self.d_model
+        elif embedding_type == 'ViT':
+            expected_seq_len = self.seq_len // kernel_size
+            batch_size = self.batch_size
+            d_model = self.d_model * (self.channels // kernel_size + 1 ) 
         else:
             expected_seq_len = self.seq_len
+            batch_size = self.batch_size
+            d_model = self.d_model
+        print(f"Number of parameters: {count_parameters(input_embeddings)}")    
         input_data = torch.randn(self.batch_size, self.seq_len, self.n_ant)
         output = input_embeddings(input_data)
-        self.assertEqual(output.shape, (self.batch_size, expected_seq_len, self.d_model))
+        self.assertEqual(output.shape, (batch_size, expected_seq_len, d_model))
 
 
 class TestMultiHeadAttentionBlock(BaseTest):
@@ -139,13 +153,15 @@ class TestMultiHeadAttentionBlock(BaseTest):
 
     def test_MultiHeadAttentionBlock(self):
         #torch.manual_seed(10)
-        for relative_positional_encoding in self.relative_positional_encodings:
+        for relative_positional_encoding in self.pos_enc_types:
             for GSA in self.GSAs:
-                self.helper_MultiHeadAttentionBlock(relative_positional_encoding, GSA)
+                for projection_type in self.projection_types:
+                    self.helper_MultiHeadAttentionBlock(relative_positional_encoding, GSA, projection_type)
 
-    def helper_MultiHeadAttentionBlock(self, relative_positional_encoding, GSA):
+
+    def helper_MultiHeadAttentionBlock(self, relative_positional_encoding, GSA, projection_type):
         #torch.manual_seed(0)
-        print(f"Relative positional encoding: {relative_positional_encoding}, GSA: {GSA}")
+        print(f"Positional encoding: {relative_positional_encoding}, GSA: {GSA}, Projection type: {projection_type}")
         with torch.autograd.set_detect_anomaly(True):
             # Create some input data
             torch.manual_seed(100)
@@ -153,7 +169,10 @@ class TestMultiHeadAttentionBlock(BaseTest):
             k = torch.randn(self.batch_size, self.seq_len, self.d_model)
             v = torch.randn(self.batch_size, self.seq_len, self.d_model)
             mask = None # torch.ones(self.batch_size, 1, seq_len).to(dtype=torch.bool)
-
+            if relative_positional_encoding == 'Relative':
+                relative_positional_encoding = True
+            else:
+                relative_positional_encoding = False
             # Initialize the MultiHeadAttentionBlock layer
             multi_head_attention_block = MultiHeadAttentionBlock(d_model=self.d_model, 
                                                                 h=self.h, 
@@ -162,8 +181,9 @@ class TestMultiHeadAttentionBlock(BaseTest):
                                                                 max_relative_position=self.max_relative_position, 
                                                                 relative_positional_encoding=relative_positional_encoding,
                                                                 GSA=GSA,
+                                                                projection_type=projection_type,
                                                                 )
-
+            print(f"Number of parameters: {count_parameters(multi_head_attention_block)}")
             # Apply Xavier initialization to all weights in the MultiHeadAttentionBlock
             multi_head_attention_block.apply(lambda m: nn.init.xavier_uniform_(m.weight) if hasattr(m, 'weight') else None)
 
@@ -342,7 +362,7 @@ class TestDataLoader(BaseTest):
 
 if __name__ == '__main__':
     suite = unittest.TestSuite()
-    suite.addTest(TestLayers('test_LayerNormalization'))
+    # suite.addTest(TestLayers('test_LayerNormalization'))
     # suite.addTest(TestLayers('test_BatchNormalization'))
     
     
@@ -357,7 +377,7 @@ if __name__ == '__main__':
     # suite.addTest(TestDataLoader('test_chunked_data'))
     # suite.addTest(TestDataLoader('test_trigger_data'))
 
-    # suite.addTest(TestInputEmbeddings('test_input_embeddings'))
+    suite.addTest(TestInputEmbeddings('test_input_embeddings'))
 
 
     runner = unittest.TextTestRunner()

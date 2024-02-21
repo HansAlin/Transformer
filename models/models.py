@@ -5,6 +5,7 @@ from typing import List
 from torch.nn.modules import MultiheadAttention, Linear, Dropout, BatchNorm1d, TransformerEncoderLayer
 from dataHandler.datahandler import save_data, get_model_path
 import sys
+import torch.nn.functional as F
 
 # 
 class LayerNormalization(nn.Module):
@@ -95,18 +96,75 @@ class CnnInputEmbeddings(nn.Module):
   def __init__(self, channels, d_model, padding: int = 1, stride: int = 1, kernel_size: int = 3):
     super().__init__()
 
-    self.conv1 = nn.Conv2d(channels, d_model, kernel_size=(kernel_size, 1), padding=(padding, 0), stride=(stride, 1))
-    self.conv2 = nn.Conv2d(channels, d_model, kernel_size=(stride, kernel_size), padding=(0, padding), stride=(stride, 1))
+    self.kernel_size = kernel_size
+
+    rows = channels // kernel_size + 1
+    vertical_padding = (rows * kernel_size - channels) // 2
+
+    out_put_size = d_model//channels
+    self.vertical_conv = nn.Conv2d(1, out_put_size, kernel_size=(kernel_size, stride), padding=(vertical_padding, 0), stride=(1, stride))
+    self.horizontal_conv = nn.Conv2d(1, out_put_size, kernel_size=(1, kernel_size), padding=(0, 0), stride=(1, stride))
 
   def forward(self, x):
     # x: (batch_size, seq_len, channels)
-    x = x.transpose(1, 2).unsqueeze(-1)  # now x: (batch_size, channels, seq_len, 1)
-    out1 = self.conv1(x).squeeze(-1)  # out1: (batch_size, d_model, seq_len)
+    x = x.transpose(1, 2).unsqueeze(1)  # now x: (batch_size, channels, seq_len, 1)
+    out1 = self.vertical_conv(x).squeeze(-1)  # out1: (batch_size, d_model, seq_len)
     out1 = out1.transpose(1, 2)  # swap d_model with seq_len, now out1: (batch_size, seq_len, d_model)
-    out2 = self.conv2(x).squeeze(-1)  # out2: (batch_size, d_model, seq_len)
+     # Calculate padding dynamically
+    seq_len = x.size(2)
+    padding = 0
+    if seq_len % self.kernel_size != 0:
+        padding = (self.kernel_size - seq_len % self.kernel_size) // 2
+
+    x = F.pad(x, (0, padding))  # Add padding to the sequence length dimension
+    out2 = self.horizontal_conv(x).squeeze(-1)  # out2: (batch_size, d_model, seq_len)
     out2 = out2.transpose(1, 2)  # swap d_model with seq_len, now out2: (batch_size, seq_len, d_model)
     out = out1 + out2  # add the outputs
+    out = out.transpose(2,3).transpose(1,2)  # swap d_model with seq_len, now out: (batch_size, seq_len, d_model)
+    out = out.flatten(start_dim=2, end_dim=3)  # Remove the height dimension  
     return out
+
+
+class ViTEmbeddings(nn.Module):
+
+  def __init__(self,
+               channels: int,
+               out_put_size: int,
+               kernel_size: int,
+               stride: int,
+               padding: int,
+               ) -> None:
+    super().__init__()
+    self.channels = channels
+    self.out_put_size = out_put_size
+    self.height = kernel_size
+
+
+    
+    rows = channels // kernel_size + 1
+
+    vertical_padding = (rows * kernel_size - channels) // 2
+
+    vertical_stride = kernel_size
+    horizontal_stride = kernel_size
+    self.conv = nn.Conv2d(1, self.out_put_size, kernel_size=(self.height, self.height), stride=(horizontal_stride, vertical_stride), padding=(0, vertical_padding))
+
+  def forward(self, x):
+    x = x.unsqueeze(1)  # Add an extra dimension for channels
+
+    # Calculate padding dynamically
+    seq_len = x.size(2)
+    padding = 0
+    if seq_len % self.height != 0:
+        padding = (self.height - seq_len % self.height) // 2
+
+    x = F.pad(x, (padding, padding))  # Add padding to the sequence length dimension
+    x = self.conv(x)
+    x = x.transpose(1,2)
+    x = x.flatten(start_dim=2, end_dim=3)  # Remove the height dimension
+    # x = x.transpose(1, 2)  # Swap the "seq_len" and "d_model" dimensions
+    return x  
+
 
 
 class InputEmbeddings(nn.Module):
@@ -142,6 +200,10 @@ class InputEmbeddings(nn.Module):
       self.embedding = CnnInputEmbeddings(channels, d_model, **kwargs)
       self.activation = nn.ReLU()
       self.dropout = nn.Dropout(dropout)
+    elif embed_type == 'ViT':
+      self.embedding = ViTEmbeddings(channels, d_model, **kwargs)
+      self.activation = nn.ReLU()
+      self.dropout = nn.Dropout(dropout)  
 
     else:
       raise ValueError(f"Unsupported embed type: {embed_type}")
@@ -332,29 +394,49 @@ class FinalBlock(nn.Module):
     return x
 
 class MultiHeadAttentionBlock(nn.Module):
-  def __init__(self, d_model: int, h: int, max_seq_len: int = 128, dropout: float = 0.1, max_relative_position = 10, relative_positional_encoding: bool = False, GSA=False):
+  def __init__(self, 
+               d_model: int, 
+               h: int, 
+               max_seq_len: int = 128, 
+               dropout: float = 0.1, 
+               max_relative_position = 10, 
+               relative_positional_encoding: str = 'Sinusoidal', 
+               GSA: bool =False,
+               projection_type: str = 'linear',
+               ):
     super().__init__()
     self.d_model = d_model
     self.h = h
-    
+    self.scale = math.sqrt(self.d_model)
+    self.relative_positional_encoding = relative_positional_encoding
+    self.projection_type = projection_type
+
     assert d_model % h == 0, "d_model must be divisible by h"
     self.d_h = d_model // h
+    if self.projection_type == 'linear':
+      # TODO its an option to have biases or not in the linear layers
+      self.W_q = nn.Linear(d_model, d_model) # W_q and bias
+      self.W_k = nn.Linear(d_model, d_model) # W_k and bias
+      self.W_v = nn.Linear(d_model, d_model) # W_v and bias
 
-    # TODO its an option to have biases or not in the linear layers
-    self.W_q = nn.Linear(d_model, d_model) # W_q and bias
-    self.W_k = nn.Linear(d_model, d_model) # W_k and bias
-    self.W_v = nn.Linear(d_model, d_model) # W_v and bias
+    elif self.projection_type == 'cnn':
+      self.W_q = nn.Conv2d(self.d_h, self.d_h, kernel_size=(1,1), stride=(1,1))
+      self.W_k = nn.Conv2d(self.d_h, self.d_h, kernel_size=(1,1), stride=(1,1))
+      self.W_v = nn.Conv2d(self.d_h, self.d_h, kernel_size=(1,1), stride=(1,1))
+
+      self.W_0 = nn.Conv2d(d_model, d_model, kernel_size=(5,5), stride=(1,1), padding=(2,2))
+
 
     self.W_0 = nn.Linear(self.h*self.d_h, d_model) # W_0 and bias wher self.h*self.d_h = d_model
     self.dropout = nn.Dropout(dropout)
 
     # For relative positional encoding
-    if relative_positional_encoding:
+    if self.relative_positional_encoding == 'Realtive':
       self.max_relative_position = max_relative_position
       self.relative_positional_k = RelativePositionalEncoding(self.d_h, max_relative_position)
       self.relative_positional_v = RelativePositionalEncoding(self.d_h, max_relative_position)
-    self.scale = math.sqrt(self.d_model)
-    self.relative_positional_encoding = relative_positional_encoding
+
+    
 
 
     self.GSA = GSA
@@ -447,10 +529,22 @@ class MultiHeadAttentionBlock(nn.Module):
 
   def forward(self, q, k, v, mask):
     # secretly q,k,v are all the same
-    query =self.W_q(q) # (batch_size, seq_len, d_model) --> (batch_size, seq_len, d_model)
-    key = self.W_k(k) # (batch_size, seq_len, d_model) --> (batch_size, seq_len, d_model)
-    value = self.W_v(v) # (batch_size, seq_len, d_model) --> (batch_size, seq_len, d_model)
-   
+    if self.projection_type == 'linear':
+      query =self.W_q(q) # (batch_size, seq_len, d_model) --> (batch_size, seq_len, d_model)
+      key = self.W_k(k) # (batch_size, seq_len, d_model) --> (batch_size, seq_len, d_model)
+      value = self.W_v(v) # (batch_size, seq_len, d_model) --> (batch_size, seq_len, d_model)
+    elif self.projection_type == 'cnn':
+      batch_size, seq_len, _ = q.shape
+      q = q.view(batch_size, self.d_h, self.h, seq_len)
+      k = k.view(batch_size, self.d_h, self.h, seq_len)
+      v = v.view(batch_size, self.d_h, self.h, seq_len)
+      query = self.W_q(q)
+      key = self.W_k(k)
+      value = self.W_v(v)
+      query = query.view(batch_size, seq_len, self.d_h * self.h)
+      key = key.view(batch_size, seq_len, self.d_h * self.h)
+      value = value.view(batch_size, seq_len, self.d_h * self.h)
+
           
     # Split the query, into h heads
     # query.shape[0] = batch_size
@@ -460,7 +554,7 @@ class MultiHeadAttentionBlock(nn.Module):
     # transpose(1,2) swaps the seq_len and h dimensions dimeinstion 1 and 2
 
 
-    if self.relative_positional_encoding:
+    if self.relative_positional_encoding == 'Realtive':
       x, self.attention_scores = MultiHeadAttentionBlock.attention_with_relative_position(query, 
                                                                                           key, 
                                                                                           value, 
@@ -472,6 +566,7 @@ class MultiHeadAttentionBlock(nn.Module):
                                                                                           mask, 
                                                                                           self.dropout)
     else:
+
       query = query.view(query.shape[0], query.shape[1], self.h, self.d_h).transpose(1,2) # (batch_size, seq_len, d_model) --> (batch_size, h, seq_len, d_h)
       key = key.view(key.shape[0], key.shape[1], self.h, self.d_h).transpose(1,2) # (batch_size, seq_len, d_model) --> (batch_size, h, seq_len, d_h)
       value = value.view(value.shape[0], value.shape[1], self.h, self.d_h).transpose(1,2) # (batch_size, seq_len, d_model) --> (batch_size, h, seq_len, d_h)
@@ -484,7 +579,13 @@ class MultiHeadAttentionBlock(nn.Module):
 
     # Apply the last linear layer
     # (batch_size, seq_len, d_model) --> (batch_size, seq_len, d_model) 
-    x = self.W_0(x)
+    if self.projection_type == 'linear':
+      x = self.W_0(x)
+    elif self.projection_type == 'cnn':
+      batch_size, seq_len, d_model = x.size()
+      x = x.view(batch_size, 1, seq_len, d_model)  # reshape
+      x = self.W_0(x)  # apply Conv2d
+      x = x.view(batch_size, seq_len, d_model)  # reshape back
     return x
   
 class ResidualConnection(nn.Module):
@@ -819,9 +920,7 @@ def build_encoder_transformer(config):
   else:
     features = d_model  
 
-  if config['architecture']['pos_enc_type'] == 'Relative':
-    relative_positional_encoding = True
-
+  relative_positional_encoding = config['architecture']['pos_enc_type'] 
  
   dropout=config['training']['dropout'] 
 

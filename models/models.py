@@ -892,7 +892,7 @@ class TransformerModel(nn.Module):
 
   def forward(self, x):
     x = x.permute(self.first,self.second,self.third)
-    return self.encoder.encode(x, src_mask=None)
+    return self.encoder.encode(x, src_mask=None).unsqueeze(-1)
 
 def build_encoder_transformer(config): 
 

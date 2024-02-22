@@ -12,7 +12,7 @@ import matplotlib
 import itertools
 import glob
 
-from models.models import ModelWrapper, get_n_params, TransformerModel
+from models.models import ModelWrapper, get_n_params, build_encoder_transformer
 from dataHandler.datahandler import get_model_config, get_chunked_data, save_data, get_model_path
 
 CODE_DIR_1  ='/home/acoleman/software/NuRadioMC/'
@@ -39,7 +39,7 @@ def test_model(model, test_loader, device, config):
   Return:
     y_pred_data, accuracy, efficiency, precission
   """
-
+  data_type = config['architecture'].get('data_type', 'chunked')
 
   model.to(device)
   model.eval()
@@ -57,6 +57,8 @@ def test_model(model, test_loader, device, config):
     for istep in tqdm(range(len(test_loader))):
 
       x_test, y_test = test_loader.__getitem__(istep)
+      if data_type == 'chunked':
+        y_test = y_test.max(dim=1)[0]
       x_test, y_test = x_test.to(device), y_test.to(device)
       y_test = y_test.squeeze() 
       outputs = model(x_test)
@@ -262,7 +264,7 @@ def count_parameters(model, verbose=False):
 def get_results(model_num, device=0):
 
     config = get_model_config(model_num=model_num)
-    model = TransformerModel(config)
+    model = build_encoder_transformer(config)
     torch.cuda.set_device(device)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     train_loader, val_loader, test_loader = get_data(batch_size=config['training']['batch_size'], seq_len=config['architecture']['seq_len'], subset=False)
@@ -333,7 +335,7 @@ def LoadModel(filename, model_list, device):
     name = config['basic']["model_num"]
     model_list[name] = dict()
     model_list[name]["config"] = config
-    model_list[name]["model"] = TransformerModel(config)
+    model_list[name]["model"] = build_encoder_transformer(config)
     model_list[name]["model"].to(device)
     model_list[name]["model"].eval()
     return name

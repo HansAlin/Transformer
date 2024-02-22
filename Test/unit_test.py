@@ -359,6 +359,50 @@ class TestDataLoader(BaseTest):
         print(f"Test item: {test_item[0].shape}")
         self.assertEqual(test_item[0].shape, (self.batch_size, self.seq_len, self.n_ant))
 
+class TestModel(BaseTest):
+
+    def testModel(self):
+        config = get_config(0)['transformer']
+        config['architecture']['encoder_type'] = 'normal'
+        config['architecture']['normalization'] = 'layer'
+        config['architecture']['residual_type'] = 'pre_ln'
+        config['architecture']['data_type'] = 'chunked'
+        config['architecture']['seq_len'] = self.seq_len
+        config['training']['batch_size'] = self.batch_size
+        config['architecture']['output_size'] = self.out_put_size
+
+        model = build_encoder_transformer(config)
+
+        
+        
+
+        if config['architecture']['data_type'] == 'chunked':
+            data = torch.randn(self.batch_size, self.n_ant, self.seq_len)
+            output = model(data)
+            print(f"Output shape: {output.shape}", end=' ')
+            true_out_put_shape = torch.randn(self.batch_size, 1).shape
+            print(f"True output shape: {true_out_put_shape}")
+            self.assertEqual(output.shape, true_out_put_shape)
+            output2 = model.obtain_pre_activation(data)
+            print(f"Output2 shape: {output2.shape}", end=' ')
+            print(f"True output shape: {true_out_put_shape}")
+            self.assertEqual(output2.shape, true_out_put_shape)
+            
+        else:
+            data = torch.randn(self.batch_size, self.seq_len, self.n_ant)
+            output = model(data)
+            print(f"Output shape: {output.shape}", end=' ')
+            true_out_put_shape = torch.Size([self.batch_size])
+            print(f"True output shape: {true_out_put_shape}")
+            self.assertEqual(output.shape, true_out_put_shape)
+
+            
+
+        self.assertIsNotNone(model)
+        self.assertTrue(hasattr(model, 'network_blocks'))
+        self.assertTrue(len(model.network_blocks) > 1)
+        #self.assertTrue(model.network_blocks[1].nam)
+        print(f"Tetwork blocks [1]: {model.network_blocks[1]}")
 
 if __name__ == '__main__':
     suite = unittest.TestSuite()
@@ -377,8 +421,8 @@ if __name__ == '__main__':
     # suite.addTest(TestDataLoader('test_chunked_data'))
     # suite.addTest(TestDataLoader('test_trigger_data'))
 
-    suite.addTest(TestInputEmbeddings('test_input_embeddings'))
-
+    # suite.addTest(TestInputEmbeddings('test_input_embeddings'))
+    suite.addTest(TestModel('testModel'))
 
     runner = unittest.TextTestRunner()
     runner.run(suite)

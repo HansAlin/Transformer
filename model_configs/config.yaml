@@ -2,11 +2,11 @@ arch: Transformer
 
 transformer: 
   architecture:
-    N: 2
+    N: 4
     activation: 'relu' # Posible options: 'relu', 'gelu'
     by_pass: false
-    d_ff: 64
-    d_model: 32 # Have to be dividable by h
+    d_ff: 32
+    d_model: 16 # Have to be dividable by h
     data_type: trigger # Possible options: 'trigger', 'chunked'
     embed_type: linear # Posible options: 'lin_relu_drop', 'lin_gelu_drop', 'linear',
     encoder_type: normal # Posible options: 'normal', 'none', 'bypass', 'vanilla'
@@ -14,7 +14,7 @@ transformer:
     GSA: False
     h: 4
     inherit_model: null
-    max_relative_position: 16
+    max_relative_position: 64
     residual_type: 'pre_ln' # Posible options: 'pre_ln', 'post_ln'
     n_ant: &n_ant 4
     normalization: layer # Posible options: 'layer', 'batch'
@@ -102,3 +102,5 @@ training:
   permute_for_RNN_input: False
   probabilistic_sampling_ensure_signal_region: False
   probabilistic_sampling_oversampling: 1.0
+  probabilistic_sampling_ensure_min_signal_fraction: -1.0
+  probabilistic_sampling_ensure_min_signal_num_bins: 1

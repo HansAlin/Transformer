@@ -16,7 +16,7 @@ from tqdm import tqdm
 import subprocess
 
 import tensorboard
-from models.models import TransformerModel
+from models.models import build_encoder_transformer
 from dataHandler.datahandler import save_data, save_model, create_model_folder, get_model_path, get_chunked_data, get_trigger_data
 from evaluate.evaluate import test_model, validate, get_energy, get_MMac, count_parameters
 
@@ -51,11 +51,11 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
     if not retrained:
       
       config['transformer']['results']['power'  ] = 0 # get_energy(cuda_device) # 
-      config['transformer']['architecture']['output_size'] = output_size #
-      config['transformer']['architecture']['out_put_shape'] = output_size # config['transformer']['architecture']['out_put_shape']
+      # config['transformer']['architecture']['output_size'] = output_size #
+      # config['transformer']['architecture']['out_put_shape'] = output_size # config['transformer']['architecture']['out_put_shape']
       
       if config['transformer']['basic']['model_type'] == "base_encoder": # config['transformer']['basic']['model_type']
-        model = TransformerModel(config)
+        model = build_encoder_transformer(config)
 
         optimizer = torch.optim.Adam(model.parameters(), lr=config['transformer']['training']['learning_rate']) #
       
@@ -76,7 +76,7 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
       print(f"Number of paramters: {config['transformer']['num of parameters']['num_param']} input: {config['transformer']['num of parameters']['input_param']} encoder: {config['transformer']['num of parameters']['encoder_param']} final: {config['transformer']['num of parameters']['final_param']} pos: {config['transformer']['num of parameters']['pos_param']}")
       initial_epoch = 1
     else:
-      model = TransformerModel(config) 
+      model = build_encoder_transformer(config) 
       optimizer = torch.optim.Adam(model.parameters(), lr=config['transformer']['training']['learning_rate']) #
       scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=config['transformer']['training']['step_size'], gamma=config['transformer']['training']['decreas_factor']) #
 
@@ -160,9 +160,11 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
       num_of_bathes = int(len(train_loader))
       for istep in tqdm(range(len(train_loader))):
 
-        print(f"Epoch {epoch + 1}/{config['transformer']['training']['num_epochs']} Batch {batch_num}/{num_of_bathes}", end="\r") # config['transformer']['training']['num_epochs']
+        print(f"Epoch {epoch}/{config['transformer']['training']['num_epochs']} Batch {batch_num}/{num_of_bathes}", end="\r") # config['transformer']['training']['num_epochs']
   
         x_batch, y_batch = train_loader.__getitem__(istep)
+        if data_type == 'chunked':
+           y_batch = y_batch.max(dim=1)[0]
         x_batch, y_batch = x_batch.to(device), y_batch.to(device)
         
         outputs = model(x_batch)
@@ -188,6 +190,10 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
         for istep in tqdm(range(len(val_loader))):
 
           x_batch, y_batch = val_loader.__getitem__(istep)
+          
+          if data_type == 'chunked':
+            y_batch = y_batch.max(dim=1)[0]
+
           x_batch, y_batch = x_batch.to(device), y_batch.to(device)
           outputs = model(x_batch)
           loss = criterion(outputs, y_batch.squeeze())

@@ -11,7 +11,7 @@ import torch
 
 
 
-from models.models import TransformerModel, load_model
+from models.models import load_model
 from dataHandler.datahandler import get_trigger_data, get_model_path, get_model_config
 from evaluate.evaluate import get_model_path
 

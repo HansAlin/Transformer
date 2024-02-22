@@ -772,127 +772,216 @@ class Encoder(nn.Module):
 #     return torch.log_softmax(self.proj(x), dim=-1)
   
 
-  
-class EncoderTransformer(nn.Module):
-  def __init__(self, 
-               features:int,
-               encoders: List[nn.Module], 
-               src_embed: List[InputEmbeddings], 
-               src_pos: List[PositionalEncoding],
-               final_block: FinalBlock,
-               encoding_type: str = 'normal',
-               residual_type: str = 'post_ln',
-               normalization: str = 'layer'
+# TODO this is a test
+# class EncoderTransformer(nn.Module):
+#   def __init__(self, 
+#                features:int,
+#                encoders: List[nn.Module], 
+#                src_embed: List[InputEmbeddings], 
+#                src_pos: List[PositionalEncoding],
+#                final_block: FinalBlock,
+#                encoding_type: str = 'normal',
+#                residual_type: str = 'post_ln',
+#                normalization: str = 'layer'
 
-               ) -> None:
-    super().__init__()
+#                ) -> None:
+#     super().__init__()
 
-    if residual_type == 'post_ln':
-      self.norm = nn.Identity()
-    elif residual_type == 'pre_ln':
-      if normalization == 'layer':
-        self.norm = LayerNormalization(features=features)
-      elif normalization == 'batch':
-        self.norm = BatchNormalization(features=features)
-      else:
-        raise ValueError(f"Unsupported normalization type: {normalization}")  
-    else:
-      raise ValueError(f"Unsupported residual type: {residual_type}")
+#     if residual_type == 'post_ln':
+#       self.norm = nn.Identity()
+#     elif residual_type == 'pre_ln':
+#       if normalization == 'layer':
+#         self.norm = LayerNormalization(features=features)
+#       elif normalization == 'batch':
+#         self.norm = BatchNormalization(features=features)
+#       else:
+#         raise ValueError(f"Unsupported normalization type: {normalization}")  
+#     else:
+#       raise ValueError(f"Unsupported residual type: {residual_type}")
       
 
 
 
-    if encoding_type == 'bypass':
-      for i, encoder in enumerate(encoders):
-        setattr(self, f'encoder_{i+1}', encoder)
-        setattr(self, f'src_embed_{i+1}', src_embed[i])
-        setattr(self, f'src_pos_{i+1}', src_pos[i])
-      self.final_block = final_block
-      self.encode_type = self.bypass_encode
+#     if encoding_type == 'bypass':
+#       for i, encoder in enumerate(encoders):
+#         setattr(self, f'encoder_{i+1}', encoder)
+#         setattr(self, f'src_embed_{i+1}', src_embed[i])
+#         setattr(self, f'src_pos_{i+1}', src_pos[i])
+#       self.final_block = final_block
+#       self.encode_type = self.bypass_encode
 
-    elif encoding_type == 'none':
-      self.src_embed = src_embed[0]
-      self.src_pos = src_pos[0]
-      self.final_block = final_block
-      self.encode_type = self.non_encode
+#     elif encoding_type == 'none':
+#       self.src_embed = src_embed[0]
+#       self.src_pos = src_pos[0]
+#       self.final_block = final_block
+#       self.encode_type = self.non_encode
 
-    elif encoding_type == 'normal':
-      self.encoder = encoders[0]
-      self.src_embed = src_embed[0]
-      self.src_pos = src_pos[0]
-      self.final_block = final_block
-      self.encode_type = self.normal_encode
+#     elif encoding_type == 'normal':
+#       self.encoder = encoders[0]
+#       self.src_embed = src_embed[0]
+#       self.src_pos = src_pos[0]
+#       self.final_block = final_block
+#       self.encode_type = self.normal_encode
 
     
-    else:
-      raise ValueError(f"Unsupported encoding type: {encoding_type}")
+#     else:
+#       raise ValueError(f"Unsupported encoding type: {encoding_type}")
 
 
-  def normal_encode(self, src, src_mask=None):
-    # (batch_size, seq_len, d_model)
-    src = self.src_embed(src)
+#   def normal_encode(self, src, src_mask=None):
+#     # (batch_size, seq_len, d_model)
+#     src = self.src_embed(src)
 
-    src = self.src_pos(src)
+#     src = self.src_pos(src)
     
-    src = self.encoder(src, src_mask)
-    # print(f"Encoder output standard deviation: {src.std().item()} ", end=' ')
+#     src = self.encoder(src, src_mask)
+#     # print(f"Encoder output standard deviation: {src.std().item()} ", end=' ')
 
-    src = self.norm(src)
+#     src = self.norm(src)
 
-    src = self.final_block(src)
-    # print(f"Final block output standard deviation: {src.std().item()} ", end='\r')
-    return src
+#     src = self.final_block(src)
+#     # print(f"Final block output standard deviation: {src.std().item()} ", end='\r')
+#     return src
   
-  def non_encode(self, src, src_mask=None):
-    # (batch_size, seq_len, d_model)
-    src = self.src_embed(src)
+#   def non_encode(self, src, src_mask=None):
+#     # (batch_size, seq_len, d_model)
+#     src = self.src_embed(src)
 
-    src = self.src_pos(src)
+#     src = self.src_pos(src)
 
-    src = self.final_block(src)
-    return src
+#     src = self.final_block(src)
+#     return src
 
-  def bypass_encode(self, src, src_mask=None):
-    # (batch_size, seq_len, d_model)
-    src_slices = src.split(1, dim=-1)
-    # (batch_size, seq_len, 1) x n_ant
-    src_embeds = [getattr(self, f'src_embed_{i+1}')(src_slice) for i, src_slice in enumerate(src_slices)]
-    src_poss = [getattr(self, f'src_pos_{i+1}')(src_embed) for i, src_embed in enumerate(src_embeds)]
-    src_encoders = [getattr(self, f'encoder_{i+1}')(src_pos, src_mask) for i, src_pos in enumerate(src_poss)]
+#   def bypass_encode(self, src, src_mask=None):
+#     # (batch_size, seq_len, d_model)
+#     src_slices = src.split(1, dim=-1)
+#     # (batch_size, seq_len, 1) x n_ant
+#     src_embeds = [getattr(self, f'src_embed_{i+1}')(src_slice) for i, src_slice in enumerate(src_slices)]
+#     src_poss = [getattr(self, f'src_pos_{i+1}')(src_embed) for i, src_embed in enumerate(src_embeds)]
+#     src_encoders = [getattr(self, f'encoder_{i+1}')(src_pos, src_mask) for i, src_pos in enumerate(src_poss)]
 
-    src = torch.cat(src_encoders, dim=-1)
+#     src = torch.cat(src_encoders, dim=-1)
 
-    src = self.norm(src)
+#     src = self.norm(src)
 
-    src = self.final_block(src)
+#     src = self.final_block(src)
 
-    return src
+#     return src
 
-  def encode(self, src, src_mask=None):
-    return self.encode_type(src, src_mask)
-  
-class TransformerModel(nn.Module):
-  def __init__(self, config):
-    super(TransformerModel, self).__init__()
-    if 'transformer' in config:
-      config = config['transformer']
-    self.encoder = build_encoder_transformer(config)
+#   def encode(self, src, src_mask=None):
+#     return self.encode_type(src, src_mask)
   
 
-    if config['architecture']['data_type'] == 'trigger':
-      self.first = 0
-      self.second = 1
-      self.third = 2
-    elif config['architecture']['data_type'] == 'chunked':
-      self.first = 0
-      self.second = 2
-      self.third = 1
-    else:
-      raise ValueError(f"Unsupported data type: {config['architecture']['data_type']}")  
+# TODO this is a test
+class EncoderTransformer(nn.Module):
+    def __init__(self, 
+                 features:int,
+                 encoders: List[nn.Module], 
+                 src_embed: List[InputEmbeddings], 
+                 src_pos: List[PositionalEncoding],
+                 final_block: FinalBlock,
+                 encoding_type: str = 'normal',
+                 residual_type: str = 'post_ln',
+                 normalization: str = 'layer',
+                 data_type: str = 'trigger'
+                 ) -> None:
+        super().__init__()
 
-  def forward(self, x):
-    x = x.permute(self.first,self.second,self.third)
-    return self.encoder.encode(x, src_mask=None).unsqueeze(-1)
+        self.data_type = data_type
+        self.norm = self.get_norm(residual_type, normalization, features)
+        self.network_blocks = nn.ModuleList()
+
+        if encoding_type == 'normal':
+            self.encoder = encoders[0]
+            self.src_embed = src_embed[0]
+            self.src_pos = src_pos[0]
+            self.final_block = final_block
+            self.encode_type = self.normal_encode
+            self.network_blocks.extend([nn.Sequential(self.src_embed, self.src_pos, self.encoder, self.norm), nn.Sequential(self.final_block)])
+        
+        elif encoding_type == 'bypass':
+          for i, encoder in enumerate(encoders):
+            setattr(self, f'encoder_{i+1}', encoder)
+            setattr(self, f'src_embed_{i+1}', src_embed[i])
+            setattr(self, f'src_pos_{i+1}', src_pos[i])
+          self.final_block = final_block
+          self.encode_type = self.bypass_encode
+          self.network_blocks.extend([nn.Sequential(*[getattr(self, f'src_embed_{i+1}'), getattr(self, f'src_pos_{i+1}'), getattr(self, f'encoder_{i+1}')]) for i in range(len(encoders))])
+        
+        elif encoding_type == 'none':
+            self.src_embed = src_embed[0]
+            self.src_pos = src_pos[0]
+            self.final_block = final_block
+            self.encode_type = self.non_encode
+            self.network_blocks.extend([nn.Sequential(self.src_embed, self.src_pos), nn.Sequential(self.final_block)])
+        
+        else:
+            raise ValueError(f"Unsupported encoding type: {encoding_type}")
+
+    def get_norm(self, residual_type, normalization, features):
+        norm_types = {'post_ln': nn.Identity, 'pre_ln': {'layer': LayerNormalization, 'batch': BatchNormalization}}
+        try:
+            if residual_type == 'pre_ln':
+                return norm_types[residual_type][normalization](features=features)
+            return norm_types[residual_type]()
+        except KeyError:
+            raise ValueError(f"Unsupported residual or normalization type: {residual_type}, {normalization}")
+
+    def normal_encode(self, src, src_mask=None):
+        for module in self.network_blocks:
+            src = module(src)
+        return src
+    
+    def bypass_encode(self, src, src_mask=None):
+        src_slices = src.split(1, dim=-1)
+        src_embeds = [getattr(self, f'src_embed_{i+1}')(src_slice) for i, src_slice in enumerate(src_slices)]
+        src_poss = [getattr(self, f'src_pos_{i+1}')(src_embed) for i, src_embed in enumerate(src_embeds)]
+        src_encoders = [getattr(self, f'encoder_{i+1}')(src_pos, src_mask) for i, src_pos in enumerate(src_poss)]
+        src = torch.cat(src_encoders, dim=-1)
+        src = self.norm(src)
+        src = self.final_block(src)
+        return src
+    
+    def non_encode(self, src, src_mask=None):
+        for module in self.network_blocks:
+            src = module(src)
+        return src
+
+    def forward(self, src, src_mask=None):
+        if self.data_type == 'chunked':
+            src = src.permute(0, 2, 1)
+            src = self.encode_type(src, src_mask)
+            return src.unsqueeze(-1)
+        return self.encode_type(src, src_mask)
+    
+    def obtain_pre_activation(self, x):
+
+        x = self.forward(x)
+        return x
+
+
+# class build_encoder_transformer(nn.Module):
+#   def __init__(self, config):
+#     super(build_encoder_transformer, self).__init__()
+#     if 'transformer' in config:
+#       config = config['transformer']
+#     self.encoder = build_encoder_transformer(config)
+  
+
+#     if config['architecture']['data_type'] == 'trigger':
+#       self.first = 0
+#       self.second = 1
+#       self.third = 2
+#     elif config['architecture']['data_type'] == 'chunked':
+#       self.first = 0
+#       self.second = 1
+#       self.third = 2
+#     else:
+#       raise ValueError(f"Unsupported data type: {config['architecture']['data_type']}")  
+
+#   def forward(self, x):
+#     x = x.permute(self.first,self.second,self.third)
+#     return self.encoder(x, src_mask=None)
 
 def build_encoder_transformer(config): 
 
@@ -923,6 +1012,11 @@ def build_encoder_transformer(config):
   relative_positional_encoding = config['architecture']['pos_enc_type'] 
  
   dropout=config['training']['dropout'] 
+  data_type = config['architecture']['data_type']
+  if data_type == 'chunked':
+    data_order = 'bcs'
+  elif data_type == 'trigger':
+    data_order = 'bsc'  
 
   if encoder_type == 'bypass':
     by_pass = True
@@ -1034,7 +1128,8 @@ def build_encoder_transformer(config):
                                             final_block=final_block,
                                             encoding_type=encoder_type,
                                             residual_type=residual_type,
-                                            normalization=normalization)
+                                            normalization=normalization,
+                                            data_type=data_type)
 
   # Initialize the parameters
   for p in encoder_transformer.parameters():
@@ -1099,7 +1194,7 @@ def load_model(config, text='early_stop'):
 
   """
   
-  model = TransformerModel(config)
+  model = build_encoder_transformer(config)
   model_dict = model.state_dict()
 
   model_path = get_model_path(config, text=f'{text}')
@@ -1113,6 +1208,7 @@ def load_model(config, text='early_stop'):
   new_state_dict = {}
   for (k_model, v_model), (k_state, v_state) in zip(model_dict.items(), state_dict.items()):
       # Adjust the keys to match each other
+
       adjusted_key_model = '.'.join(k_model.split('.')[-2:])
       adjusted_key_state = '.'.join(k_state.split('.')[-2:])
       # If the adjusted keys match and the sizes match, add it to the new state dict
@@ -1121,7 +1217,7 @@ def load_model(config, text='early_stop'):
       else:
           print(f"Warning: {k_model} not found in loaded state dict")
           return None
-
+      print(f"{k_model}\t{v_model.shape}\t{k_state}\t{v_state}")
 
   # Now load the new state dict
   model.load_state_dict(new_state_dict, strict=False)

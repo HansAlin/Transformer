@@ -30,7 +30,7 @@ from analysis_tools.config import GetConfig
 from analysis_tools.Filters import GetRMSNoise
 from analysis_tools.model_loaders import LoadModelFromConfig
 
-from models.models import TransformerModel, load_model
+from models.models import build_encoder_transformer, load_model
 from model_configs.config import get_config
 from dataHandler.datahandler import get_model_config, get_model_path
 from evaluate import get_transformer_triggers
@@ -52,7 +52,7 @@ parser = argparse.ArgumentParser()
 # pos_enc_type [116, 128, 129]
 
 
-transformer_models = [208,201,209] #args.models #
+transformer_models = [211,212,213] #args.models #
 test = False
 
 def qualitative_colors(length, darkening_factor=0.6):

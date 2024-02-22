@@ -18,8 +18,10 @@ import yaml
 
 CODE_DIR_1  ='/home/acoleman/software/NuRadioMC/'
 sys.path.append(CODE_DIR_1)
-CODE_DIR_2 = '/home/acoleman/work/rno-g/'
-sys.path.append(CODE_DIR_2)
+# CODE_DIR_2 = '/home/acoleman/work/rno-g/'
+# sys.path.append(CODE_DIR_2)
+CODE_DIR_3 = '/home/halin/Master/nuradio-analysis/'
+sys.path.append(CODE_DIR_3)
 
 from NuRadioReco.utilities import units, fft
 
@@ -626,16 +628,18 @@ def get_chunked_data(batch_size, config, subset=True):
       config = config, 
       mixture = mixture, 
       np_rng = np_rng,
-      permute_for_RNN_input = config["training"]["permute_for_RNN_input"],  
-      scale_output_by_expected_rms = True,
-      noise_relative_amplitude_scaling = 1.0,
-      randomize_batchitem_start_position = config["training"]["randomize_batchitem_start_position"],
-      shift_signal_region_away_from_boundaries = config["training"]["shift_signal_region_away_from_boundaries"],
-      set_spurious_signal_to_zero = config["training"]["set_spurious_signal_to_zero"],
-      extra_gap_per_waveform = config["training"]["extra_gap_per_waveform"],
-      probabilistic_sampling_ensure_signal_region = config["training"]["probabilistic_sampling_ensure_signal_region"],
-      probabilistic_sampling_oversampling = config["training"]["probabilistic_sampling_oversampling"]
-       )
+      permute_for_RNN_input=False, 
+      scale_output_by_expected_rms=True,
+      noise_relative_amplitude_scaling=1.0,
+      randomize_batchitem_start_position=config["training"]["randomize_batchitem_start_position"],
+      shift_signal_region_away_from_boundaries=config["training"]["shift_signal_region_away_from_boundaries"],
+      set_spurious_signal_to_zero=config["training"]["set_spurious_signal_to_zero"],
+      extra_gap_per_waveform=config["training"]["extra_gap_per_waveform"],
+      probabilistic_sampling_ensure_signal_region=config["training"]["probabilistic_sampling_ensure_signal_region"],
+      probabilistic_sampling_oversampling=config["training"]["probabilistic_sampling_oversampling"],
+      probabilistic_sampling_ensure_min_signal_fraction=config["training"]["probabilistic_sampling_ensure_min_signal_fraction"],
+      probabilistic_sampling_ensure_min_signal_num_bins=config["training"]["probabilistic_sampling_ensure_min_signal_num_bins"]
+      )
   
   del x_train
   del y_train
@@ -650,16 +654,18 @@ def get_chunked_data(batch_size, config, subset=True):
       config = config, 
       mixture = val_mixture, 
       np_rng = np_rng_validation,
-      permute_for_RNN_input = config["training"]["permute_for_RNN_input"], 
-      scale_output_by_expected_rms = True,
-      noise_relative_amplitude_scaling = 1.0,
-      randomize_batchitem_start_position = -1,
-      shift_signal_region_away_from_boundaries = config["training"]["shift_signal_region_away_from_boundaries"],
-      set_spurious_signal_to_zero = config["training"]["set_spurious_signal_to_zero"],
-      extra_gap_per_waveform = config["training"]["extra_gap_per_waveform"],
-      probabilistic_sampling_ensure_signal_region = config["training"]["probabilistic_sampling_ensure_signal_region"],
-      probabilistic_sampling_oversampling = config["training"]["probabilistic_sampling_oversampling"]
-       )
+      permute_for_RNN_input=False, 
+      scale_output_by_expected_rms=True,
+      noise_relative_amplitude_scaling=1.0,
+      randomize_batchitem_start_position=config["training"]["randomize_batchitem_start_position"],
+      shift_signal_region_away_from_boundaries=config["training"]["shift_signal_region_away_from_boundaries"],
+      set_spurious_signal_to_zero=config["training"]["set_spurious_signal_to_zero"],
+      extra_gap_per_waveform=config["training"]["extra_gap_per_waveform"],
+      probabilistic_sampling_ensure_signal_region=config["training"]["probabilistic_sampling_ensure_signal_region"],
+      probabilistic_sampling_oversampling=config["training"]["probabilistic_sampling_oversampling"],
+      probabilistic_sampling_ensure_min_signal_fraction=config["training"]["probabilistic_sampling_ensure_min_signal_fraction"],
+      probabilistic_sampling_ensure_min_signal_num_bins=config["training"]["probabilistic_sampling_ensure_min_signal_num_bins"]
+      )
   
   del x_val
   del y_val
@@ -674,15 +680,17 @@ def get_chunked_data(batch_size, config, subset=True):
         config=config, 
         mixture=test_mixture, 
         np_rng=np_rng_test,
-        permute_for_RNN_input=config["training"]["permute_for_RNN_input"],
+        permute_for_RNN_input=False, 
         scale_output_by_expected_rms=True,
         noise_relative_amplitude_scaling=1.0,
-        randomize_batchitem_start_position=-1,
-        shift_signal_region_away_from_boundaries = config["training"]["shift_signal_region_away_from_boundaries"],
+        randomize_batchitem_start_position=config["training"]["randomize_batchitem_start_position"],
+        shift_signal_region_away_from_boundaries=config["training"]["shift_signal_region_away_from_boundaries"],
         set_spurious_signal_to_zero=config["training"]["set_spurious_signal_to_zero"],
         extra_gap_per_waveform=config["training"]["extra_gap_per_waveform"],
         probabilistic_sampling_ensure_signal_region=config["training"]["probabilistic_sampling_ensure_signal_region"],
-        probabilistic_sampling_oversampling=config["training"]["probabilistic_sampling_oversampling"]
+        probabilistic_sampling_oversampling=config["training"]["probabilistic_sampling_oversampling"],
+        probabilistic_sampling_ensure_min_signal_fraction=config["training"]["probabilistic_sampling_ensure_min_signal_fraction"],
+        probabilistic_sampling_ensure_min_signal_num_bins=config["training"]["probabilistic_sampling_ensure_min_signal_num_bins"]
         )
   
   del x_test
@@ -942,9 +950,9 @@ def get_model_config(model_num, path='/mnt/md0/halin/Models/', type_of_file='txt
       with open(CONFIG_PATH, 'r') as file:
           config = yaml.safe_load(file)
     if 'transformer' in config:
-      return config
-    else:
       return config['transformer']
+    else:
+      return config
     return config  
 
 

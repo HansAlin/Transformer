@@ -55,7 +55,7 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
       # config['transformer']['architecture']['out_put_shape'] = output_size # config['transformer']['architecture']['out_put_shape']
       
       if config['transformer']['basic']['model_type'] == "base_encoder": # config['transformer']['basic']['model_type']
-        model = build_encoder_transformer(config)
+        model = build_encoder_transformer(config['transformer']) #
 
         optimizer = torch.optim.Adam(model.parameters(), lr=config['transformer']['training']['learning_rate']) #
       
@@ -76,7 +76,7 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
       print(f"Number of paramters: {config['transformer']['num of parameters']['num_param']} input: {config['transformer']['num of parameters']['input_param']} encoder: {config['transformer']['num of parameters']['encoder_param']} final: {config['transformer']['num of parameters']['final_param']} pos: {config['transformer']['num of parameters']['pos_param']}")
       initial_epoch = 1
     else:
-      model = build_encoder_transformer(config) 
+      model = build_encoder_transformer(config['transformer']) 
       optimizer = torch.optim.Adam(model.parameters(), lr=config['transformer']['training']['learning_rate']) #
       scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=config['transformer']['training']['step_size'], gamma=config['transformer']['training']['decreas_factor']) #
 

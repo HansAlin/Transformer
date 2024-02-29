@@ -823,6 +823,22 @@ def get_same_diff_df(df):
   return df_same, df_diff   
 
 def get_model_path(config, text=''):
+  """
+  Returns the path to the model file. If a specific text is given, the function
+  looks for a file containing that text. E.g. if text='early_stop', the function
+  will return the path to the file containing 'early_stop' in its name. If no
+  specific text is given or no file containing the text is found, the function
+  returns the first file with the '.pth' extension. If no '.pth' file is found,
+  the function returns None.
+
+  Args:
+    config: dictionary, the configuration dictionary
+    text: string, the text to look for in the file name
+
+  Returns:
+    string, the path to the model file
+  
+  """
   if 'transformer' in config:
     folder = config['transformer']['basic']['model_path'] + 'saved_model/' 
   else:
@@ -941,6 +957,21 @@ def save_example_data(save_path='/home/halin/Master/Transformer/Test/data/'):
     count += 1
 
 def get_model_config(model_num, path='/mnt/md0/halin/Models/', type_of_file='txt', sufix=''):
+    
+    """
+    This function loads the model configuration from a file. The file can be either a .txt or a .yaml file.
+
+    Args:
+      model_num:    model number
+      path:         path to the models (optional)
+      type_of_file: type of file to load the configuration from (optional)
+      sufix:        sufix to add to the file name (optional)
+
+    Returns:
+      config: dictionary, the model configuration
+        
+    """
+
     if type_of_file == 'txt':  
       CONFIG_PATH = path + f'model_{model_num}/config{sufix}.txt'
       with open(CONFIG_PATH, 'rb') as f:
@@ -953,7 +984,7 @@ def get_model_config(model_num, path='/mnt/md0/halin/Models/', type_of_file='txt
       return config['transformer']
     else:
       return config
-    return config  
+
 
 
 def modify_keys(dictionary):

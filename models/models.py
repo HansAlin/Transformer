@@ -413,6 +413,7 @@ class MultiHeadAttentionBlock(nn.Module):
 
     assert d_model % h == 0, "d_model must be divisible by h"
     self.d_h = d_model // h
+
     if self.projection_type == 'linear':
       # TODO its an option to have biases or not in the linear layers
       self.W_q = nn.Linear(d_model, d_model) # W_q and bias
@@ -431,7 +432,7 @@ class MultiHeadAttentionBlock(nn.Module):
     self.dropout = nn.Dropout(dropout)
 
     # For relative positional encoding
-    if self.relative_positional_encoding == 'Realtive':
+    if self.relative_positional_encoding == 'Relative':
       self.max_relative_position = max_relative_position
       self.relative_positional_k = RelativePositionalEncoding(self.d_h, max_relative_position)
       self.relative_positional_v = RelativePositionalEncoding(self.d_h, max_relative_position)
@@ -888,26 +889,34 @@ class EncoderTransformer(nn.Module):
         super().__init__()
 
         self.data_type = data_type
-        self.norm = self.get_norm(residual_type, normalization, features)
+        norm = self.get_norm(residual_type, normalization, features)
         self.network_blocks = nn.ModuleList()
 
+
+
+    
         if encoding_type == 'normal':
-            self.encoder = encoders[0]
-            self.src_embed = src_embed[0]
-            self.src_pos = src_pos[0]
-            self.final_block = final_block
             self.encode_type = self.normal_encode
-            self.network_blocks.extend([nn.Sequential(self.src_embed, self.src_pos, self.encoder, self.norm), nn.Sequential(self.final_block)])
-        
+            block1 = nn.Sequential(src_embed[0], src_pos[0], encoders[0], norm)
+            block2 = nn.Sequential(final_block)
+            self.network_blocks.extend([block1, block2])
+
+
+        # if encoding_type == 'normal':
+
+        #     self.encode_type = self.normal_encode
+        #     self.network_blocks.extend([nn.Sequential(src_embed[0], src_pos[0], encoders[0], norm), nn.Sequential(final_block)])
+
+
         elif encoding_type == 'bypass':
-          for i, encoder in enumerate(encoders):
-            setattr(self, f'encoder_{i+1}', encoder)
-            setattr(self, f'src_embed_{i+1}', src_embed[i])
-            setattr(self, f'src_pos_{i+1}', src_pos[i])
-          self.final_block = final_block
-          self.encode_type = self.bypass_encode
-          self.network_blocks.extend([nn.Sequential(*[getattr(self, f'src_embed_{i+1}'), getattr(self, f'src_pos_{i+1}'), getattr(self, f'encoder_{i+1}')]) for i in range(len(encoders))])
-        
+            self.encode_type = self.bypass_encode
+            self.src_embed = src_embed
+            self.src_pos = src_pos
+            self.encoders = encoders
+            self.network_blocks.extend([nn.Sequential(src_embed[i], src_pos[i], encoders[i]) for i in range(len(encoders))])
+            self.network_blocks.append(final_block)
+
+        # TODO test this
         elif encoding_type == 'none':
             self.src_embed = src_embed[0]
             self.src_pos = src_pos[0]
@@ -932,14 +941,15 @@ class EncoderTransformer(nn.Module):
             src = module(src)
         return src
     
+     # TODO test this
     def bypass_encode(self, src, src_mask=None):
         src_slices = src.split(1, dim=-1)
-        src_embeds = [getattr(self, f'src_embed_{i+1}')(src_slice) for i, src_slice in enumerate(src_slices)]
-        src_poss = [getattr(self, f'src_pos_{i+1}')(src_embed) for i, src_embed in enumerate(src_embeds)]
-        src_encoders = [getattr(self, f'encoder_{i+1}')(src_pos, src_mask) for i, src_pos in enumerate(src_poss)]
+        src_embeds = [self.src_embed[i](src_slice) for i, src_slice in enumerate(src_slices)]
+        src_poss = [self.src_pos[i](src_embed) for i, src_embed in enumerate(src_embeds)]
+        src_encoders = [self.encoders[i](src_pos, src_mask) for i, src_pos in enumerate(src_poss)]
         src = torch.cat(src_encoders, dim=-1)
         src = self.norm(src)
-        src = self.final_block(src)
+        src = self.network_blocks[-1](src)  # Access the final_block through network_blocks
         return src
     
     def non_encode(self, src, src_mask=None):
@@ -984,7 +994,7 @@ class EncoderTransformer(nn.Module):
 #     return self.encoder(x, src_mask=None)
 
 def build_encoder_transformer(config): 
-
+  
   seq_len=        config['architecture']['seq_len'] 
   d_model=        config['architecture']['d_model'] 
   N=              config['architecture']['N'] 
@@ -1204,20 +1214,59 @@ def load_model(config, text='early_stop'):
 
   state_dict = state['model_state_dict']
 
-  # Create a new state dictionary with keys that match the model
-  new_state_dict = {}
-  for (k_model, v_model), (k_state, v_state) in zip(model_dict.items(), state_dict.items()):
-      # Adjust the keys to match each other
+  def count_matching_chars_from_right(s1, s2):
+      # Reverse both strings
+      s1 = s1[::-1]
+      s2 = s2[::-1]
 
-      adjusted_key_model = '.'.join(k_model.split('.')[-2:])
-      adjusted_key_state = '.'.join(k_state.split('.')[-2:])
-      # If the adjusted keys match and the sizes match, add it to the new state dict
-      if adjusted_key_model == adjusted_key_state and v_model.size() == v_state.size():
-          new_state_dict[k_model] = v_state
-      else:
-          print(f"Warning: {k_model} not found in loaded state dict")
-          return None
-      print(f"{k_model}\t{v_model.shape}\t{k_state}\t{v_state}")
+      # Count the number of matching characters from the start
+      count = 0
+      for c1, c2 in zip(s1, s2):
+          if c1 == c2:
+              count += 1
+          else:
+              break
+
+      return count/len(s1)
+
+  print()
+  new_state_dict = {}
+  print(f"{'Model: keys':<90} {'Model: value shape':<20} {'Loaded: keys':<90} {'Loaded: value shape':<20}")
+  nr_of_model_items = len(model_dict.items())
+  nr_of_state_items = len(state_dict.items())
+  for (k1, v1) in model_dict.items():
+      
+      best_match = 0
+      count_states = 0
+      for (k2, v2) in state_dict.items():
+          count_states += 1
+          if k1 == 'network_blocks.0.2.layers.0.self_attention_block.relative_positional_k.embeddings_table':
+            matching = count_matching_chars_from_right(k1, k2)
+            print(f"{k1:<90} {str(v1.shape):<25} {k2:<90} {str(v2.shape):<25} {matching:<5}")
+          matching_count = count_matching_chars_from_right(k1, k2)
+          if v1.shape != v2.shape:
+              matching_count = 0
+          if matching_count > best_match:
+              best_match = matching_count
+              best_k2 = k2
+              best_v2 = v2
+
+          # if best_match == 0 and count_states == nr_of_state_items:
+          #     for (k2, v2) in state_dict.items():
+          #       matching_count = count_matching_chars_from_right(k1, k2)
+          #       if matching_count > best_match:
+          #         best_match = matching_count
+          #         best_k2 = k2
+          #         length_v2 = v2.shape[1]
+          #         length_v1 = v1.shape[1]
+          #         zeros = torch.zeros(v2.shape[0], length_v1 - length_v2, v2.shape[2]).to(v2.device)
+          #         v2 = torch.cat((v2, zeros), dim=1)
+
+          #         best_v2 = v2
+
+
+      print(f"{k1:<90} {str(v1.shape):<25} {best_k2:<90} {str(best_v2.shape):<25} {best_match:<5}")
+      new_state_dict[k1] = best_v2
 
   # Now load the new state dict
   model.load_state_dict(new_state_dict, strict=False)

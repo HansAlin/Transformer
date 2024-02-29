@@ -9,8 +9,8 @@ sys.path.append(CODE_DIR_1)
 CODE_DIR_2 = '/home/acoleman/work/rno-g/'
 sys.path.append(CODE_DIR_2)
 
-from evaluate.evaluate import test_model, get_results, count_parameters, get_MMac,  get_quick_veff_ratio
-from models.models import TransformerModel, load_model
+from evaluate.evaluate import test_model, get_results, count_parameters, get_MMac,  get_quick_veff_ratio, test_threshold
+from models.models import build_encoder_transformer, load_model
 from model_configs.config import get_config
 from dataHandler.datahandler import get_model_config, get_model_path, save_data, get_trigger_data
 from plots.plots import histogram, plot_performance_curve, plot_performance, plot_collections, plot_table, plot_attention_scores
@@ -19,10 +19,10 @@ from analysis_tools.config import GetConfig
 #################################################################################
 #  Get new values for a model                                                   #
 #################################################################################
-model_number = 201
-config = get_model_config(model_num=model_number, type_of_file='yaml')
-model = load_model(config, text='eraly_stop')
-print()
+# model_number = 211
+# config = get_model_config(model_num=model_number, type_of_file='yaml')
+# model = load_model(config, text='early_stop')
+# print()
 
 
 # train_data, val_data, test_data = get_trigger_data(seq_len=config['architecture']['seq_len'],
@@ -94,3 +94,17 @@ print()
 #     final_nse = final_config['results']['NSE_AT_10KNRF']
 #     early_nse = ealry_stop_config['results']['NSE_AT_10KNRF']
 #     print(f'{model:<15} {early_nse:<10.6f} {final_nse:<10.6f}')
+
+#################################################################################
+# Test thresholds                                                               #   
+# #################################################################################
+# model_num =201
+# test_threshold(model_num=model_num)
+
+#################################################################################
+# Test load weights                                                             #
+#################################################################################
+
+model_num = 216
+config = get_model_config(model_num=model_num, type_of_file='yaml')
+model = load_model(config, text='early_stop')

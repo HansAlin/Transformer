@@ -401,7 +401,7 @@ class TestModel(BaseTest):
         self.assertIsNotNone(model)
         self.assertTrue(hasattr(model, 'network_blocks'))
         self.assertTrue(len(model.network_blocks) > 1)
-        #self.assertTrue(model.network_blocks[1].nam)
+        self.assertTrue(hasattr(model, 'forward')) 
         print(f"Tetwork blocks [1]: {model.network_blocks[1]}")
 
 if __name__ == '__main__':

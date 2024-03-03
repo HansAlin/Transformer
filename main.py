@@ -73,7 +73,7 @@ def main():
     args.start_model_num = None
     args.epochs = 100
     args.test = False
-    args.cuda_device = 1
+    args.cuda_device = 0
     args.config_number = 0
     args.inherit_model = None
     args.retrain = False
@@ -94,9 +94,9 @@ def main():
 
     #config = old_config.copy()
     hyper_param = {
-                'N':[2,4,8]
+                # 'N':[2]
                 # 'pos_enc_type':['Relative'],
-                # 'max_relative_position': [32],
+                'max_relative_position': [64],
                 #   'h': [2,4,8],
                 # 'd_model': [16],
                 # 'h': [16],
@@ -142,6 +142,8 @@ def main():
     if args.inherit_model != None:
       old_config = dh.get_model_config(args.inherit_model, type_of_file='yaml' )
       config = old_config.copy()
+      if 'transformer' not in config:
+        config = {'transformer': config}
 
 
       config['transformer']['architecture']['inherit_model'] = args.inherit_model
@@ -160,6 +162,7 @@ def main():
       config['transformer']['results']['NSE_AT_10KNRF'] = 0
       config['transformer']['results']['TRESH_AT_10KNRF'] = 0
       config['transformer']['results']['NSE_AT_100KNRF'] = 0
+      config['transformer']['results']['NSE_AT_10KROC'] = 0
       config['transformer']['num of parameters']['MACs'] = 0
       config['transformer']['num of parameters']['encoder_param'] = 0
       config['transformer']['num of parameters']['final_param'] = 0

@@ -52,7 +52,7 @@ parser = argparse.ArgumentParser()
 # pos_enc_type [116, 128, 129]
 
 
-transformer_models = [215,216,217] #args.models #
+transformer_models = [201,218,219] #args.models #
 test = False
 
 def qualitative_colors(length, darkening_factor=0.6):

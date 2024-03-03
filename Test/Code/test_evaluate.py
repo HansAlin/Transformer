@@ -24,6 +24,22 @@ from analysis_tools.config import GetConfig
 # model = load_model(config, text='early_stop')
 # print()
 
+# macs, params = get_MMac(model, config)
+# results = count_parameters(model, verbose=False)
+# config['num of parameters']['MACs'] = macs
+# config['num of parameters']['num_param'] = results['total_param'] #
+# config['num of parameters']['encoder_param'] = results['encoder_param'] # 
+# config['num of parameters']['input_param'] = results['src_embed_param'] # 
+# config['num of parameters']['final_param'] = results['final_param'] # 
+# config['num of parameters']['pos_param'] = results['buf_param'] 
+# print(f'MACs: {macs}')
+# print(f'Total params: {results["total_param"]}')
+# print(f'Encoder params: {results["encoder_param"]}')
+# print(f'Input params: {results["src_embed_param"]}')
+# print(f'Final params: {results["final_param"]}')
+# print(f'Positional params: {results["buf_param"]}')
+
+# save_data(config=config)
 
 # train_data, val_data, test_data = get_trigger_data(seq_len=config['architecture']['seq_len'],
 #                                                           batch_size=config['training']['batch_size'], 
@@ -105,6 +121,6 @@ from analysis_tools.config import GetConfig
 # Test load weights                                                             #
 #################################################################################
 
-model_num = 216
+model_num = 214
 config = get_model_config(model_num=model_num, type_of_file='yaml')
-model = load_model(config, text='early_stop')
+model = load_model(config, text='early_stop', verbose=True)

@@ -165,6 +165,9 @@ def get_MMac(model, config, verbose=False):
       params: The number of parameters in the model.
 
   """
+  if 'transformer' not in config:
+     config = {'transformer': config}
+
   seq_len = config['transformer']['architecture']['seq_len']
   channels = config['transformer']['architecture']['n_ant']
   batch_size = 1
@@ -230,12 +233,13 @@ def count_parameters(model, verbose=False):
       if verbose:
         print(f"Non-trainable layer: {name} | Size: {param.size()} | Number of Parameters: {param.numel()}")
 
-    total_param += param.numel()  
-    if 'encoder' in name:
+    total_param += param.numel() 
+    split_names = name.split('.') 
+    if 'encoder' in name or (split_names[1] == '0' and split_names[2] in ['2', '3']):
       encoder_param += param.numel()
-    elif 'src_embed' in name:
+    elif 'src_embed' in name  or (split_names[1] == '0' and split_names[2] in ['0', '1']):
        src_embed_param += param.numel()
-    elif 'final' in name:
+    elif 'final' in name or split_names[1] == '1':
       final_param += param.numel() 
 
 
@@ -309,7 +313,10 @@ def get_transformer_triggers(waveforms, trigger_times, model_name, pre_trig):
 
           try:
               x = this_wvf[cut_low_bin:cut_high_bin].swapaxes(0, 1).unsqueeze(0)
-              x = x.transpose(1, 2)
+              if config['architecture']['data_type'] == 'trigger':
+                x = x.transpose(1, 2)
+              elif config['architecture']['data_type'] == 'chunked':
+                 x = x  
               yhat = model(x)
               yhat = torch.sigmoid(yhat)
               if config['results']['TRESH_AT_10KNRF'] > yhat.cpu().squeeze() and config['basic']['model_num'] == 213:

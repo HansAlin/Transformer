@@ -1189,7 +1189,7 @@ class ModelWrapper(nn.Module):
     src_mask = None #torch.zeros(self.batch_size, self.seq_len, self.seq_len)
     return self.model(x)
     
-def load_model(config, text='early_stop'):
+def load_model(config, text='early_stop', verbose=False):
   """
     Load model from config file
     
@@ -1231,18 +1231,28 @@ def load_model(config, text='early_stop'):
 
   print()
   new_state_dict = {}
-  print(f"{'Model: keys':<90} {'Model: value shape':<20} {'Loaded: keys':<90} {'Loaded: value shape':<20}")
   nr_of_model_items = len(model_dict.items())
   nr_of_state_items = len(state_dict.items())
+
+  if verbose:
+    print(f"{'Model: keys':<90} {'Model: value shape':<20} {'Loaded: keys':<90} {'Loaded: value shape':<20}")
+    
+
+    for (k1, v1) in model_dict.items():
+      print(f"{k1:<90} {str(v1.shape):<20} {'':<90} {'':<20}")
+    print()  
+    for (k2, v2) in state_dict.items():
+      print(f"{'':<90} {'':<20} {k2:<90} {str(v2.shape):<20}")
+    print()  
+  
   for (k1, v1) in model_dict.items():
       
+       
       best_match = 0
       count_states = 0
       for (k2, v2) in state_dict.items():
           count_states += 1
-          if k1 == 'network_blocks.0.2.layers.0.self_attention_block.relative_positional_k.embeddings_table':
-            matching = count_matching_chars_from_right(k1, k2)
-            print(f"{k1:<90} {str(v1.shape):<25} {k2:<90} {str(v2.shape):<25} {matching:<5}")
+
           matching_count = count_matching_chars_from_right(k1, k2)
           if v1.shape != v2.shape:
               matching_count = 0
@@ -1251,21 +1261,29 @@ def load_model(config, text='early_stop'):
               best_k2 = k2
               best_v2 = v2
 
-          # if best_match == 0 and count_states == nr_of_state_items:
-          #     for (k2, v2) in state_dict.items():
-          #       matching_count = count_matching_chars_from_right(k1, k2)
-          #       if matching_count > best_match:
-          #         best_match = matching_count
-          #         best_k2 = k2
-          #         length_v2 = v2.shape[1]
-          #         length_v1 = v1.shape[1]
-          #         zeros = torch.zeros(v2.shape[0], length_v1 - length_v2, v2.shape[2]).to(v2.device)
-          #         v2 = torch.cat((v2, zeros), dim=1)
-
-          #         best_v2 = v2
+          
 
 
-      print(f"{k1:<90} {str(v1.shape):<25} {best_k2:<90} {str(best_v2.shape):<25} {best_match:<5}")
+          if best_match == 0 and k1.split('.')[-1] == 'pe':
+              if verbose:
+                print(f"Warning: {k1} did not match any state dict keys")
+              for (k2, v2) in state_dict.items():
+                matching_count = count_matching_chars_from_right(k1, k2)
+                if matching_count > best_match:
+                  best_match = matching_count
+                  best_k2 = k2
+                  length_v2 = v2.shape[1]
+                  length_v1 = v1.shape[1]
+                  zeros = torch.zeros(v2.shape[0], length_v1 - length_v2, v2.shape[2]).to(v2.device)
+                  v2 = torch.cat((v2, zeros), dim=1)
+
+                  best_v2 = v2
+      if count_states != nr_of_model_items:
+        if verbose:
+          print(f"Warning! The number of state items is not equal to the number of model items")            
+
+      if verbose:
+        print(f"{k1:<90} {str(v1.shape):<25} {best_k2:<90} {str(best_v2.shape):<25} {best_match:<5}")
       new_state_dict[k1] = best_v2
 
   # Now load the new state dict

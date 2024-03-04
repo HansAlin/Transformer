@@ -81,8 +81,15 @@ def plot_performance_curve(y_preds, ys, configs, bins=1000, save_path='', text =
  
     fig, ax = plt.subplots()
     length = len(y_preds)
+    new_configs = []
+    for config in configs:
+      if 'transformer' not in config:
+        config = {'transformer': config}
+      new_configs.append(config)  
+    
+    configs = new_configs
 
-    if save_path == '' and length == 0:
+    if save_path == '' and length == 1:
       save_path = configs[0]['transformer']['basic']['model_path'] + 'plot/' 
       isExist = os.path.exists(save_path)
       if not isExist:
@@ -730,9 +737,14 @@ def change_energy_units(value):
   changed_value = value/3600/1000
   return f'{changed_value:.2e} kWh'
 
-def change_to_giga(value, factor=1):
+def change_prefix(value, factor=1, prefix='k'):
   try:
-    return f'{(value / 1e9 * factor):.1f} G'
+    if prefix == 'k':
+      return f'{(value / 1e3 * factor):.1f} k'
+    elif prefix == 'M':
+      return f'{(value / 1e6 * factor):.1f} M'
+    elif prefix == 'G':
+      return f'{(value / 1e9 * factor):.1f} G'
   except:
     return value
 
@@ -820,18 +832,18 @@ def change_format_units(df):
         df (pd.DataFrame): dataframe to change format of
 
   """
-
+  df = df.copy()
   if 'MACs' in df.columns:
-    df.loc[:,'MACs'] = df['MACs'].apply(change_to_giga, factor=2)
+    df.loc[:,'MACs'] = df['MACs'].apply(change_prefix, factor=2, prefix='M')
     df.rename(columns={'MACs': 'FLOPs'}, inplace=True)
   if 'num_param' in df.columns:
-    df.loc[:,'num_param'] = df['num_param'].apply(change_to_kilo)
+    df.loc[:,'num_param'] = df['num_param'].apply(change_prefix, factor=1, prefix='k')
   if 'pos_param' in df.columns:
-    df.loc[:,'pos_param'] = df['pos_param'].apply(change_to_kilo)
+    df.loc[:,'pos_param'] = df['pos_param'].apply(change_prefix, factor=1, prefix='k')
   if 'input_param' in df.columns:
-    df.loc[:,'input_param'] = df['input_param'].apply(change_to_kilo)
+    df.loc[:,'input_param'] = df['input_param'].apply(change_prefix, factor=1, prefix='k')
   if 'encoder_param' in df.columns:
-    df.loc[:,'encoder_param'] = df['encoder_param'].apply(change_to_kilo)    
+    df.loc[:,'encoder_param'] = df['encoder_param'].apply(change_prefix, factor=1, prefix='k')    
   if 'energy' in df.columns:  
     df.loc[:,'energy'] = df['energy'].apply(lambda x: change_energy_units(x))
   if 'roc_area' in df.columns:
@@ -842,9 +854,10 @@ def change_format_units(df):
     df.loc[:,'NSE_AT_10KNRF'] = df['NSE_AT_10KNRF'].apply(lambda x: change_format(x, digits=3, format='f'))
   if 'training_time' in df.columns:
     df.loc[:,'training_time'] = df['training_time']/3600
-    df.loc[:,'training_time'] = df['training_time'].apply(lambda x: change_format(x, digits=1, format='f'))
+    df.loc[:,'training_time'] = df['training_time'].apply(lambda x: change_format(x, digits=0, format='f'))
 
   return df  
+ 
 
 
 def plot_attention_scores(model, x, save_path):

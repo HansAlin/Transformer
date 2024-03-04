@@ -52,8 +52,12 @@ parser = argparse.ArgumentParser()
 # pos_enc_type [116, 128, 129]
 
 
-transformer_models = [201,218,219] #args.models #
+transformer_models = {201:'final', 
+                      218:'final', 
+                      219:'final',
+                      223:'early_stop'}
 test = False
+
 
 def qualitative_colors(length, darkening_factor=0.6):
     colors = [cm.Set3(i) for i in np.linspace(0, 1, length)]
@@ -61,7 +65,7 @@ def qualitative_colors(length, darkening_factor=0.6):
     return darker_colors
 
 
-device = 0
+device = 2
 torch.cuda.set_device(device)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}, name of GPU: {torch.cuda.get_device_name(device=device)}")
@@ -265,14 +269,19 @@ def LoadModel(filename, model_list):
     model_list[name]["model"].eval()
     return name
 
-def LoadTransformerModel(model_num, model_list):
+def LoadTransformerModel(model_num, model_list, text):
     config = get_model_config(model_num=model_num)
+    if 'transformer' in config:
+        config = config['transformer']
     name = str(config['basic']["model_num"])
+    print(f"Threshold for model {name}: {config['results']['TRESH_AT_10KNRF']}")
+    if config['results']['TRESH_AT_10KNRF'] == 0:
+        assert False, "Model not trained"
     model_list[name] = dict()
     model_list[name]["config"] = config
     model_list[name]['data_config'] = GetConfig('/home/halin/Master/Transformer/data_config.yaml')
     
-    model = load_model(config, text='final')
+    model = load_model(config, text=text)
 
     model_list[name]["model"] = model
     model_list[name]["model"].to(device)
@@ -292,8 +301,8 @@ for filename in chunked_model_filenames:
     name = LoadModel(filename, all_models)
     all_models[name]["type"] = "Chunk"
 
-for model_num in transformer_models:
-    name = LoadTransformerModel(model_num, all_models)
+for model_num, model_type in transformer_models.items():
+    name = LoadTransformerModel(model_num, all_models, text=model_type)
     all_models[name]["type"] = "Transformer"
     
 

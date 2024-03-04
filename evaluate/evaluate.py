@@ -319,9 +319,9 @@ def get_transformer_triggers(waveforms, trigger_times, model_name, pre_trig):
                  x = x  
               yhat = model(x)
               yhat = torch.sigmoid(yhat)
-              if config['results']['TRESH_AT_10KNRF'] > yhat.cpu().squeeze() and config['basic']['model_num'] == 213:
-                # print(yhat.cpu().squeeze())
-                pass
+              # if config['results']['TRESH_AT_10KNRF'] > yhat.cpu().squeeze() and config['basic']['model_num'] == 213:
+              #   print(yhat.cpu().squeeze())
+              #   pass
                  
               triggers[i] = yhat.cpu().squeeze() > config['results']['TRESH_AT_10KNRF']
               pct_pass += 1 * triggers[i]
@@ -622,8 +622,19 @@ def get_quick_veff_ratio(model_list,  data_config, save_path, device=0):
   print("Saving", filename)
   fig.savefig(filename, bbox_inches="tight")
 
-def test_threshold(model_num):
+def test_threshold(model_num, treshold=None):
+  """
+    This function tests the threshold of the model based on the results, y_pred and y
+    that are saved in the model folder and commes from the resluts from the test set
+    after the training.
 
+    Args:
+      model_num: the model number
+      treshold: the treshold to test the model with (optional)
+
+    Returns:
+      None
+  """
   config = get_model_config(model_num=model_num, type_of_file='yaml')
   if 'transformer' in config:
     config = config['transformer']
@@ -635,20 +646,26 @@ def test_threshold(model_num):
   y = y_pred_data['y']
   y_pred = y_pred.to_numpy()
   y = y.to_numpy()
-  y_pred = np.where(y_pred > config['results']['TRESH_AT_10KNRF'], 1, 0)
+  if treshold is not None:
+    y_pred = np.where(y_pred > treshold, 1, 0)
+  else:
+    y_pred = np.where(y_pred > config['results']['TRESH_AT_10KNRF'], 1, 0)
+  
+
   print(f"Accuracy: {validate(y, y_pred, metric='Accuracy')}")
   print(f"Efficiency: {validate(y, y_pred, metric='Efficiency')}")
   print(f"Precission: {validate(y, y_pred, metric='Precision')}")
+  print(f"Treshold: {config['results']['TRESH_AT_10KNRF']}")
   true_negative = np.sum(np.logical_and(y == 0, y_pred == 0)) 
   false_positive = np.sum(np.logical_and(y == 0, y_pred == 1))
   false_negative = np.sum(np.logical_and(y == 1, y_pred == 0))
   true_positive = np.sum(np.logical_and(y == 1, y_pred == 1))
   total_neg = np.count_nonzero(y == 0)
   total_pos = np.count_nonzero(y == 1)
-  print(f"True Negative: {true_negative} total: {total_neg}")
+  print(f"True Negative: {true_negative} total: {total_neg}, ratio: {true_negative / total_neg}")
   print(f"False Positive: {false_positive}")
   print(f"False Negative: {false_negative}")
-  print(f"True Positive: {true_positive} total: {total_pos}")
+  print(f"True Positive: {true_positive} total: {total_pos}, ratio {true_positive / total_pos}")
   print(f"Total: {len(y)}")
 
    

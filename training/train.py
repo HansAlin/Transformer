@@ -287,10 +287,10 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
     print(f"Test efficiency: {config['transformer']['results']['Efficiency']:.4f}")
 
     histogram(y_pred_data['y_pred'], y_pred_data['y'], config['transformer'])
-    nr_area, nse, threshold = plot_performance_curve([y_pred_data['y_pred']], [y_pred_data['y']], [config], curve='nr', x_lim=[0,1], bins=100)
+    nr_area, nse, threshold = plot_performance_curve([y_pred_data['y_pred']], [y_pred_data['y']], [config], curve='nr', x_lim=[0,1], bins=10000)
     config['transformer']['results']['nr_area'] = float(nr_area)
     config['transformer']['results']['NSE_AT_10KNRF'] = float(nse)
-    roc_area, nse, threshold = plot_performance_curve([y_pred_data['y_pred']], [y_pred_data['y']], [config], curve='roc', bins=100)
+    roc_area, nse, threshold = plot_performance_curve([y_pred_data['y_pred']], [y_pred_data['y']], [config], curve='roc', bins=10000)
     config['transformer']['results']['roc_area'] = float(roc_area)
     config['transformer']['results']['NSE_AT_10KROC'] = float(nse)
     config['transformer']['results']['TRESH_AT_10KNRF'] = float(threshold)

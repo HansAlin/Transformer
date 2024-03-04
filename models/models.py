@@ -6,6 +6,7 @@ from torch.nn.modules import MultiheadAttention, Linear, Dropout, BatchNorm1d, T
 from dataHandler.datahandler import save_data, get_model_path
 import sys
 import torch.nn.functional as F
+from itertools import zip_longest
 
 # 
 class LayerNormalization(nn.Module):
@@ -324,74 +325,6 @@ class LearnablePositionalEncoding(nn.Module):
     x = x + b
     x = self.dropout(x)
     return x  
-   
-class FinalBlock(nn.Module):
-  """ This layer maps the d_model space to the output space.
-      Args:
-          d_model (int): The dimension of the model.
-          seq_len (int): The length of the sequence.
-          dropout (float, optional): The dropout rate. Defaults to 0.1.
-          out_put_size (int, optional): The size of the output. Defaults to 1.
-          forward_type (str, optional): The type of the forward pass. Defaults to 'basic'.
-  """
-  def __init__(self, d_model: int, seq_len: int, dropout: float = 0.1,  out_put_size: int = 1, forward_type='double_linear'):
-    super().__init__()
-    if forward_type == 'double_linear':
-      self.linear_1 = nn.Linear(d_model, out_put_size)
-      self.dropout = nn.Dropout(dropout)
-      self.linear_2 = nn.Linear(seq_len, out_put_size)
-      self.forward_type = self.double_linear_forward
-
-    elif forward_type == 'single_linear':
-      self.linear_1 = nn.Linear(d_model*seq_len, out_put_size)  
-      self.forward_type = self.single_linear_forward
-
-    elif forward_type == 'seq_average_linear':  
-      self.linear = nn.Linear(seq_len, out_put_size) #TODO check whether this is correct seq_len
-      self.forward_type = self.average_forward
-      self.dim = 2
-
-    elif forward_type == 'd_model_average_linear':
-      self.linear = nn.Linear(d_model, out_put_size)
-      self.forward_type = self.average_forward
-      self.dim = 1
-    else:
-      raise ValueError(f"Unsupported forward type: {forward_type}")  
- 
-  def double_linear_forward(self, x):
-    #(batch_size, seq_len, d_model)
-    x = self.linear_1(x)
-    x = x.squeeze()
-    x = self.dropout(x)
-    x = self.linear_2(x) 
-    x = x.squeeze()
-    x = self.dropout(x)
-    # (batch_size)
-
-    return x
-
-  def single_linear_forward(self, x):
-    # (batch_size, seq_len, d_model)
-    x = x.view(x.shape[0], -1)
-    # (batch_size, seq_len*d_model)
-    x = self.linear_1(x)
-    x = x.squeeze()
-    # (batch_size, out_put_size)
-    return x
-  
-  def average_forward(self, x):
-    # (batch_size, seq_len, d_model)
-    x =  x.mean(dim=self.dim) # --> (batch_size, seq_len)#TODO check whether this is correct 1 or 2
-    x = self.linear(x) # --> (batch_size, 1)
-
-    x = x.squeeze()
-
-    # (batch_size)
-    return x
-
-  def forward(self, x):
-    x = self.forward_type(x)
-    return x
 
 class MultiHeadAttentionBlock(nn.Module):
   def __init__(self, 
@@ -708,7 +641,76 @@ class VanillaEncoderBlock(nn.Module):
 
 
     return x
-               
+
+class FinalBlock(nn.Module):
+  """ This layer maps the d_model space to the output space.
+      Args:
+          d_model (int): The dimension of the model.
+          seq_len (int): The length of the sequence.
+          dropout (float, optional): The dropout rate. Defaults to 0.1.
+          out_put_size (int, optional): The size of the output. Defaults to 1.
+          forward_type (str, optional): The type of the forward pass. Defaults to 'basic'.
+  """
+  def __init__(self, d_model: int, seq_len: int, dropout: float = 0.1,  out_put_size: int = 1, forward_type='double_linear'):
+    super().__init__()
+    if forward_type == 'double_linear':
+      self.linear_1 = nn.Linear(d_model, out_put_size)
+      self.dropout = nn.Dropout(dropout)
+      self.linear_2 = nn.Linear(seq_len, out_put_size)
+      self.forward_type = self.double_linear_forward
+
+    elif forward_type == 'single_linear':
+      self.linear_1 = nn.Linear(d_model*seq_len, out_put_size)  
+      self.forward_type = self.single_linear_forward
+
+    elif forward_type == 'seq_average_linear':  
+      self.linear = nn.Linear(seq_len, out_put_size) #TODO check whether this is correct seq_len
+      self.forward_type = self.average_forward
+      self.dim = 2
+
+    elif forward_type == 'd_model_average_linear':
+      self.linear = nn.Linear(d_model, out_put_size)
+      self.forward_type = self.average_forward
+      self.dim = 1
+    else:
+      raise ValueError(f"Unsupported forward type: {forward_type}")  
+ 
+  def double_linear_forward(self, x):
+    #(batch_size, seq_len, d_model)
+    x = self.linear_1(x)
+    x = x.squeeze()
+    x = self.dropout(x)
+    x = self.linear_2(x) 
+    x = x.squeeze()
+    x = self.dropout(x)
+    # (batch_size)
+
+    return x
+
+  def single_linear_forward(self, x):
+    # (batch_size, seq_len, d_model)
+    x = x.view(x.shape[0], -1)
+    # (batch_size, seq_len*d_model)
+    x = self.linear_1(x)
+    x = x.squeeze()
+    # (batch_size, out_put_size)
+    return x
+  
+  def average_forward(self, x):
+    # (batch_size, seq_len, d_model)
+    x =  x.mean(dim=self.dim) # --> (batch_size, seq_len)#TODO check whether this is correct 1 or 2
+    x = self.linear(x) # --> (batch_size, 1)
+
+    x = x.squeeze()
+
+    # (batch_size)
+    return x
+
+  def forward(self, x):
+    x = self.forward_type(x)
+    return x  
+
+
 class VanillaEncoderTransformer(nn.Module):
   def __init__(self, encoders: nn.Module, 
               src_embed: List[InputEmbeddings], 
@@ -761,117 +763,6 @@ class Encoder(nn.Module):
 
     return x
 
-
-
-# class ProjectionLayer(nn.Module):
-#   def __init__(self, d_model: int, vocab_size: int) -> None:
-#     super().__init__()
-#     self.proj = nn.Linear(d_model, vocab_size)     
-        
-#   def forward(self, x):
-#     # (Batch, seq_len, d_model) --> (Batch, seq_len, vocab_size)
-#     return torch.log_softmax(self.proj(x), dim=-1)
-  
-
-# TODO this is a test
-# class EncoderTransformer(nn.Module):
-#   def __init__(self, 
-#                features:int,
-#                encoders: List[nn.Module], 
-#                src_embed: List[InputEmbeddings], 
-#                src_pos: List[PositionalEncoding],
-#                final_block: FinalBlock,
-#                encoding_type: str = 'normal',
-#                residual_type: str = 'post_ln',
-#                normalization: str = 'layer'
-
-#                ) -> None:
-#     super().__init__()
-
-#     if residual_type == 'post_ln':
-#       self.norm = nn.Identity()
-#     elif residual_type == 'pre_ln':
-#       if normalization == 'layer':
-#         self.norm = LayerNormalization(features=features)
-#       elif normalization == 'batch':
-#         self.norm = BatchNormalization(features=features)
-#       else:
-#         raise ValueError(f"Unsupported normalization type: {normalization}")  
-#     else:
-#       raise ValueError(f"Unsupported residual type: {residual_type}")
-      
-
-
-
-#     if encoding_type == 'bypass':
-#       for i, encoder in enumerate(encoders):
-#         setattr(self, f'encoder_{i+1}', encoder)
-#         setattr(self, f'src_embed_{i+1}', src_embed[i])
-#         setattr(self, f'src_pos_{i+1}', src_pos[i])
-#       self.final_block = final_block
-#       self.encode_type = self.bypass_encode
-
-#     elif encoding_type == 'none':
-#       self.src_embed = src_embed[0]
-#       self.src_pos = src_pos[0]
-#       self.final_block = final_block
-#       self.encode_type = self.non_encode
-
-#     elif encoding_type == 'normal':
-#       self.encoder = encoders[0]
-#       self.src_embed = src_embed[0]
-#       self.src_pos = src_pos[0]
-#       self.final_block = final_block
-#       self.encode_type = self.normal_encode
-
-    
-#     else:
-#       raise ValueError(f"Unsupported encoding type: {encoding_type}")
-
-
-#   def normal_encode(self, src, src_mask=None):
-#     # (batch_size, seq_len, d_model)
-#     src = self.src_embed(src)
-
-#     src = self.src_pos(src)
-    
-#     src = self.encoder(src, src_mask)
-#     # print(f"Encoder output standard deviation: {src.std().item()} ", end=' ')
-
-#     src = self.norm(src)
-
-#     src = self.final_block(src)
-#     # print(f"Final block output standard deviation: {src.std().item()} ", end='\r')
-#     return src
-  
-#   def non_encode(self, src, src_mask=None):
-#     # (batch_size, seq_len, d_model)
-#     src = self.src_embed(src)
-
-#     src = self.src_pos(src)
-
-#     src = self.final_block(src)
-#     return src
-
-#   def bypass_encode(self, src, src_mask=None):
-#     # (batch_size, seq_len, d_model)
-#     src_slices = src.split(1, dim=-1)
-#     # (batch_size, seq_len, 1) x n_ant
-#     src_embeds = [getattr(self, f'src_embed_{i+1}')(src_slice) for i, src_slice in enumerate(src_slices)]
-#     src_poss = [getattr(self, f'src_pos_{i+1}')(src_embed) for i, src_embed in enumerate(src_embeds)]
-#     src_encoders = [getattr(self, f'encoder_{i+1}')(src_pos, src_mask) for i, src_pos in enumerate(src_poss)]
-
-#     src = torch.cat(src_encoders, dim=-1)
-
-#     src = self.norm(src)
-
-#     src = self.final_block(src)
-
-#     return src
-
-#   def encode(self, src, src_mask=None):
-#     return self.encode_type(src, src_mask)
-  
 
 # TODO this is a test
 class EncoderTransformer(nn.Module):
@@ -1203,7 +1094,8 @@ def load_model(config, text='early_stop', verbose=False):
             model
 
   """
-  
+  if 'transformer' in config:
+    config = config['transformer']
   model = build_encoder_transformer(config)
   model_dict = model.state_dict()
 
@@ -1238,16 +1130,18 @@ def load_model(config, text='early_stop', verbose=False):
     print(f"{'Model: keys':<90} {'Model: value shape':<20} {'Loaded: keys':<90} {'Loaded: value shape':<20}")
     
 
-    for (k1, v1) in model_dict.items():
-      print(f"{k1:<90} {str(v1.shape):<20} {'':<90} {'':<20}")
-    print()  
-    for (k2, v2) in state_dict.items():
-      print(f"{'':<90} {'':<20} {k2:<90} {str(v2.shape):<20}")
-    print()  
+
+    for (k1, v1), (k2, v2) in zip_longest(model_dict.items(), state_dict.items(), fillvalue=('', None)):
+        v1_shape = str(v1.shape) if v1 is not None else ''
+        v2_shape = str(v2.shape) if v2 is not None else ''
+        print(f"{k1:<90} {v1_shape:<25} {k2:<90} {v2_shape:<25}")
+    print()
   
   for (k1, v1) in model_dict.items():
       
-       
+      # if 'embeddings_table' in k1:
+      #   continue
+
       best_match = 0
       count_states = 0
       for (k2, v2) in state_dict.items():

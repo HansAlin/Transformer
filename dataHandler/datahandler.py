@@ -980,8 +980,8 @@ def get_model_config(model_num, path='/mnt/md0/halin/Models/', type_of_file='txt
       CONFIG_PATH = path + f'model_{model_num}/config{sufix}.yaml'
       with open(CONFIG_PATH, 'r') as file:
           config = yaml.safe_load(file)
-    if 'transformer' in config:
-      return config['transformer']
+    if 'transformer' not in config:
+      return {'transformer': config}
     else:
       return config
 

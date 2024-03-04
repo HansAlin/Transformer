@@ -12,58 +12,40 @@ sys.path.append(CODE_DIR_2)
 from evaluate.evaluate import test_model, get_results, count_parameters, get_MMac,  get_quick_veff_ratio, test_threshold
 from models.models import build_encoder_transformer, load_model
 from model_configs.config import get_config
-from dataHandler.datahandler import get_model_config, get_model_path, save_data, get_trigger_data
+from dataHandler.datahandler import get_model_config, get_model_path, save_data, get_trigger_data, get_predictions
 from plots.plots import histogram, plot_performance_curve, plot_performance, plot_collections, plot_table, plot_attention_scores
 from analysis_tools.config import GetConfig
 
 #################################################################################
 #  Get new values for a model                                                   #
 #################################################################################
-# model_number = 211
+# model_number = 223
 # config = get_model_config(model_num=model_number, type_of_file='yaml')
-# model = load_model(config, text='early_stop')
+# model = load_model(config, text='early_stop', verbose=True)
 # print()
 
-# macs, params = get_MMac(model, config)
-# results = count_parameters(model, verbose=False)
-# config['num of parameters']['MACs'] = macs
-# config['num of parameters']['num_param'] = results['total_param'] #
-# config['num of parameters']['encoder_param'] = results['encoder_param'] # 
-# config['num of parameters']['input_param'] = results['src_embed_param'] # 
-# config['num of parameters']['final_param'] = results['final_param'] # 
-# config['num of parameters']['pos_param'] = results['buf_param'] 
-# print(f'MACs: {macs}')
-# print(f'Total params: {results["total_param"]}')
-# print(f'Encoder params: {results["encoder_param"]}')
-# print(f'Input params: {results["src_embed_param"]}')
-# print(f'Final params: {results["final_param"]}')
-# print(f'Positional params: {results["buf_param"]}')
 
-# save_data(config=config)
-
-# train_data, val_data, test_data = get_trigger_data(seq_len=config['architecture']['seq_len'],
-#                                                           batch_size=config['training']['batch_size'], 
-#                                                           subset=False, save_test_set=False)
+# train_data, val_data, test_data = get_trigger_data(config=config,
+#                                                    subset=False)
 # del train_data
 # del val_data
 
 # y_pred_data, accuracy, efficiency, precission = test_model(model=model,
 #                                                 test_loader=test_data,
 #                                                 device=0,
-#                                                 config=config,)
-# config['results']['Accuracy'] = float(accuracy)
-# config['results']['Efficiency'] = float(efficiency)
-# config['results']['Precission'] = float(precission)
-# save_path = 'Test/ModelsResults/test/'
-# histogram(y_pred_data['y_pred'], y_pred_data['y'], config, text=text)
-# nr_area, nse, threshold = plot_performance_curve([y_pred_data['y_pred']], [y_pred_data['y']], [config], curve='nr', x_lim=[0,1], bins=10000, text=text)
-# config['results']['nr_area'] = float(nr_area)
-# config['results']['NSE_AT_10KNRF'] = float(nse)
-# roc_area, nse, threshold = plot_performance_curve([y_pred_data['y_pred']], [y_pred_data['y']], [config], curve='roc', bins=10000, text=text)
-# config['results']['roc_area'] = float(roc_area)
-# config['results']['NSE_AT_10KROC'] = float(nse)
-# config['results']['TRESH_AT_10KNRF'] = float(threshold)
-# save_data(config=config, y_pred_data=y_pred_data, text=text)
+#                                                 config=config['transformer'],)
+
+# nr_area, nse, threshold = plot_performance_curve([y_pred_data['y_pred'].values], [y_pred_data['y'].values], [config], curve='nr', x_lim=[0,1], bins=10000, log_bins=False, reject_noise=1e4)
+# print(f'NRF: {nr_area}')
+# print(f'NSE: {nse}')
+# print(f'Threshold: {threshold}')
+# config['transformer']['results']['nr_area'] = float(nr_area)
+# config['transformer']['results']['NSE_AT_10KNRF'] = float(nse)
+# roc_area, nse, threshold = plot_performance_curve([y_pred_data['y_pred']], [y_pred_data['y']], [config], curve='roc', bins=10000, reject_noise=1e4)
+# config['transformer']['results']['roc_area'] = float(roc_area)
+# config['transformer']['results']['NSE_AT_10KROC'] = float(nse)
+# config['transformer']['results']['TRESH_AT_10KNRF'] = float(threshold)
+# save_data(config=config, y_pred_data=y_pred_data)
 
 #################################################################################
 # Test getting attention scores                                                 #
@@ -114,13 +96,13 @@ from analysis_tools.config import GetConfig
 #################################################################################
 # Test thresholds                                                               #   
 # #################################################################################
-# model_num =201
-# test_threshold(model_num=model_num)
+model_num =201
+test_threshold(model_num=model_num, treshold=None)
 
 #################################################################################
 # Test load weights                                                             #
 #################################################################################
 
-model_num = 214
-config = get_model_config(model_num=model_num, type_of_file='yaml')
-model = load_model(config, text='early_stop', verbose=True)
+# model_num = 213
+# config = get_model_config(model_num=model_num, type_of_file='yaml')
+# model = load_model(config, text='early_stop', verbose=True)

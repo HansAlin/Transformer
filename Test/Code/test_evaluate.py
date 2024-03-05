@@ -9,7 +9,7 @@ sys.path.append(CODE_DIR_1)
 CODE_DIR_2 = '/home/acoleman/work/rno-g/'
 sys.path.append(CODE_DIR_2)
 
-from evaluate.evaluate import test_model, get_results, count_parameters, get_MMac,  get_quick_veff_ratio, test_threshold
+from evaluate.evaluate import test_model, get_results, count_parameters, get_MMac,  get_quick_veff_ratio, test_threshold, noise_rejection, get_FLOPs
 from models.models import build_encoder_transformer, load_model
 from model_configs.config import get_config
 from dataHandler.datahandler import get_model_config, get_model_path, save_data, get_trigger_data, get_predictions
@@ -19,10 +19,10 @@ from analysis_tools.config import GetConfig
 #################################################################################
 #  Get new values for a model                                                   #
 #################################################################################
-# model_number = 223
+# model_number = 201
 # config = get_model_config(model_num=model_number, type_of_file='yaml')
 # model = load_model(config, text='early_stop', verbose=True)
-# print()
+# # print()
 
 
 # train_data, val_data, test_data = get_trigger_data(config=config,
@@ -96,8 +96,8 @@ from analysis_tools.config import GetConfig
 #################################################################################
 # Test thresholds                                                               #   
 # #################################################################################
-model_num =201
-test_threshold(model_num=model_num, treshold=None)
+# model_num =201
+# test_threshold(model_num=model_num, treshold=None)
 
 #################################################################################
 # Test load weights                                                             #
@@ -106,3 +106,20 @@ test_threshold(model_num=model_num, treshold=None)
 # model_num = 213
 # config = get_model_config(model_num=model_num, type_of_file='yaml')
 # model = load_model(config, text='early_stop', verbose=True)
+
+#################################################################################
+# Test noise rejection                                                          #
+#################################################################################
+noise_rejection(204, verbose=True, model_type='early_stop')
+
+#################################################################################
+# Test get_FLOPs                                                                #
+#################################################################################
+# model_num = 213
+# verbose = False
+# config = get_model_config(model_num=model_num, type_of_file='yaml')
+# model = load_model(config, text='final', verbose=verbose)
+# flops = get_FLOPs(model=model, config=config, verbose=verbose)
+# MACs = get_MMac(model=model, config=config['transformer'])
+# print(f'FLOPs: {flops}')
+# print(f'MACs: {MACs}')

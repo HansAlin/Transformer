@@ -18,7 +18,7 @@ class BaseTest(unittest.TestCase):
     batch_size = 32
     seq_len = 256
     channels = 4
-    d_model = 32
+    d_model = 64
     num_heads = 8
     dropout = 0.1
     d_ff = 512
@@ -366,7 +366,7 @@ class TestModel(BaseTest):
         config['architecture']['encoder_type'] = 'normal'
         config['architecture']['normalization'] = 'layer'
         config['architecture']['residual_type'] = 'pre_ln'
-        config['architecture']['data_type'] = 'chunked'
+        config['architecture']['data_type'] = 'trigger'
         config['architecture']['seq_len'] = self.seq_len
         config['training']['batch_size'] = self.batch_size
         config['architecture']['output_size'] = self.out_put_size

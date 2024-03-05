@@ -101,10 +101,10 @@ class CnnInputEmbeddings(nn.Module):
 
     rows = channels // kernel_size + 1
     vertical_padding = (rows * kernel_size - channels) // 2
-
-    out_put_size = d_model//channels
-    self.vertical_conv = nn.Conv2d(1, out_put_size, kernel_size=(kernel_size, stride), padding=(vertical_padding, 0), stride=(1, stride))
-    self.horizontal_conv = nn.Conv2d(1, out_put_size, kernel_size=(1, kernel_size), padding=(0, 0), stride=(1, stride))
+    self.stride = stride
+    self.out_put_size = d_model//channels
+    self.vertical_conv = nn.Conv2d(1, self.out_put_size, kernel_size=(kernel_size, stride), padding=(vertical_padding, 0), stride=(1, stride))
+    self.horizontal_conv = nn.Conv2d(1, self.out_put_size, kernel_size=(1, kernel_size), padding=(0, 0), stride=(1, stride))
 
   def forward(self, x):
     # x: (batch_size, seq_len, channels)
@@ -138,6 +138,7 @@ class ViTEmbeddings(nn.Module):
     super().__init__()
     self.channels = channels
     self.out_put_size = out_put_size
+    self.kernel_size = kernel_size
     self.height = kernel_size
 
 
@@ -352,6 +353,7 @@ class MultiHeadAttentionBlock(nn.Module):
       self.W_q = nn.Linear(d_model, d_model) # W_q and bias
       self.W_k = nn.Linear(d_model, d_model) # W_k and bias
       self.W_v = nn.Linear(d_model, d_model) # W_v and bias
+      self.W_0 = nn.Linear(self.h*self.d_h, d_model) # W_0 and bias wher self.h*self.d_h = d_model
 
     elif self.projection_type == 'cnn':
       self.W_q = nn.Conv2d(self.d_h, self.d_h, kernel_size=(1,1), stride=(1,1))
@@ -361,7 +363,7 @@ class MultiHeadAttentionBlock(nn.Module):
       self.W_0 = nn.Conv2d(d_model, d_model, kernel_size=(5,5), stride=(1,1), padding=(2,2))
 
 
-    self.W_0 = nn.Linear(self.h*self.d_h, d_model) # W_0 and bias wher self.h*self.d_h = d_model
+    
     self.dropout = nn.Dropout(dropout)
 
     # For relative positional encoding
@@ -434,7 +436,7 @@ class MultiHeadAttentionBlock(nn.Module):
     relative_q = query.permute(1, 0, 2).contiguous().view(len_q, batch_size*h, -1) # (seq_len, batch_size*n_head, d_h)
     relative_k = relative_position_k(len_q, len_k) # (seq_len, seq_len, d_h)
     # realative_k = (seq_len, seq_len, d_h) --> (seq_len, d_h, seq_len)
-    # (seq_len, batch_size*n_head, d_h) @ (seq_len, d_h, seq_len) --> (seq_len, batch_size*n_head, seq_len)
+    # (seq_len, batch_size*n_head, d_h) @ (seq_len, seq_len, d_h)--> (seq_len, batch_size*n_head, seq_len)
     # (seq_len, batch_size*n_head, seq_len) --> (batch_size*n_head, seq_len, seq_len)
     #
     relative_attention_scores = torch.matmul(relative_q, relative_k.transpose(1, 2)).transpose(0, 1)
@@ -488,7 +490,7 @@ class MultiHeadAttentionBlock(nn.Module):
     # transpose(1,2) swaps the seq_len and h dimensions dimeinstion 1 and 2
 
 
-    if self.relative_positional_encoding == 'Realtive':
+    if self.relative_positional_encoding == 'Relative': # TODO previous it was 'Realtive
       x, self.attention_scores = MultiHeadAttentionBlock.attention_with_relative_position(query, 
                                                                                           key, 
                                                                                           value, 

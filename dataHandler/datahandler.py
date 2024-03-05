@@ -253,6 +253,8 @@ def get_trigger_data(config, random_seed=123, subset=False, save_test_set=False)
   print(f"Will scale backround by 1 / {rms_noise / (1e-6 * units.volt):0.4f} uV")
   print(f"FYI: the RMS noise of the backround is {std / (1e-6 * units.volt):0.4f} uV")
   background /= rms_noise
+  new_std = np.std(background)
+  print(f"New std: {new_std}")
 
   #####################################################
   ############## Permuting everything

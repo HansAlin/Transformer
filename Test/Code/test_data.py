@@ -17,11 +17,12 @@ CODE_DIR_1  ='/home/halin/Master/Transformer/'
 sys.path.append(CODE_DIR_1)
 
 
-from dataHandler.datahandler import get_data, prepare_data, find_hyperparameters, get_data_binary_class, get_test_data, collect_config_to_df, get_model_config, get_predictions, save_data, save_model, create_model_folder
+from dataHandler.datahandler import get_trigger_data
 from models.models import build_encoder_transformer, get_n_params
 from evaluate.evaluate import get_MMac, count_parameters
 from evaluate.evaluate import get_MMac, count_parameters
 from plots.plots import get_area_under_curve, get_noise_reduction, get_roc, get_NSE_AT_NRF
+from model_configs.config import get_config
 
 
 #train_data, val_data, test_data = get_data_binary_class(save_test_set=True, subset=True)
@@ -273,4 +274,7 @@ def add_key_if_not_exists(dict_obj, key, value):
 
         
 #########################################################################
-#  Test         
+#  Test get trigger data
+#########################################################################
+config = get_config(0) 
+train_data, val_data, test_data = get_trigger_data(config)      

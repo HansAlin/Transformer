@@ -15,6 +15,9 @@ sampling:
 
 training:
   batch_size: 32
+  lengths:
+    train: 5000
+    unbiased: 1000000
   forward_skip_size: 200
   cdf: 0.7
   ns_readout_window: 800

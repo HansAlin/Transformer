@@ -1,6 +1,6 @@
 
 
-input_length: 256
+input_length: 128
 n_ant: 4
 
 sampling:
@@ -14,7 +14,7 @@ sampling:
     type: butter
 
 training:
-  batch_size: 32
+  batch_size: 64
   lengths:
     train: 5000
     unbiased: 1000000

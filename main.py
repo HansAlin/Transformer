@@ -50,7 +50,7 @@ def parse_args():
   parser.add_argument('--test', type=bool, help='True or False for test mode. ')
   parser.add_argument('--cuda_device', type=int,help='Which cuda device to use. ')
   parser.add_argument('--config_number', type=int,help='Which config file type to use. Recomend 0')
-  parser.add_argument('--inherit_model', type=int,help='Default 18')
+  parser.add_argument('--inherit_model', type=int,help='Default 213')
   parser.add_argument('--retrain', type=bool,help='Default False')
   
   args = parser.parse_args()

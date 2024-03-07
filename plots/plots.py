@@ -11,9 +11,9 @@ import torch
 
 
 
-from models.models import load_model
+import models.models as mm
 from dataHandler.datahandler import get_trigger_data, get_model_path, get_model_config
-from evaluate.evaluate import get_model_path
+#from evaluate.evaluate import get_model_path
 
 def histogram(y_pred, y, config, bins=100, save_path='', text=''):
     """
@@ -42,7 +42,7 @@ def histogram(y_pred, y, config, bins=100, save_path='', text=''):
     signal_wights = np.ones_like(y_pred_signal) / len(y_pred_signal)
     noise_weights = np.ones_like(y_pred_noise) / len(y_pred_noise)
 
-    ax.set_title(f"Model {config['basic']['model_num']}")
+    ax.set_title(f"Model {config['basic']['model_num']} {text}")
     ax.hist(y_pred_signal, bins=bins, label='Pred signal', weights=signal_wights, alpha=0.5)
     ax.hist(y_pred_noise, bins=bins, label='Pred noise', weights=noise_weights, alpha=0.5)
     ax.set_yscale('log')
@@ -100,7 +100,7 @@ def plot_performance_curve(y_preds, ys, configs, bins=1000, save_path='', text =
       if configs[0] != None:
         ax.set_title(f"Model {configs[0]['transformer']['basic']['model_num']} {text}")
       else:
-        ax.set_title(f"Model Test")  
+        ax.set_title(f"Model {text}")  
     else:
         if curve == 'roc':
           ax.set_title(f"ROC curve for {length} models,{text}") 
@@ -148,9 +148,11 @@ def plot_performance_curve(y_preds, ys, configs, bins=1000, save_path='', text =
     style.use('seaborn-colorblind')
     if text != '':
       text = ' ' + text
-    if save_path == '':
+    if save_path == '' and length == 1:
         save_path = config['transformer']['basic']['model_path'] + 'plot/' + f'model_{config["transformer"]["basic"]["model_num"]}_{curve}_{text.replace(" ", "_")}.png'
-    plt.savefig(save_path + f'model_{config["transformer"]["basic"]["model_num"]}_{curve}_{text.replace(" ", "_")}.png')
+        plt.savefig(save_path)
+    else:    
+      plt.savefig(save_path + f'_{text.replace(" ", "_")}.png')
     plt.close()
 
     return get_area_under_curve(x,y), nse, threshold
@@ -250,6 +252,30 @@ def plot_weights(model, config, save_path='', block='self_attention_block', quie
   plt.close()
 
 
+def plot_features(model, save_path='/home/halin/Master/Transformer/figures/', quiet=True, plot_feature='attention_score', identyfier=''):
+
+  matrix_to_plot = None  
+  title = ''
+
+  for name, module in model.named_modules():
+
+    if isinstance(module, mm.MultiHeadAttentionBlock) and plot_feature == 'attention_score':
+      attention_scores = module.attention_scores
+      matrix_to_plot = attention_scores[0][0].cpu().detach().numpy() # just first item in batch
+      title = 'Attention score'
+      save_path = save_path + f'attention_score{identyfier}.png'
+      break
+
+  fig, ax = plt.subplots()
+  if matrix_to_plot is not None:
+    x = ax.imshow(matrix_to_plot, cmap='coolwarm', interpolation='nearest')
+    ax.invert_yaxis()  # This line inverts the y-axis
+    cbar = ax.figure.colorbar(x, ax=ax)
+    plt.title(f'{title}')  
+    plt.savefig(save_path)
+    plt.close()
+
+
 def plot_collections(models, labels, bins=100, save_path='', models_path='Test/ModelsResults/', x_lim=[0.8,1], window_pred=False, curve='roc', log_bins=False, reject_noise=1e4): 
   y_pred = []
   y = []
@@ -332,7 +358,7 @@ def plot_performance(config, device, x_batch=None, y_batch=None,lim_value=0.2, m
     y_test = y_batch
 
   device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  
-  model = load_model(config, text='final')
+  model = mm.load_model(config, text='final')
   model.to(device)
   x_test, y_test = x_test.to(device), y_test.to(device)
   model.eval()
@@ -916,3 +942,28 @@ def plot_veff(models):
     for key, value in config['transformer']['results']['veff'].items():
       lgEs.append(key)
       avg.append(value['avg'])
+
+
+
+def plot_hist(values, names, log=False, bins=100, xlim=0, ylim=10000,save_path='/home/halin/Master/Transformer/figures/noise_hist.png'):
+    if len(values) != len(names):
+        raise ValueError("values and names must have the same length")
+
+    fig, ax = plt.subplots()
+
+    min_value = min(min(v) for v in values if v is not None)
+    if log:
+        bins = np.logspace(np.log10(min_value), 1, num=bins)
+
+    for value, name in zip(values, names):
+        if value is not None:
+            ax.hist(value, bins=bins, alpha=0.5, label=name)
+            plt.legend()
+
+    if log:
+        ax.set_xscale('log')
+    plt.xlim([xlim,1])    
+    plt.ylim([0,ylim])
+    plt.savefig(save_path)
+    
+    plt.close() 

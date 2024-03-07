@@ -221,7 +221,7 @@ class InputEmbeddings(nn.Module):
 
 class PositionalEncoding(nn.Module):
    
-  def __init__(self, d_model: int, dropout: float, max_seq_len: int, omega: float) -> None:
+  def __init__(self, d_model: int, dropout: float, max_seq_len: int, omega: float = 10000) -> None:
     super().__init__()
     self.d_model = d_model
     self.dropout = nn.Dropout(p=dropout)
@@ -334,7 +334,7 @@ class MultiHeadAttentionBlock(nn.Module):
                max_seq_len: int = 128, 
                dropout: float = 0.1, 
                max_relative_position = 10, 
-               relative_positional_encoding: str = 'Sinusoidal', 
+               positional_encoding: str = 'Sinusoidal', 
                GSA: bool =False,
                projection_type: str = 'linear',
                ):
@@ -342,7 +342,7 @@ class MultiHeadAttentionBlock(nn.Module):
     self.d_model = d_model
     self.h = h
     self.scale = math.sqrt(self.d_model)
-    self.relative_positional_encoding = relative_positional_encoding
+    self.positional_encoding = positional_encoding
     self.projection_type = projection_type
 
     assert d_model % h == 0, "d_model must be divisible by h"
@@ -367,7 +367,7 @@ class MultiHeadAttentionBlock(nn.Module):
     self.dropout = nn.Dropout(dropout)
 
     # For relative positional encoding
-    if self.relative_positional_encoding == 'Relative':
+    if self.positional_encoding == 'Relative':
       self.max_relative_position = max_relative_position
       self.relative_positional_k = RelativePositionalEncoding(self.d_h, max_relative_position)
       self.relative_positional_v = RelativePositionalEncoding(self.d_h, max_relative_position)
@@ -490,7 +490,7 @@ class MultiHeadAttentionBlock(nn.Module):
     # transpose(1,2) swaps the seq_len and h dimensions dimeinstion 1 and 2
 
 
-    if self.relative_positional_encoding == 'Relative': # TODO previous it was 'Realtive
+    if self.positional_encoding == 'Relative': # TODO previous it was 'Realtive
       x, self.attention_scores = MultiHeadAttentionBlock.attention_with_relative_position(query, 
                                                                                           key, 
                                                                                           value, 
@@ -912,7 +912,7 @@ def build_encoder_transformer(config):
   else:
     features = d_model  
 
-  relative_positional_encoding = config['architecture']['pos_enc_type'] 
+  positional_encoding = config['architecture']['pos_enc_type'] 
  
   dropout=config['training']['dropout'] 
   data_type = config['architecture']['data_type']
@@ -972,9 +972,9 @@ def build_encoder_transformer(config):
       encoder_blocks = []
       for _ in range(N):
         if config['architecture']['pos_enc_type'] == 'Relative':
-          encoder_self_attention_block = MultiHeadAttentionBlock(d_model, h, max_seq_len=max_seq_len, dropout=dropout, max_relative_position=max_relative_position, relative_positional_encoding=relative_positional_encoding)
+          encoder_self_attention_block = MultiHeadAttentionBlock(d_model, h, max_seq_len=max_seq_len, dropout=dropout, max_relative_position=max_relative_position, positional_encoding=positional_encoding)
         else:
-          encoder_self_attention_block = MultiHeadAttentionBlock(d_model, h, dropout)
+          encoder_self_attention_block = MultiHeadAttentionBlock(d_model, h, dropout, positional_encoding=positional_encoding)
 
         feed_forward_block = FeedForwardBlock(d_model, d_ff, dropout, activation=activation)
         encoder_block = EncoderBlock(features=features,
@@ -1097,14 +1097,26 @@ def load_model(config, text='early_stop', verbose=False):
 
   """
   if 'transformer' in config:
+    original_config = config
     config = config['transformer']
+  else:
+    original_config = config  
+
   model = build_encoder_transformer(config)
   model_dict = model.state_dict()
 
   model_path = get_model_path(config, text=f'{text}')
 
-  print(f'Preloading model {model_path}')
+  print(f'Preloading model {model_path}') if verbose else None
   state = torch.load(model_path)
+
+  if '/mnt/md0/halin/Models/' not in config['basic']['model_path']  :
+    state = torch.load(model_path, map_location=torch.device("cpu"))
+    model.load_state_dict(state)
+    # TODO added to make possible to use in cluster
+    model.adds = get_FLOPs(model, original_config, verbose=verbose)
+    model.multiplys = 0
+    return model
 
   state_dict = state['model_state_dict']
 
@@ -1123,7 +1135,7 @@ def load_model(config, text='early_stop', verbose=False):
 
       return count/len(s1)
 
-  print()
+  
   new_state_dict = {}
   nr_of_model_items = len(model_dict.items())
   nr_of_state_items = len(state_dict.items())
@@ -1185,6 +1197,144 @@ def load_model(config, text='early_stop', verbose=False):
   # Now load the new state dict
   model.load_state_dict(new_state_dict, strict=False)
 
-
-
+ 
   return model
+
+def get_FLOPs(model, config, verbose=False):
+  """
+    Get the number of FLOPs for the model. Note the model needs to have the modules named
+    as: InputEmbeddings, PositionalEncoding, ResidualConnection, MultiHeadAttentionBlock,
+    FeedForwardBlock, FinalBlock. The model also needs to have the configuration dictionary
+    as an argument.
+    Args:
+        model (nn.Module): The model.
+        config (dict): The configuration dictionary.
+    Returns:
+        int: The number of FLOPs.
+  """
+
+  batch_size = 1
+  seq_len = config['transformer']['architecture']['seq_len']
+  d_model = config['transformer']['architecture']['d_model']
+  d_ff = config['transformer']['architecture']['d_ff']
+  n_ant = config['transformer']['architecture']['n_ant']
+  max_relative_position = config['transformer']['architecture']['max_relative_position']
+  out_put_size = 1
+  flops = 0
+
+  for name, module in model.named_modules():
+    ## Input embeddings
+    if isinstance(module, InputEmbeddings):
+       
+       print(f"Is a input embedding: {name}") if verbose else None
+
+       if isinstance(module.embedding, torch.nn.Linear):
+        flops += 2 * module.embedding.in_features * module.embedding.out_features  # for the multiplication
+        flops += module.embedding.out_features  # for the bias addition
+
+       elif isinstance(module.embedding, CnnInputEmbeddings):  
+          MACs1 = n_ant * seq_len * module.embedding.kernel_size * module.embedding.stride * module.embedding.out_put_size
+          MACs2 = n_ant * seq_len * 1 * module.embedding.kernel_size * module.embedding.out_put_size
+          flops += 2 * (MACs1 + MACs2)
+
+       elif isinstance(module.embedding, ViTEmbeddings):
+          MACs1 = n_ant * seq_len * module.embedding.kernel_size * module.embedding.kernel_size * module.embedding.out_put_size
+          flops += 2 * MACs1  
+
+       if module.dropout.p > 0:
+        flops += 2 * batch_size * seq_len * d_model
+
+       if isinstance(module.activation, torch.nn.ReLU) or isinstance(module.activation, torch.nn.GELU):
+          flops += batch_size * seq_len * d_model
+
+    ## Positional encoding      
+    elif isinstance(module, PositionalEncoding):
+       print(f"Is a positional encoding: {name}") if verbose else None
+
+       flops +=  batch_size * seq_len * d_model
+
+    ## Residual connection
+    elif isinstance(module, ResidualConnection):
+      print(f"Is a residual connection: {name}") if verbose else None
+
+      flops += batch_size * seq_len * d_model
+
+      if module.dropout.p > 0:
+        flops += 2 * batch_size * seq_len * d_model
+
+      if isinstance(module.norm, BatchNormalization) or isinstance(module.norm, LayerNormalization):
+        flops += 4 * batch_size * seq_len * d_model
+
+    ## MultiHeadAttentionBlock
+    elif isinstance(module, MultiHeadAttentionBlock):
+      print(f"Is a multi head attention block: {name}") if verbose else None
+      # Perform calculations for MultiHeadAttentionBlock
+      n_heads = module.h
+      d_h = module.d_h
+      if module.projection_type == 'linear':
+        linear_contribution = 2 * 4 * batch_size * seq_len * d_model * d_model # q x W_q, k x W_k, v x W_v
+        attention_calc = 2 * batch_size * seq_len * seq_len * n_heads * d_h
+        soft_max = batch_size * seq_len * seq_len * n_heads
+        final_mult = 2 * batch_size * n_heads * seq_len * d_h * seq_len
+        scale = 2 * batch_size * seq_len * n_heads * d_model
+        flops += linear_contribution + attention_calc + soft_max + final_mult + scale
+
+      elif module.projection_type == 'cnn':
+         print("Is not implemnted yet")   
+
+      if module.positional_encoding == 'Relative':
+         
+         relative_attention_1 = 2 *batch_size * seq_len * seq_len * n_heads * d_h
+         attention_score = 2 * batch_size * seq_len * seq_len * n_heads
+         relative_attention_2 = 2 * batch_size * seq_len * n_heads * d_h * seq_len
+         add_weight = 2 * batch_size * seq_len * n_heads * d_h
+         flops += relative_attention_1 + attention_score + relative_attention_2 + add_weight
+
+      if module.dropout.p > 0:
+        flops += 2 * batch_size * seq_len * d_model
+
+
+    ## FeedForwardBlock
+    elif isinstance(module, FeedForwardBlock):
+      print(f"Is a feed forward block: {name}") if verbose else None
+      # FLOPs for wieghts a
+      flops += batch_size * seq_len * d_model * d_ff +  batch_size * seq_len * d_ff * d_model
+
+      # FLOPs for the bias additions in the two linear transformations
+      flops += batch_size * seq_len * d_ff + batch_size * seq_len * d_model
+
+      if isinstance(module.activation, torch.nn.ReLU) or isinstance(module.activation, torch.nn.GELU):
+        flops += batch_size * seq_len * d_ff
+
+    ## FinalBlock
+    elif isinstance(module, FinalBlock):
+        print(f"Is a final block: {name}") if verbose else None
+
+        if module.forward_type == module.double_linear_forward:
+            flops += 2 * batch_size * d_model * out_put_size + out_put_size  # for the first linear transformation
+            flops += 2 * batch_size * seq_len * out_put_size + out_put_size  # for the second linear transformation
+
+        elif module.forward_type == module.single_linear_forward:
+            flops += 2 * batch_size * (d_model * seq_len) * out_put_size + out_put_size
+
+        elif module.forward_type == module.average_forward:
+            if module.dim == 2:  # seq_average_linear
+                flops += batch_size * seq_len  # for the average operation
+                flops += 2 * batch_size * seq_len * out_put_size + out_put_size  # for the linear transformation
+            else:  # d_model_average_linear
+                flops += batch_size * d_model  # for the average operation
+                flops += 2 * batch_size * d_model * out_put_size + out_put_size  # for the linear transformation
+
+
+    elif isinstance(module, LayerNormalization):
+      print(f"Is a layer normalization: {name}") if verbose else None
+      # Perform calculations for LayerNormalization
+      flops += 4 * batch_size * seq_len * d_model
+
+    else:
+      print(f"Is a unknown block: {name} the type is: {type(module)}") if verbose else None
+      # Perform calculations for unknown block
+
+  print(f"FLOPs: {flops}") if verbose else None
+  return flops
+     

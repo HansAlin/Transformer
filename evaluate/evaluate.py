@@ -14,7 +14,7 @@ import glob
 
 from models.models import ModelWrapper, get_n_params, build_encoder_transformer, load_model, ResidualConnection, MultiHeadAttentionBlock, InputEmbeddings, PositionalEncoding, FinalBlock, FeedForwardBlock, CnnInputEmbeddings, BatchNormalization, LayerNormalization, ViTEmbeddings
 from dataHandler.datahandler import get_model_config, get_chunked_data, save_data, get_model_path
-from plots.plots import plot_examples
+import plots.plots as pp
 CODE_DIR_1  ='/home/acoleman/software/NuRadioMC/'
 sys.path.append(CODE_DIR_1)
 CODE_DIR_2 = '/home/acoleman/work/rno-g/'
@@ -669,7 +669,20 @@ def test_threshold(model_num, treshold=None):
   print(f"Total: {len(y)}")
 
 
-def noise_rejection(model_number, model_type='final', cuda_device=0, verbose=False):
+def noise_rejection(model_number, model_type='final', cuda_device=0, verbose=False, ):
+  """
+    This function tests the noise rejection rate of the model. It loads the noise from the
+    noise generation and tests the model on the noise. It then calculates the noise rejection rate.
+
+    Arguments:
+      model_number: the model number (int)
+      model_type: the type of model to test, either 'final' or 'early_stop'
+      cuda_device: the cuda device to use
+      verbose: whether to print the results or not
+
+    Returns:
+      None
+  """
 
   noise = np.load('/home/halin/Master/nuradio-analysis/noise-generation/high-low-trigger/data/fLow_0.08-fhigh_0.23-rate_0.5/SNR_3.421-Vrms_5.52-mult_2-fLow_0.08-fhigh_0.23-rate_0.5-File_0000.npy')   
   print(noise.shape)
@@ -689,7 +702,7 @@ def noise_rejection(model_number, model_type='final', cuda_device=0, verbose=Fal
 
   if verbose:
     print(f"Mean: {noise_mean}, std: {noise_std}")
-    plot_examples(noise.cpu().detach().numpy(), save_path='/home/halin/Master/Transformer/figures/test_1.png')
+    pp.plot_examples(noise.cpu().detach().numpy(), save_path='/home/halin/Master/Transformer/figures/test_1.png')
     print(noise.shape)
 
   device = torch.device(f"cuda:{cuda_device}")
@@ -704,164 +717,23 @@ def noise_rejection(model_number, model_type='final', cuda_device=0, verbose=Fal
 
   outputs = []
 
+
+
   with torch.no_grad():
     for chunk in chunks:
       chunk_noise = chunk.to(device)*1.05
       output = model(chunk_noise)
+      self_attention_score = 1
       output = torch.sigmoid(output)
       output = output.cpu().detach().numpy()
       outputs.append(output)
-
+  
   outputs = np.concatenate(outputs)
   outputs = outputs.ravel()
+
   
   interpret_signal = np.where(outputs > config['results']['TRESH_AT_10KNRF'], 1, 0)
   print(f"Number of noise events interpreted as signal: {np.sum(interpret_signal)}")
   print(f"Noise rejection rate: {len(outputs)/np.sum(interpret_signal)}")
-    
+  return outputs  
   
-def get_FLOPs(model, config, verbose):
-
-  batch_size = 1
-  seq_len = config['transformer']['architecture']['seq_len']
-  d_model = config['transformer']['architecture']['d_model']
-  d_ff = config['transformer']['architecture']['d_ff']
-  n_ant = config['transformer']['architecture']['n_ant']
-  max_relative_position = config['transformer']['architecture']['max_relative_position']
-  out_put_size = 1
-  flops = 0
-
-  for name, module in model.named_modules():
-    ## Input embeddings
-    if isinstance(module, InputEmbeddings):
-       
-       print(f"Is a input embedding: {name}") if verbose else None
-
-       if isinstance(module.embedding, torch.nn.Linear):
-        flops += 2 * module.embedding.in_features * module.embedding.out_features  # for the multiplication
-        flops += module.embedding.out_features  # for the bias addition
-
-       elif isinstance(module.embedding, CnnInputEmbeddings):  
-          MACs1 = n_ant * seq_len * module.embedding.kernel_size * module.embedding.stride * module.embedding.out_put_size
-          MACs2 = n_ant * seq_len * 1 * module.embedding.kernel_size * module.embedding.out_put_size
-          flops += 2 * (MACs1 + MACs2)
-
-       elif isinstance(module.embedding, ViTEmbeddings):
-          MACs1 = n_ant * seq_len * module.embedding.kernel_size * module.embedding.kernel_size * module.embedding.out_put_size
-          flops += 2 * MACs1  
-
-       if module.dropout.p > 0:
-        flops += 2 * batch_size * seq_len * d_model
-
-       if isinstance(module.activation, torch.nn.ReLU) or isinstance(module.activation, torch.nn.GELU):
-          flops += batch_size * seq_len * d_model
-
-    ## Positional encoding      
-    elif isinstance(module, PositionalEncoding):
-       print(f"Is a positional encoding: {name}") if verbose else None
-
-       flops +=  batch_size * seq_len * d_model
-
-    ## Residual connection
-    elif isinstance(module, ResidualConnection):
-      print(f"Is a residual connection: {name}") if verbose else None
-
-      flops += batch_size * seq_len * d_model
-
-      if module.dropout.p > 0:
-        flops += 2 * batch_size * seq_len * d_model
-
-      if isinstance(module.norm, BatchNormalization) or isinstance(module.norm, LayerNormalization):
-        flops += 4 * batch_size * seq_len * d_model
-
-    ## MultiHeadAttentionBlock
-    elif isinstance(module, MultiHeadAttentionBlock):
-      print(f"Is a multi head attention block: {name}") if verbose else None
-      # Perform calculations for MultiHeadAttentionBlock
-      n_heads = module.h
-      d_h = module.d_h
-      if module.projection_type == 'linear':
-        linear_contribution = 2 * 4 * batch_size * seq_len * d_model * d_model # q x W_q, k x W_k, v x W_v
-        attention_calc = 2 * batch_size * seq_len * seq_len * n_heads * d_h
-        soft_max = batch_size * seq_len * seq_len * n_heads
-        final_mult = 2 * batch_size * n_heads * seq_len * d_h * seq_len
-        scale = 2 * batch_size * seq_len * n_heads * d_model
-        flops += linear_contribution + attention_calc + soft_max + final_mult + scale
-
-      elif module.projection_type == 'cnn':
-         print("Is not implemnted yet")   
-
-      if module.relative_positional_encoding == 'Relative':
-         
-         relative_attention_1 = 2 *batch_size * seq_len * seq_len * n_heads * d_h
-         attention_score = 2 * batch_size * seq_len * seq_len * n_heads
-         relative_attention_2 = 2 * batch_size * seq_len * n_heads * d_h * seq_len
-         add_weight = 2 * batch_size * seq_len * n_heads * d_h
-         flops += relative_attention_1 + attention_score + relative_attention_2 + add_weight
-
-      if module.dropout.p > 0:
-        flops += 2 * batch_size * seq_len * d_model
-
-        ## MultiHeadAttentionBlock
-    # elif isinstance(module, MultiHeadAttentionBlock):
-    #   print(f"Is a multi head attention block: {name}") if verbose else None
-    #   # Perform calculations for MultiHeadAttentionBlock
-    #   n_heads = module.h
-    #   d_h = module.d_h
-    #   if module.projection_type == 'linear':
-    #      linear_contribution = 4 * 2 * batch_size * seq_len * d_model * d_model 
-    #   elif module.projection_type == 'cnn':
-    #      print("Is not implemnted yet")  
-    #   attention = 2 * n_heads * batch_size * seq_len * seq_len * d_h   
-    #   softmax = batch_size * seq_len * seq_len * n_heads
-
-    #   flops += linear_contribution + attention + softmax
-
-    #   if module.relative_positional_encoding == 'Relative':
-    #      flops += 2 * seq_len * (batch_size * n_heads) * seq_len + 2 * seq_len * (batch_size * n_heads) * seq_len + batch_size * n_heads * seq_len * seq_len + batch_size * n_heads * seq_len * d_h
-
-
-    ## FeedForwardBlock
-    elif isinstance(module, FeedForwardBlock):
-      print(f"Is a feed forward block: {name}") if verbose else None
-
-      flops += 2 * batch_size * d_model * d_ff + 2 * batch_size * d_ff * d_model
-
-      # FLOPs for the bias additions in the two linear transformations
-      flops += batch_size * d_ff + batch_size * d_model
-
-      if isinstance(module.activation, torch.nn.ReLU) or isinstance(module.activation, torch.nn.GELU):
-        flops += batch_size * seq_len * d_model
-
-    ## FinalBlock
-    elif isinstance(module, FinalBlock):
-        print(f"Is a final block: {name}") if verbose else None
-
-        if module.forward_type == module.double_linear_forward:
-            flops += 2 * batch_size * d_model * out_put_size + out_put_size  # for the first linear transformation
-            flops += 2 * batch_size * seq_len * out_put_size + out_put_size  # for the second linear transformation
-
-        elif module.forward_type == module.single_linear_forward:
-            flops += 2 * batch_size * (d_model * seq_len) * out_put_size + out_put_size
-
-        elif module.forward_type == module.average_forward:
-            if module.dim == 2:  # seq_average_linear
-                flops += batch_size * seq_len  # for the average operation
-                flops += 2 * batch_size * seq_len * out_put_size + out_put_size  # for the linear transformation
-            else:  # d_model_average_linear
-                flops += batch_size * d_model  # for the average operation
-                flops += 2 * batch_size * d_model * out_put_size + out_put_size  # for the linear transformation
-
-
-    elif isinstance(module, LayerNormalization):
-      print(f"Is a layer normalization: {name}") if verbose else None
-      # Perform calculations for LayerNormalization
-      flops += 4 * batch_size * seq_len * d_model
-
-    else:
-      print(f"Is a unknown block: {name} the type is: {type(module)}") if verbose else None
-      # Perform calculations for unknown block
-
-  print(f"FLOPs: {flops}") if verbose else None
-  return flops
-     

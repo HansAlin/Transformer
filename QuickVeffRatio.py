@@ -33,7 +33,7 @@ from analysis_tools.model_loaders import LoadModelFromConfig
 from models.models import build_encoder_transformer, load_model
 from model_configs.config import get_config
 from dataHandler.datahandler import get_model_config, get_model_path
-from evaluate import get_transformer_triggers
+from evaluate.evaluate import get_transformer_triggers
 
 ABS_PATH_HERE = '/home/halin/Master/Transformer/'
 plt.rcParams["font.family"] = "serif"
@@ -53,9 +53,10 @@ parser = argparse.ArgumentParser()
 
 
 transformer_models = {201:'final', 
-                      218:'final', 
-                      219:'final',
-                      223:'early_stop'}
+                      213:'final', 
+                    #   219:'final',
+                    #   223:'early_stop'
+                      }
 test = False
 
 

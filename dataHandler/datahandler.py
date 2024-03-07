@@ -124,6 +124,14 @@ def get_trigger_data(config, random_seed=123, subset=False, save_test_set=False)
         train_data, val_data, test_data
 
   """
+  if 'transformer' in config:
+    config = config['transformer']
+  if 'input_length' not in config:
+     new_config= get_data_config('data_config.yaml')
+     new_config['input_length'] = config['architecture']['seq_len']
+     new_config['training']['batch_size'] = config['training']['batch_size']
+     config = new_config
+
   seq_len = config["input_length"]
   batch_size = config["training"]["batch_size"]
     
@@ -759,7 +767,16 @@ def prepare_data(x_train, x_val, x_test, y_train, y_val, y_test, batch_size, mul
   else:
     return train_loader, val_loader, test_loader
 
-
+def get_data_config(data_config_path = '/home/halin/Master/Transformer/data_config.yaml'):
+  """ This function reads the data config file and returns the data config dictionary
+      Arg:
+        data_config_path: path to data config file (yaml)
+      Ret:
+        data_config: dictionary, the data config dictionary
+  """
+  with open(data_config_path, 'r') as file:
+    config = yaml.safe_load(file)
+  return config
 
 def standardScaler(x):
 
@@ -842,11 +859,14 @@ def get_model_path(config, text=''):
   
   """
   if 'transformer' in config:
-    folder = config['transformer']['basic']['model_path'] + 'saved_model/' 
+    config = config['transformer']
+  if '/mnt/md0/halin/Models' not in config['basic']['model_path']:  
+    folder = config['basic']['model_path']
   else:
     folder = config['basic']['model_path'] + 'saved_model/'
 
   # List all files in the given folder
+    
   files = os.listdir(folder)
 
   # If a specific text is given, look for a file containing that text

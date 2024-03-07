@@ -5,8 +5,8 @@ transformer:
     N: 2
     activation: 'relu' # Posible options: 'relu', 'gelu'
     by_pass: false
-    d_ff: 64
-    d_model: 32 # Have to be dividable by h
+    d_ff: 256
+    d_model: 128 # Have to be dividable by h
     data_type: trigger # Possible options: 'trigger', 'chunked'
     embed_type: linear # Posible options: 'lin_relu_drop', 'lin_gelu_drop', 'linear',
     encoder_type: normal # Posible options: 'normal', 'none', 'bypass', 'vanilla'

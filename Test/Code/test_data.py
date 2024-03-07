@@ -17,8 +17,8 @@ CODE_DIR_1  ='/home/halin/Master/Transformer/'
 sys.path.append(CODE_DIR_1)
 
 
-from dataHandler.datahandler import get_trigger_data
-from models.models import build_encoder_transformer, get_n_params
+import dataHandler.datahandler as dd
+import models.models as mm
 from evaluate.evaluate import get_MMac, count_parameters
 from evaluate.evaluate import get_MMac, count_parameters
 from plots.plots import get_area_under_curve, get_noise_reduction, get_roc, get_NSE_AT_NRF
@@ -276,5 +276,23 @@ def add_key_if_not_exists(dict_obj, key, value):
 #########################################################################
 #  Test get trigger data
 #########################################################################
-config = get_config(0) 
-train_data, val_data, test_data = get_trigger_data(config)      
+# config = get_config(0) 
+# train_data, val_data, test_data = get_trigger_data(config)      
+        
+########################################################################
+# Get new FLOPs values                                              #
+########################################################################
+
+model_numbers = [201,202,203,204,205,206,207,208,209, 213]
+print('{:<20} {:>20} {:>20} '.format('Model number', 'FLOPs', 'MACs'))
+for model_number in model_numbers:
+    config = dd.get_model_config(model_num=model_number, type_of_file='yaml')
+    model = mm.load_model(config)
+    FLOPs = mm.get_FLOPs(model, config)
+    MACs = config['transformer']['num of parameters']['MACs']
+    MACs = int(MACs)*2
+    FLOPs = FLOPs / 10**6
+    MACs = MACs / 10**6
+    print('{:<20} {:>20.1f} M {:>20.1f} M'.format(model_number, FLOPs, MACs))
+    config['transformer']['num of parameters']['MACs'] = int(FLOPs/2 * 10**6)
+    dd.save_data(config)

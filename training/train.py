@@ -141,7 +141,7 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
     min_val_loss = float('inf')
     total_time = time.time()
 
-    for epoch in range(initial_epoch, config['transformer']['training']['num_epochs']):
+    for epoch in range(initial_epoch, config['transformer']['training']['num_epochs'] + 1):
 
       epoch_time = time.time()
       
@@ -186,6 +186,8 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
       #############################################
       model.eval()
       with torch.no_grad():
+        preds = []
+        ys = []
 
         for istep in tqdm(range(len(val_loader))):
 
@@ -196,14 +198,25 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
 
           x_batch, y_batch = x_batch.to(device), y_batch.to(device)
           outputs = model(x_batch)
-          loss = criterion(outputs, y_batch.squeeze())
+          val_loss.append(criterion(outputs, y_batch.squeeze()).item())
           if  config['transformer']['training']['loss_function']== 'BCEWithLogits':      #
             outputs = torch.sigmoid(outputs)
-          pred = outputs.round()
-          met = validate(y_batch.cpu().detach().numpy(), pred.cpu().detach().numpy(), config['transformer']['training']['metric'])  # config['transformer']['training']['metric']
-            
-          val_loss.append(loss.item())
-          metric.append(met)
+          pred = outputs.cpu().detach().numpy()
+          preds.append(pred)
+          ys.append(y_batch.cpu().detach().numpy())
+
+        threshold, accuracy, efficiency, precission, recall, F1 = validate(np.asarray(ys), np.asarray(preds))  # config['transformer']['training']['metric']
+        if config['transformer']['training']['metric'] == 'Accuracy':
+          met = accuracy
+        elif config['transformer']['training']['metric'] == 'Efficiency':
+          met = efficiency
+        elif config['transformer']['training']['metric'] == 'Precision':
+          met = precission
+        elif config['transformer']['training']['metric'] == 'recall':
+          met = recall
+        elif config['transformer']['training']['metric'] == 'F1':
+          met = F1  
+        metric.append(met)
 
       train_loss = np.mean(train_loss)
       val_loss = np.mean(val_loss)    
@@ -222,10 +235,10 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
       df = pd.concat([df, temp_df], ignore_index=True)
       # TODO maybe use best_val_loss instead of best_accuracy
       if val_loss < min_val_loss:
-        save_model(model, optimizer, scheduler, config, epoch, text='early_stop')
-        print(f"Model saved at epoch {epoch + 1}")
+        save_model(model, optimizer, scheduler, config, epoch, text='best_loss', threshold=threshold, )
+        print(f"Model saved at epoch {epoch}")
       save_data(config, df)
-
+      save_model(model, optimizer, scheduler, config, epoch, text=f'{epoch}', threshold=threshold,)
       ############################################
       #  Tensorboard
       ############################################
@@ -255,7 +268,7 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
     ###########################################
     # Training done                           #
     ###########################################  
-    save_model(model, optimizer, scheduler, config, epoch, text='final')  
+    save_model(model, optimizer, scheduler, config, epoch, text='final', threshold=threshold, )  
     writer.close()   
     total_training_time = time.time() - total_time   
     print(f"Total time: {total_training_time} s")
@@ -264,11 +277,11 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
     config['transformer']['results']['training_time'] = total_training_time
     config['transformer']['results']['energy'] = config['transformer']['results']['power']*total_training_time
 
-    model_path = get_model_path(config)
-    
-    print(f'Preloading model {model_path}')
-    state = torch.load(model_path)
-    model.load_state_dict(state['model_state_dict'])
+    # model_path = get_model_path(config)
+    # model
+    # print(f'Preloading model {model_path}')
+    # state = torch.load(model_path)
+    # model.load_state_dict(state['model_state_dict'])
 
     if torch.cuda.is_available(): 
 
@@ -276,10 +289,12 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
     else:
       device = torch.device("cpu")
 
-    y_pred_data, accuracy , efficiency, precision = test_model(model=model, 
+    y_pred_data, accuracy , efficiency, precision, threshold = test_model(model=model, 
                                                                 test_loader=test_loader,
                                                                 device=device, 
-                                                                config=config['transformer'])    
+                                                                config=config['transformer'], 
+                                                                extra_identifier='final',
+                                                                plot_attention=True)    
     config['transformer']['results']['Accuracy'] = float(accuracy)
     config['transformer']['results']['Efficiency'] = float(efficiency)
     config['transformer']['results']['Precission'] = float(precision)
@@ -303,3 +318,4 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
     plot_examples(data, config=config['transformer'])
     plot_performance(config['transformer'], device, x_batch=x_batch, y_batch=y_batch, lim_value=0.5, )
     save_data(config['transformer'], df, y_pred_data)
+    save_model(model, optimizer, scheduler, config, epoch, text='test_final', threshold=threshold, )

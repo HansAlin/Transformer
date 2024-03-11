@@ -18,10 +18,12 @@ import yaml
 
 CODE_DIR_1  ='/home/acoleman/software/NuRadioMC/'
 sys.path.append(CODE_DIR_1)
-# CODE_DIR_2 = '/home/acoleman/work/rno-g/'
-# sys.path.append(CODE_DIR_2)
-CODE_DIR_3 = '/home/halin/Master/nuradio-analysis/'
-sys.path.append(CODE_DIR_3)
+CODE_DIR_2 = '/home/acoleman/work/rno-g/'
+sys.path.append(CODE_DIR_2)
+# CODE_DIR_3 = '/home/halin/Master/nuradio-analysis/'
+# sys.path.append(CODE_DIR_3)
+# CODE_DIR_4 = '/home/halin/Master/nuradio-analysis/analysis_tools/'
+# sys.path.append(CODE_DIR_4)
 
 from NuRadioReco.utilities import units, fft
 
@@ -290,6 +292,11 @@ def get_trigger_data(config, random_seed=123, subset=False, save_test_set=False)
   background_split_index = int(train_fraction * len(background))
   val_wwf_split_index = int((train_fraction + config['training']['test_frac'])*len(waveforms))
   val_background_split_index = int((train_fraction + config['training']['test_frac'])*len(background))
+  if subset:
+    wwf_split_index = config['training']['batch_size']*2
+    background_split_index = config['training']['batch_size']*2
+    val_wwf_split_index = config['training']['batch_size']*2 + wwf_split_index
+    val_background_split_index = config['training']['batch_size']*2 + background_split_index
 
   if save_test_set:
     save_path = '/home/halin/Master/Transformer/Test/data/'
@@ -312,9 +319,16 @@ def get_trigger_data(config, random_seed=123, subset=False, save_test_set=False)
       batch_size=batch_size,
       np_rng=np_rng,
   )
+  if subset:
+    backgrounds = background[val_background_split_index:val_background_split_index + background_split_index]
+    waveforms = waveforms[val_wwf_split_index:val_wwf_split_index + wwf_split_index]
+  else:
+    backgrounds = background[val_background_split_index:]
+    waveforms = waveforms[val_wwf_split_index:]
+       
   test_data = DatasetSnapshot(
-      waveforms=waveforms[val_wwf_split_index:],
-      backgrounds=background[val_background_split_index:],
+      waveforms=waveforms,
+      backgrounds=backgrounds,
       n_features=n_antennas,
       batch_size=batch_size,
       np_rng=np_rng,
@@ -647,8 +661,8 @@ def get_chunked_data(batch_size, config, subset=True):
       extra_gap_per_waveform=config["training"]["extra_gap_per_waveform"],
       probabilistic_sampling_ensure_signal_region=config["training"]["probabilistic_sampling_ensure_signal_region"],
       probabilistic_sampling_oversampling=config["training"]["probabilistic_sampling_oversampling"],
-      probabilistic_sampling_ensure_min_signal_fraction=config["training"]["probabilistic_sampling_ensure_min_signal_fraction"],
-      probabilistic_sampling_ensure_min_signal_num_bins=config["training"]["probabilistic_sampling_ensure_min_signal_num_bins"]
+      #probabilistic_sampling_ensure_min_signal_fraction=config["training"]["probabilistic_sampling_ensure_min_signal_fraction"],
+      #probabilistic_sampling_ensure_min_signal_num_bins=config["training"]["probabilistic_sampling_ensure_min_signal_num_bins"]
       )
   
   del x_train
@@ -673,8 +687,8 @@ def get_chunked_data(batch_size, config, subset=True):
       extra_gap_per_waveform=config["training"]["extra_gap_per_waveform"],
       probabilistic_sampling_ensure_signal_region=config["training"]["probabilistic_sampling_ensure_signal_region"],
       probabilistic_sampling_oversampling=config["training"]["probabilistic_sampling_oversampling"],
-      probabilistic_sampling_ensure_min_signal_fraction=config["training"]["probabilistic_sampling_ensure_min_signal_fraction"],
-      probabilistic_sampling_ensure_min_signal_num_bins=config["training"]["probabilistic_sampling_ensure_min_signal_num_bins"]
+      #probabilistic_sampling_ensure_min_signal_fraction=config["training"]["probabilistic_sampling_ensure_min_signal_fraction"],
+      #probabilistic_sampling_ensure_min_signal_num_bins=config["training"]["probabilistic_sampling_ensure_min_signal_num_bins"]
       )
   
   del x_val
@@ -699,8 +713,8 @@ def get_chunked_data(batch_size, config, subset=True):
         extra_gap_per_waveform=config["training"]["extra_gap_per_waveform"],
         probabilistic_sampling_ensure_signal_region=config["training"]["probabilistic_sampling_ensure_signal_region"],
         probabilistic_sampling_oversampling=config["training"]["probabilistic_sampling_oversampling"],
-        probabilistic_sampling_ensure_min_signal_fraction=config["training"]["probabilistic_sampling_ensure_min_signal_fraction"],
-        probabilistic_sampling_ensure_min_signal_num_bins=config["training"]["probabilistic_sampling_ensure_min_signal_num_bins"]
+        #probabilistic_sampling_ensure_min_signal_fraction=config["training"]["probabilistic_sampling_ensure_min_signal_fraction"],
+        #probabilistic_sampling_ensure_min_signal_num_bins=config["training"]["probabilistic_sampling_ensure_min_signal_num_bins"]
         )
   
   del x_test
@@ -786,7 +800,7 @@ def standardScaler(x):
   x /= std
   return x
 
-def save_model(trained_model, optimizer, scheduler, config, global_step, text='early_stop'):
+def save_model(trained_model, optimizer, scheduler, config, global_step, text, threshold):
 
   path = config['transformer']['basic']['model_path']
 
@@ -800,8 +814,10 @@ def save_model(trained_model, optimizer, scheduler, config, global_step, text='e
               'model_state_dict': trained_model.state_dict(), 
               'optimizer_state_dict': optimizer.state_dict(),
               'scheduler_state_dict': scheduler.state_dict(),
-              'global_step': global_step},
-              saved_model_path + f'/model_{config["transformer"]["basic"]["model_num"]}{text}.pth')
+              'global_step': global_step,
+              'threshold': threshold
+              },
+              saved_model_path + f'/model_{config["transformer"]["basic"]["model_num"]}_{text}.pth')
 
 def file_exist(directory, filename):
    
@@ -993,8 +1009,11 @@ def get_model_config(model_num, path='/mnt/md0/halin/Models/', type_of_file='txt
       config: dictionary, the model configuration
         
     """
-
-    if type_of_file == 'txt':  
+    if 'yaml' in path:
+      CONFIG_PATH = path 
+      with open(CONFIG_PATH, 'r') as file:
+          config = yaml.safe_load(file)
+    elif type_of_file == 'txt':  
       CONFIG_PATH = path + f'model_{model_num}/config{sufix}.txt'
       with open(CONFIG_PATH, 'rb') as f:
           config = pickle.load(f)
@@ -1002,6 +1021,7 @@ def get_model_config(model_num, path='/mnt/md0/halin/Models/', type_of_file='txt
       CONFIG_PATH = path + f'model_{model_num}/config{sufix}.yaml'
       with open(CONFIG_PATH, 'r') as file:
           config = yaml.safe_load(file)
+
     if 'transformer' not in config:
       return {'transformer': config}
     else:

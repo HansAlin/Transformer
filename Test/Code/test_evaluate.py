@@ -10,7 +10,7 @@ CODE_DIR_2 = '/home/acoleman/work/rno-g/'
 sys.path.append(CODE_DIR_2)
 
 from evaluate.evaluate import test_model, get_results, count_parameters, get_MMac,  get_quick_veff_ratio, test_threshold, noise_rejection
-from models.models import build_encoder_transformer, load_model, get_FLOPs
+import models.models as mm
 from model_configs.config import get_config
 import dataHandler.datahandler as dd
 import plots.plots as pp
@@ -142,9 +142,10 @@ from analysis_tools.config import GetConfig
 #################################################################################
 # Test perfomance
 #################################################################################
-model_nums = [213,213,213,213]
-texts = ['early_stop', 'early_stop', 'final', 'final']
-text2s = ['no positional encoding', 'positional encoding', 'no positional encoding', 'positional encoding']
+model_nums = [201,201,213,213,230,230]
+device = 0
+texts = ['final', 'early_stop', 'final', 'early_stop', 'final', 'early_stop'] #['early_stop', 'early_stop', 'final', 'final']
+text2s = ['threshol test', 'threshol test', 'threshol test','threshol test','threshol test','threshol test']#['no positional encoding', 'positional encoding', 'no positional encoding', 'positional encoding']
 data_config = dd.get_data_config()
 train_data, val_data, test_data = dd.get_trigger_data(config=data_config,
                                                    subset=False)
@@ -158,18 +159,20 @@ AOCs = []
 NSEs = []
 thresholds = []
 
-
+print(f"{'Model number':<15} {'Which model':<15} {'Pos. type':<25} {'AOC':<15} {'NSE':<15} {'Threshold':<15}")
 for model_num, text, text2 in zip_longest(model_nums, texts, text2s):
     config = dd.get_model_config(model_num=model_num, type_of_file='yaml')
     if text2 == 'no positional encoding':
         config['transformer']['architecture']['pos_enc_type'] = 'None'
-    model = load_model(config, text=text, verbose=False)
+    model = mm.load_model(config, text=text, verbose=False)
 
 
     y_pred_data, accuracy, efficiency, precission = test_model(model=model,
                                                     test_loader=test_data,
-                                                    device=0,
-                                                    config=config['transformer'],)
+                                                    device=device,
+                                                    config=config['transformer'],
+                                                    plot_attention=False,
+                                                    extra_identifier=model_num,)
 
     AOC, nse, threshold =  pp.plot_performance_curve([y_pred_data['y_pred']], 
                                                      [y_pred_data['y']], 
@@ -182,14 +185,14 @@ for model_num, text, text2 in zip_longest(model_nums, texts, text2s):
                                                      save_path=f'/home/halin/Master/Transformer/figures/performance_{text}_{text2}_',
                                                      text= f'{text} {text2}',
                                                      )
-
-    pp.histogram(y_pred_data['y_pred'], 
-                y=y_pred_data['y'], 
-                config=config['transformer'],
-                bins=100, 
-                save_path=f'/home/halin/Master/Transformer/figures/performance_{text}_{text2}_',
-                text= f'{text} {text2}',
-                )
+    # print(f'{model_num:<15} {text:<15} {text2:<25} {AOC:<15.6f} {nse:<15.6f} {threshold:<15.6f}')
+#     pp.histogram(y_pred_data['y_pred'], 
+#                 y=y_pred_data['y'], 
+#                 config=config['transformer'],
+#                 bins=100, 
+#                 save_path=f'/home/halin/Master/Transformer/figures/performance_{text}_{text2}_',
+#                 text= f'{text} {text2}',
+#                 )
     models.append(model_num)
     textss.append(text)
     text2ss.append(text2)
@@ -200,3 +203,39 @@ for model_num, text, text2 in zip_longest(model_nums, texts, text2s):
 print(f"{'Model number':<15} {'Which model':<15} {'Pos. type':<25} {'AOC':<15} {'NSE':<15} {'Threshold':<15}")
 for model_num, text, text2, AOC, nse, threshold in zip_longest(model_nums, texts, text2s, AOCs, NSEs, thresholds):    
     print(f'{model_num:<15} {text:<15} {text2:<25} {AOC:<15.6f} {nse:<15.6f} {threshold:<15.6f}')
+    
+
+# model_num = 301
+# model_path = '/home/halin/Master/nuradio-analysis/data/models/fLow_0.08-fhigh_0.23-rate_0.5/config_301/config_301_best.pth'
+# config_path = '/home/halin/Master/nuradio-analysis/configs/chunked/config_301.yaml'
+# config = dd.get_model_config(model_num=301, path=config_path)
+# model = mm.build_encoder_transformer(config['transformer'])
+# state = torch.load(model_path)
+# model.load_state_dict(state)
+
+# train_data, val_data, test_data = dd.get_chunked_data(64, config=config, subset=False)
+# del train_data
+# del val_data
+# y_pred_data, accuracy, efficiency, precission = test_model(model=model,
+#                                                     test_loader=test_data,
+#                                                     device=2,
+#                                                     config=config['transformer'],
+#                                                     plot_attention=True,
+#                                                     extra_identifier=model_num,)
+
+
+#################################################################################
+# Get relative embedding table
+#################################################################################
+
+# model_number = 213
+# layer = 'relative_positional'
+# config = dd.get_model_config(model_num=model_number, type_of_file='yaml')
+# model = load_model(config, text='early_stop', verbose=False)
+
+# pp.plot_layers(state_dict=model.state_dict(),
+#                 layer=layer,
+#                 extra_name='Loaded model',
+#                 )
+
+

@@ -52,8 +52,9 @@ parser = argparse.ArgumentParser()
 # pos_enc_type [116, 128, 129]
 
 
-transformer_models = {201:'final', 
-                      213:'final', 
+transformer_models = {201:'early_stop', 
+                      213:'early_stop',
+                      230:'early_stop', 
                     #   219:'final',
                     #   223:'early_stop'
                       }
@@ -66,7 +67,7 @@ def qualitative_colors(length, darkening_factor=0.6):
     return darker_colors
 
 
-device = 2
+device = 0
 torch.cuda.set_device(device)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}, name of GPU: {torch.cuda.get_device_name(device=device)}")
@@ -271,7 +272,7 @@ def LoadModel(filename, model_list):
     return name
 
 def LoadTransformerModel(model_num, model_list, text):
-    config = get_model_config(model_num=model_num)
+    config = get_model_config(model_num=model_num, type_of_file='yaml', )
     if 'transformer' in config:
         config = config['transformer']
     name = str(config['basic']["model_num"])

@@ -26,7 +26,7 @@ from NuRadioReco.utilities import units
 
    
 
-def test_model(model, test_loader, device, config):
+def test_model(model, test_loader, device, config, plot_attention=False, extra_identifier='', noise_rejection_rate=1e4):
   """
   This function tests the model on the test set
   and returns the accuracy and true positive rate
@@ -51,12 +51,51 @@ def test_model(model, test_loader, device, config):
   count = 0
   y = []
   y_pred = []
-  pred_round = []
+  pred_round = [] 
+
+  noise_events = 0
+  signal_events = 0
+  max_singal_events = 1
+  max_noise_events = 1
+
   with torch.no_grad():
-    
+
     for istep in tqdm(range(len(test_loader))):
 
       x_test, y_test = test_loader.__getitem__(istep)
+      if plot_attention:
+        for i in range(0, len(x_test)):
+          
+          x = x_test[i].unsqueeze(0)
+          y_true = y_test[i]
+          if data_type == 'chunked':
+            y_true = y_true.max()
+          x, y_true = x.to(device), y_true.to(device)
+          if noise_events >= max_noise_events and signal_events >= max_singal_events:
+              break
+          if y_true == 0 and noise_events >= max_noise_events:
+              continue
+          if y_true == 1 and signal_events >= max_singal_events:
+              continue
+          if y_true == 0:
+            noise_events += 1
+          else:
+            signal_events += 1
+
+          y_hat = model(x)
+          if data_type == 'chunked':
+            x = x.permute(0, 2, 1)
+
+          pp.plot_attention_scores(
+              model,
+              x,
+              y_true,
+              extra_identifier=extra_identifier,
+              save_path=config['basic']['model_path'] + 'plot/'
+          )
+          #input(f"Noise {noise_events}, Signals {signal_events}. Press Enter to continue...")
+
+           
       if data_type == 'chunked':
         y_test = y_test.max(dim=1)[0]
       x_test, y_test = x_test.to(device), y_test.to(device)
@@ -66,54 +105,53 @@ def test_model(model, test_loader, device, config):
         outputs = torch.sigmoid(outputs)
       y_pred.append(outputs.cpu().detach().numpy())
       y.append(y_test.cpu().detach().numpy()) 
-      pred_round.append(outputs.cpu().detach().numpy().round())
+      pred_round.append(outputs.cpu().detach().numpy())
 
-  y = np.asarray(y).flatten()
-  y_pred = np.asarray(y_pred).flatten()
-  pred_round = np.asarray(pred_round).flatten()
-  true_signal = np.logical_and(y == 1, pred_round == 1)
-  true_noise = np.logical_and( y == 0, pred_round == 0)
-  false_signal = np.logical_and(y == 0, pred_round == 1)
-  false_noise = np.logical_and(y == 1, pred_round == 0)
-
-  TP += np.sum(true_signal)
-  TN += np.sum(true_noise)
-  FP += np.sum(false_signal)
-  FN += np.sum(false_noise)
-  accuracy = (TP + TN) / len(y)
-  
-  if np.count_nonzero(y) != 0:
-    efficiency = TP / np.count_nonzero(y)
-  else:
-    efficiency = 0  
-
-  if TP + FP == 0:
-    precission = 0
-  else:  
-    precission = TP / (TP + FP) 
-  
+    threshold, accuracy, efficiency, precission, recall, F1 = validate(np.concatenate(y), np.concatenate(pred_round), noise_rejection=noise_rejection_rate)
+  y_pred = np.concatenate(y_pred)
+  y = np.concatenate(y)
   y_pred_data = pd.DataFrame({'y_pred': y_pred, 'y': y})
 
-  return y_pred_data, accuracy, efficiency, precission
+  return y_pred_data, accuracy, efficiency, precission, threshold
 
 
-def validate(y, y_pred, metric='Accuracy'):
+def validate(y, y_pred, noise_rejection=1e4):
+  """
+  This function validates the model on the data and returns the accuracy, 
+  efficiency, precission, recall and F1 score and the threshold at which the
+  noise rejection is achieved
+
+  Args:
+    y: the true values
+    y_pred: the predicted values
+    noise_rejection: the noise rejection rate, typical 1e4
+    
+  Returns:
+    threshold, accuracy, efficiency, precission, recall, F1
+    
+    """
   y = y.flatten()
   y_pred = y_pred.flatten()
-  TP = np.sum(np.logical_and(y == 1, y_pred == 1))
-  TN = np.sum(np.logical_and(y == 0, y_pred == 0))
-  FP = np.sum(np.logical_and(y == 0, y_pred == 1))
-  FN = np.sum(np.logical_and(y == 1, y_pred == 0))
-  
-  if metric == 'Accuracy':
-    metric = (TP + TN) / len(y)
-  elif metric == 'Efficiency':
-    metric = TP / np.count_nonzero(y) if np.count_nonzero(y) != 0 else 0
-  elif metric == 'Precision':
-    metric = TP / (TP + FP) if TP + FP != 0 else 0 
+  count = 0
+  for threshold in np.linspace(min(y_pred), max(y_pred), 1000):
 
+    TP = np.sum(np.logical_and(y == 1, y_pred > threshold))
+    TN = np.sum(np.logical_and(y == 0, y_pred < threshold))
+    FP = np.sum(np.logical_and(y == 0, y_pred > threshold))
+    FN = np.sum(np.logical_and(y == 1, y_pred < threshold))
 
-  return metric
+    if TN != 0:
+      if FP / TN  < 1 / noise_rejection or count == 1000 - 1:
+        accuracy = (TP + TN) / len(y)
+        efficiency = TP / np.count_nonzero(y) if np.count_nonzero(y) != 0 else 0
+        precission = TP / (TP + FP) if TP + FP != 0 else 0 
+        recall = TP / (TP + FN) if TP + FN != 0 else 0
+        F1 = 2 * (precission * recall) / (precission + recall) if precission + recall != 0 else 0
+        
+        return threshold, accuracy, efficiency, precission, recall, F1
+    count += 1
+  return 0, 0, 0, 0, 0, 0
+ 
 
 
 def get_gpu_info():
@@ -683,6 +721,7 @@ def noise_rejection(model_number, model_type='final', cuda_device=0, verbose=Fal
     Returns:
       None
   """
+  
 
   noise = np.load('/home/halin/Master/nuradio-analysis/noise-generation/high-low-trigger/data/fLow_0.08-fhigh_0.23-rate_0.5/SNR_3.421-Vrms_5.52-mult_2-fLow_0.08-fhigh_0.23-rate_0.5-File_0000.npy')   
   print(noise.shape)

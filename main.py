@@ -71,9 +71,9 @@ def main():
     print(e)  
     args = argparse.Namespace()
     args.start_model_num = None
-    args.epochs = 100
-    args.test = False
-    args.cuda_device = 0
+    args.epochs = 2
+    args.test = True
+    args.cuda_device = 1
     args.config_number = 0
     args.inherit_model = None
     args.retrain = False
@@ -96,7 +96,7 @@ def main():
     hyper_param = {
                 # 'N':[2]
                 # 'pos_enc_type':['Relative'],
-                'max_relative_position': [64],
+                'max_relative_position': [32],
                 #   'h': [2,4,8],
                 # 'd_model': [16],
                 # 'h': [16],

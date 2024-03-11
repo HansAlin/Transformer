@@ -4,9 +4,11 @@ import math
 from typing import List
 from torch.nn.modules import MultiheadAttention, Linear, Dropout, BatchNorm1d, TransformerEncoderLayer
 from dataHandler.datahandler import save_data, get_model_path
+
 import sys
 import torch.nn.functional as F
 from itertools import zip_longest
+from ptflops import get_model_complexity_info
 
 # 
 class LayerNormalization(nn.Module):
@@ -94,35 +96,29 @@ class CnnInputEmbeddings(nn.Module):
       stride (int, optional): The stride. Defaults to 1.
       kernel_size (int, optional): The kernel size. Defaults to 3.
   """
-  def __init__(self, channels, d_model, padding: int = 1, stride: int = 1, kernel_size: int = 3):
+  def __init__(self, channels, d_model, stride: int = 1, kernel_size: int = 3):
     super().__init__()
 
     self.kernel_size = kernel_size
-
-    rows = channels // kernel_size + 1
-    vertical_padding = (rows * kernel_size - channels) // 2
+    self.channels = channels
+    vertical_padding = (kernel_size - 1 ) // 2
     self.stride = stride
     self.out_put_size = d_model//channels
-    self.vertical_conv = nn.Conv2d(1, self.out_put_size, kernel_size=(kernel_size, stride), padding=(vertical_padding, 0), stride=(1, stride))
-    self.horizontal_conv = nn.Conv2d(1, self.out_put_size, kernel_size=(1, kernel_size), padding=(0, 0), stride=(1, stride))
+    self.horizontal_padding = (kernel_size - 1) // 2
+    self.horizontal_conv = nn.Conv2d(1, self.out_put_size, kernel_size=(kernel_size, 1), padding=(self.horizontal_padding, 0), stride=(stride, 1))
+    self.vertical_conv = nn.Conv2d(1, self.out_put_size, kernel_size=(stride, kernel_size), padding=(0,vertical_padding), stride=(stride, 1))
+    
 
   def forward(self, x):
     # x: (batch_size, seq_len, channels)
-    x = x.transpose(1, 2).unsqueeze(1)  # now x: (batch_size, channels, seq_len, 1)
-    out1 = self.vertical_conv(x).squeeze(-1)  # out1: (batch_size, d_model, seq_len)
-    out1 = out1.transpose(1, 2)  # swap d_model with seq_len, now out1: (batch_size, seq_len, d_model)
-     # Calculate padding dynamically
-    seq_len = x.size(2)
-    padding = 0
-    if seq_len % self.kernel_size != 0:
-        padding = (self.kernel_size - seq_len % self.kernel_size) // 2
+    x = x.unsqueeze(1)  # now x: (batch_size, 1, seq_len, channels)
+    out1 = self.horizontal_conv(x).squeeze(-1)  # out1: (batch_size, out_put_size, seq_len, channels)
 
-    x = F.pad(x, (0, padding))  # Add padding to the sequence length dimension
-    out2 = self.horizontal_conv(x).squeeze(-1)  # out2: (batch_size, d_model, seq_len)
-    out2 = out2.transpose(1, 2)  # swap d_model with seq_len, now out2: (batch_size, seq_len, d_model)
+
+    out2 = self.vertical_conv(x).squeeze(-1)  # out2: (batch_size, out_put_size, seq_len, channels)
     out = out1 + out2  # add the outputs
-    out = out.transpose(2,3).transpose(1,2)  # swap d_model with seq_len, now out: (batch_size, seq_len, d_model)
-    out = out.flatten(start_dim=2, end_dim=3)  # Remove the height dimension  
+    out = out.transpose(1,2) # swap (batch_size, seq_len, out_put_size, channels)
+    out = out.flatten(start_dim=2, end_dim=3)  # (batch_size, seq_len, out_put_size*channels) --> (batch_size, seq_len, d_model)
     return out
 
 
@@ -132,8 +128,7 @@ class ViTEmbeddings(nn.Module):
                channels: int,
                out_put_size: int,
                kernel_size: int,
-               stride: int,
-               padding: int,
+               stride: int = 1,
                ) -> None:
     super().__init__()
     self.channels = channels
@@ -142,14 +137,9 @@ class ViTEmbeddings(nn.Module):
     self.height = kernel_size
 
 
-    
-    rows = channels // kernel_size + 1
-
-    vertical_padding = (rows * kernel_size - channels) // 2
-
-    vertical_stride = kernel_size
-    horizontal_stride = kernel_size
-    self.conv = nn.Conv2d(1, self.out_put_size, kernel_size=(self.height, self.height), stride=(horizontal_stride, vertical_stride), padding=(0, vertical_padding))
+    self.vertical_stride = channels // kernel_size
+    self.horizontal_stride = kernel_size
+    self.conv = nn.Conv2d(1, self.out_put_size, kernel_size=(self.height, self.height), stride=(self.horizontal_stride, self.vertical_stride), padding=(0, 0))
 
   def forward(self, x):
     x = x.unsqueeze(1)  # Add an extra dimension for channels
@@ -160,7 +150,7 @@ class ViTEmbeddings(nn.Module):
     if seq_len % self.height != 0:
         padding = (self.height - seq_len % self.height) // 2
 
-    x = F.pad(x, (padding, padding))  # Add padding to the sequence length dimension
+    x = F.pad(x, (padding, 0))  # Add padding to the sequence length dimension
     x = self.conv(x)
     x = x.transpose(1,2)
     x = x.flatten(start_dim=2, end_dim=3)  # Remove the height dimension
@@ -181,29 +171,29 @@ class InputEmbeddings(nn.Module):
       kwargs: Additional arguments for the CnnInputEmbeddings layer, padding, stride, kernel_size.
   
   """
-  def __init__(self, d_model: int, dropout: float = 0.1, channels: int = 4, embed_type='lin_relu_drop', **kwargs) -> None:
+  def __init__(self, d_model: int, dropout: float = 0.1, n_ant: int = 4, embed_type='lin_relu_drop', **kwargs) -> None:
     super().__init__()
     self.d_model = d_model
-    self.channels = channels
+    self.channels = n_ant
 
     if embed_type == 'lin_relu_drop':
-      self.embedding = nn.Linear(channels, d_model)
+      self.embedding = nn.Linear(n_ant, d_model)
       self.activation = nn.ReLU()
       self.dropout = nn.Dropout(dropout)
     elif embed_type == 'lin_gelu_drop':
-      self.embedding = nn.Linear(channels, d_model)
+      self.embedding = nn.Linear(n_ant, d_model)
       self.activation = nn.GELU()
       self.dropout = nn.Dropout(dropout)
     elif embed_type == 'linear':
-      self.embedding = nn.Linear(channels, d_model)
+      self.embedding = nn.Linear(n_ant, d_model)
       self.activation = nn.Identity()
       self.dropout = nn.Dropout(0)  
     elif embed_type == 'cnn':
-      self.embedding = CnnInputEmbeddings(channels, d_model, **kwargs)
+      self.embedding = CnnInputEmbeddings(n_ant, d_model, **kwargs)
       self.activation = nn.ReLU()
       self.dropout = nn.Dropout(dropout)
     elif embed_type == 'ViT':
-      self.embedding = ViTEmbeddings(channels, d_model, **kwargs)
+      self.embedding = ViTEmbeddings(n_ant, d_model, **kwargs)
       self.activation = nn.ReLU()
       self.dropout = nn.Dropout(dropout)  
 
@@ -356,9 +346,9 @@ class MultiHeadAttentionBlock(nn.Module):
       self.W_0 = nn.Linear(self.h*self.d_h, d_model) # W_0 and bias wher self.h*self.d_h = d_model
 
     elif self.projection_type == 'cnn':
-      self.W_q = nn.Conv2d(self.d_h, self.d_h, kernel_size=(1,1), stride=(1,1))
-      self.W_k = nn.Conv2d(self.d_h, self.d_h, kernel_size=(1,1), stride=(1,1))
-      self.W_v = nn.Conv2d(self.d_h, self.d_h, kernel_size=(1,1), stride=(1,1))
+      self.W_q = nn.Conv2d(self.h, self.h, kernel_size=(1,1), stride=(1,1))
+      self.W_k = nn.Conv2d(self.h, self.h, kernel_size=(1,1), stride=(1,1))
+      self.W_v = nn.Conv2d(self.h, self.h, kernel_size=(1,1), stride=(1,1))
 
       self.W_0 = nn.Conv2d(d_model, d_model, kernel_size=(5,5), stride=(1,1), padding=(2,2))
 
@@ -471,9 +461,9 @@ class MultiHeadAttentionBlock(nn.Module):
       value = self.W_v(v) # (batch_size, seq_len, d_model) --> (batch_size, seq_len, d_model)
     elif self.projection_type == 'cnn':
       batch_size, seq_len, _ = q.shape
-      q = q.view(batch_size, self.d_h, self.h, seq_len)
-      k = k.view(batch_size, self.d_h, self.h, seq_len)
-      v = v.view(batch_size, self.d_h, self.h, seq_len)
+      q = q.view(batch_size, self.h, self.d_h, seq_len)
+      k = k.view(batch_size, self.h, self.d_h, seq_len)
+      v = v.view(batch_size, self.h, self.d_h, seq_len)
       query = self.W_q(q)
       key = self.W_k(k)
       value = self.W_v(v)
@@ -519,7 +509,7 @@ class MultiHeadAttentionBlock(nn.Module):
       x = self.W_0(x)
     elif self.projection_type == 'cnn':
       batch_size, seq_len, d_model = x.size()
-      x = x.view(batch_size, 1, seq_len, d_model)  # reshape
+      x = x.view(batch_size, d_model, 1, seq_len)  # reshape
       x = self.W_0(x)  # apply Conv2d
       x = x.view(batch_size, seq_len, d_model)  # reshape back
     return x
@@ -784,10 +774,7 @@ class EncoderTransformer(nn.Module):
         self.data_type = data_type
         norm = self.get_norm(residual_type, normalization, features)
         self.network_blocks = nn.ModuleList()
-
-
-
-    
+            
         if encoding_type == 'normal':
             self.encode_type = self.normal_encode
             block1 = nn.Sequential(src_embed[0], src_pos[0], encoders[0], norm)
@@ -888,46 +875,25 @@ class EncoderTransformer(nn.Module):
 
 def build_encoder_transformer(config): 
   
-  seq_len=        config['architecture']['seq_len'] 
-  d_model=        config['architecture']['d_model'] 
-  N=              config['architecture']['N'] 
-  h=              config['architecture']['h'] 
-  omega=          config['architecture']['omega'] 
-  d_ff=           config['architecture']['d_ff'] 
-  output_size =   config['architecture'].get('output_size', 1) 
-  config['architecture']['output_size'] = output_size 
-  encoder_type =  config['architecture'].get('encoder_type', 'normal') 
-  config['architecture']['encoder_type'] = encoder_type 
-  normalization = config['architecture'].get('normalization', 'layer')
-  # config['architecture']['normalization'] = normalization 
-  residual_type =      config['architecture'].get('residual_type', 'post_ln')
   max_seq_len =    1024 #config['architecture']['seq_len'] # TODO make some other implementation
-  activation =    config['architecture']['activation']
-  n_ant =         config['architecture']['n_ant'] 
-  max_relative_position = config['architecture'].get('max_relative_position', 100)
-  config['architecture']['max_relative_position'] = max_relative_position
-  old_residual =  config['architecture'].get('old_residual', False)
-  if old_residual:
+
+  if config['architecture'].get('old_residual', False):
     features = 1
   else:
-    features = d_model  
-
-  positional_encoding = config['architecture']['pos_enc_type'] 
+    features = config['architecture']['d_model']   
  
-  dropout=config['training']['dropout'] 
-  data_type = config['architecture']['data_type']
-  if data_type == 'chunked':
+  if config['architecture']['data_type'] == 'chunked':
     data_order = 'bcs'
-  elif data_type == 'trigger':
+  elif config['architecture']['data_type'] == 'trigger':
     data_order = 'bsc'  
 
-  if encoder_type == 'bypass':
+  if config['architecture'].get('encoder_type', 'normal')   == 'bypass':
     by_pass = True
-    num_embeddings = n_ant 
+    num_embeddings = config['architecture']['n_ant']  
     channels = 1
   else:
     by_pass = False 
-    channels = n_ant
+    channels = config['architecture']['n_ant'] 
     num_embeddings = 1  
 
  
@@ -935,17 +901,28 @@ def build_encoder_transformer(config):
   #########################################################
   # Create the input embeddings                           #
   #########################################################    
-
-  src_embed = [InputEmbeddings(d_model=d_model, channels=channels, dropout=dropout, embed_type=config['architecture']['embed_type']) for _ in range(num_embeddings)]
+  if config['architecture']['embed_type'] == 'cnn' or config['architecture']['embed_type'] == 'ViT':  
+    kernel_size = config['architecture']['input_embeddings']['kernel_size']
+    stride = config['architecture']['input_embeddings']['stride']
+  else:
+    kernel_size = None
+    stride = None
+  
+  src_embed = [InputEmbeddings(d_model=config['architecture']['d_model'] , 
+                               n_ant=channels, dropout=config['training']['dropout'], 
+                               embed_type=config['architecture']['embed_type'], 
+                               kernel_size=kernel_size,
+                               stride=stride
+                               ) for _ in range(num_embeddings)]
   
   #########################################################
   # Create the positional encodings                       #
   #########################################################
   pos_enc_config = {
-      'Sinusoidal': lambda: PositionalEncoding(d_model=d_model, dropout=dropout, max_seq_len=max_seq_len, omega=omega),
+      'Sinusoidal': lambda: PositionalEncoding(d_model=config['architecture']['d_model'] , dropout=config['training']['dropout'], max_seq_len=max_seq_len, omega=config['architecture']['omega'] ),
       'None': lambda: nn.Identity(),
       'Relative': lambda: nn.Identity(),
-      'Learnable': lambda: LearnablePositionalEncoding(d_model=d_model, max_len=max_seq_len, dropout=dropout)
+      'Learnable': lambda: LearnablePositionalEncoding(d_model=config['architecture']['d_model'] , max_len=max_seq_len, dropout=config['training']['dropout'])
   }
 
   pos_enc_type = config['architecture']['pos_enc_type'] 
@@ -955,49 +932,67 @@ def build_encoder_transformer(config):
   else:
       raise ValueError(f"Unsupported positional encoding type: {pos_enc_type}")
 
-  num_embeddings = n_ant if by_pass else 1 
+  num_embeddings = config['architecture']['n_ant']  if by_pass else 1 
 
   src_pos = [src_pos_func() for _ in range(num_embeddings)]
 
   #########################################################
   # Create the encoder layers                             #
   #########################################################
-  if encoder_type == 'normal' or encoder_type == 'bypass':
+  if config['architecture'].get('encoder_type', 'normal')   == 'normal' or config['architecture'].get('encoder_type', 'normal')   == 'bypass':
 
-    num_encoders = n_ant if by_pass else 1
+    num_encoders = config['architecture']['n_ant']  if by_pass else 1
 
     encoders = []
     
     for _ in range(num_encoders):
       encoder_blocks = []
-      for _ in range(N):
+      for _ in range(config['architecture']['N'] ):
         if config['architecture']['pos_enc_type'] == 'Relative':
-          encoder_self_attention_block = MultiHeadAttentionBlock(d_model, h, max_seq_len=max_seq_len, dropout=dropout, max_relative_position=max_relative_position, positional_encoding=positional_encoding)
+          encoder_self_attention_block = MultiHeadAttentionBlock(d_model=config['architecture']['d_model'] , 
+                                                                 h=config['architecture']['h'] ,
+                                                                 max_seq_len=max_seq_len, 
+                                                                 dropout=config['training']['dropout'], 
+                                                                 max_relative_position=config['architecture']['max_relative_position'], 
+                                                                 positional_encoding=config['architecture']['pos_enc_type'],
+                                                                 GSA=config['architecture'].get('GSA', False),
+                                                                 projection_type=config['architecture'].get('projection_type', 'linear')
+                                                                 )
         else:
-          encoder_self_attention_block = MultiHeadAttentionBlock(d_model, h, dropout, positional_encoding=positional_encoding)
+          encoder_self_attention_block = MultiHeadAttentionBlock(d_model=config['architecture']['d_model'] , 
+                                                                 h=config['architecture']['h'] , 
+                                                                 max_seq_len=max_seq_len,
+                                                                 dropout=config['training']['dropout'], 
+                                                                 max_relative_position=None,
+                                                                 positional_encoding=config['architecture']['pos_enc_type'], 
+                                                                 GSA=config['architecture'].get('GSA', False),
+                                                                 projection_type=config['architecture'].get('projection_type', 'linear'))
 
-        feed_forward_block = FeedForwardBlock(d_model, d_ff, dropout, activation=activation)
+        feed_forward_block = FeedForwardBlock(d_model=config['architecture']['d_model'] , 
+                                              d_ff=config['architecture']['d_ff'] ,
+                                               dropout=config['training']['dropout'], 
+                                               activation=config['architecture']['activation'])
         encoder_block = EncoderBlock(features=features,
                                     self_attention_block=encoder_self_attention_block, 
                                     feed_forward_block=feed_forward_block, 
-                                    dropout=dropout,
-                                    residual_type=residual_type,
-                                    normalization=normalization)
+                                    dropout=config['training']['dropout'],
+                                    residual_type=config['architecture'].get('residual_type', 'post_ln'),
+                                    normalization=config['architecture'].get('normalization', 'layer')  )
         encoder_blocks.append(encoder_block)
       encoders.append(Encoder(layers=nn.ModuleList(encoder_blocks)))
-  elif encoder_type == 'none':
+  elif config['architecture'].get('encoder_type', 'normal')   == 'none':
     encoders = [None]
-  elif encoder_type == 'vanilla':
-    vanilla_layer = VanillaEncoderBlock(d_model=d_model, 
-                                        h=h, 
-                                        d_ff=d_ff, 
-                                        dropout=dropout,
-                                        normalization=normalization,
-                                        activation=activation,
-                                        residual_type=residual_type)
-    encoders = nn.TransformerEncoder(vanilla_layer, num_layers=N)
+  elif config['architecture'].get('encoder_type', 'normal')   == 'vanilla':
+    vanilla_layer = VanillaEncoderBlock(d_model=config['architecture']['d_model'] , 
+                                        h=config['architecture']['h'] , 
+                                        d_ff=config['architecture']['d_ff'] , 
+                                        dropout=config['training']['dropout'],
+                                        normalization=config['architecture'].get('normalization', 'layer')  ,
+                                        activation=config['architecture']['activation'],
+                                        residual_type=config['architecture'].get('residual_type', 'post_ln'))
+    encoders = nn.TransformerEncoder(vanilla_layer, num_layers=config['architecture']['N'] )
   else:
-    raise ValueError(f"Unsupported encoding type: {encoder_type}")        
+    raise ValueError(f"Unsupported encoding type: {config['architecture'].get('encoder_type', 'normal')  }")        
     
 
   #########################################################
@@ -1008,20 +1003,20 @@ def build_encoder_transformer(config):
     factor = 4
   else:
     factor = 1  
-  final_block = FinalBlock(d_model=d_model*factor,
-                            seq_len=seq_len, 
-                            dropout=dropout, 
-                            out_put_size=output_size, 
+  final_block = FinalBlock(d_model=config['architecture']['d_model'] *factor,
+                            seq_len=config['architecture']['seq_len'] , 
+                            dropout=config['training']['dropout'], 
+                            out_put_size=config['architecture'].get('output_size', 1) , 
                             forward_type=final_type)
 
   # Create the transformer
-  if encoder_type == 'vanilla':
+  if config['architecture'].get('encoder_type', 'normal')   == 'vanilla':
     encoder_transformer = VanillaEncoderTransformer(encoders=encoders,
                                                     src_embed=src_embed,
                                                     src_pos= src_pos, 
                                                     final_block=final_block,
-                                                    residual_type=residual_type,
-                                                    normalization=normalization,
+                                                    residual_type=config['architecture'].get('residual_type', 'post_ln'),
+                                                    normalization=config['architecture'].get('normalization', 'layer')  ,
                                                     features=features)
   else:
     encoder_transformer = EncoderTransformer(features=features,
@@ -1029,10 +1024,10 @@ def build_encoder_transformer(config):
                                             src_embed=src_embed,
                                             src_pos= src_pos, 
                                             final_block=final_block,
-                                            encoding_type=encoder_type,
-                                            residual_type=residual_type,
-                                            normalization=normalization,
-                                            data_type=data_type)
+                                            encoding_type=config['architecture'].get('encoder_type', 'normal')  ,
+                                            residual_type=config['architecture'].get('residual_type', 'post_ln'),
+                                            normalization=config['architecture'].get('normalization', 'layer')  ,
+                                            data_type=config['architecture']['data_type'])
 
   # Initialize the parameters
   for p in encoder_transformer.parameters():
@@ -1225,33 +1220,41 @@ def get_FLOPs(model, config, verbose=False):
   for name, module in model.named_modules():
     ## Input embeddings
     if isinstance(module, InputEmbeddings):
-       
+       input_flops = 0
        print(f"Is a input embedding: {name}") if verbose else None
 
        if isinstance(module.embedding, torch.nn.Linear):
-        flops += 2 * module.embedding.in_features * module.embedding.out_features  # for the multiplication
-        flops += module.embedding.out_features  # for the bias addition
 
-       elif isinstance(module.embedding, CnnInputEmbeddings):  
-          MACs1 = n_ant * seq_len * module.embedding.kernel_size * module.embedding.stride * module.embedding.out_put_size
-          MACs2 = n_ant * seq_len * 1 * module.embedding.kernel_size * module.embedding.out_put_size
-          flops += 2 * (MACs1 + MACs2)
+        input_flops +=  module.embedding.in_features * module.embedding.out_features  * seq_len # for the multiplication
+        input_flops += module.embedding.out_features *seq_len # for the bias addition
+
+       elif isinstance(module.embedding, CnnInputEmbeddings): 
+
+          cnn1 = module.embedding.kernel_size * 1 * module.embedding.channels * module.embedding.out_put_size * seq_len / module.embedding.stride
+          cnn2 = module.embedding.kernel_size * module.embedding.stride * module.embedding.out_put_size * module.embedding.channels * seq_len / module.embedding.stride
+          input_flops += 2 * (int(cnn1) + int(cnn2))
 
        elif isinstance(module.embedding, ViTEmbeddings):
           MACs1 = n_ant * seq_len * module.embedding.kernel_size * module.embedding.kernel_size * module.embedding.out_put_size
-          flops += 2 * MACs1  
+          input_flops += 2 * MACs1  
 
        if module.dropout.p > 0:
-        flops += 2 * batch_size * seq_len * d_model
+        input_flops += 2 * batch_size * seq_len * d_model
 
        if isinstance(module.activation, torch.nn.ReLU) or isinstance(module.activation, torch.nn.GELU):
-          flops += batch_size * seq_len * d_model
+          input_flops += batch_size * seq_len * d_model
+
+       print(f"Input embedding flops: {input_flops}") if verbose else None
+       flops += input_flops   
+          
 
     ## Positional encoding      
     elif isinstance(module, PositionalEncoding):
        print(f"Is a positional encoding: {name}") if verbose else None
+       pos_flops = batch_size * seq_len * d_model
+       print(f"Positional encoding flops: {pos_flops}") if verbose else None
 
-       flops +=  batch_size * seq_len * d_model
+       flops +=  pos_flops
 
     ## Residual connection
     elif isinstance(module, ResidualConnection):
@@ -1271,40 +1274,55 @@ def get_FLOPs(model, config, verbose=False):
       # Perform calculations for MultiHeadAttentionBlock
       n_heads = module.h
       d_h = module.d_h
+
+      MHA_flops = 0
+
       if module.projection_type == 'linear':
         linear_contribution = 2 * 4 * batch_size * seq_len * d_model * d_model # q x W_q, k x W_k, v x W_v
         attention_calc = 2 * batch_size * seq_len * seq_len * n_heads * d_h
         soft_max = batch_size * seq_len * seq_len * n_heads
         final_mult = 2 * batch_size * n_heads * seq_len * d_h * seq_len
         scale = 2 * batch_size * seq_len * n_heads * d_model
-        flops += linear_contribution + attention_calc + soft_max + final_mult + scale
+        MHA_flops = linear_contribution + attention_calc + soft_max + final_mult + scale
+
 
       elif module.projection_type == 'cnn':
-         print("Is not implemnted yet")   
 
-      if module.positional_encoding == 'Relative':
+        W_q_k_v = 2 * d_h * d_model * module.W_q.kernel_size[0] * module.W_q.kernel_size[1] * module.W_q.out_channels
+        W_0 = 2 * d_model * module.W_0.kernel_size[0] * module.W_0.kernel_size[1] * module.W_0.out_channels
+        MHA_flops = W_0 + W_q_k_v
+
+
+      if module.positional_encoding == True:
          
          relative_attention_1 = 2 *batch_size * seq_len * seq_len * n_heads * d_h
          attention_score = 2 * batch_size * seq_len * seq_len * n_heads
          relative_attention_2 = 2 * batch_size * seq_len * n_heads * d_h * seq_len
          add_weight = 2 * batch_size * seq_len * n_heads * d_h
-         flops += relative_attention_1 + attention_score + relative_attention_2 + add_weight
+         MHA_flops += relative_attention_1 + attention_score + relative_attention_2 + add_weight
 
       if module.dropout.p > 0:
-        flops += 2 * batch_size * seq_len * d_model
+        MHA_flops += 2 * batch_size * seq_len * d_model
+
+      print(f"Multi head attention block flops: {MHA_flops}") if verbose else None
+      flops += MHA_flops
 
 
     ## FeedForwardBlock
     elif isinstance(module, FeedForwardBlock):
       print(f"Is a feed forward block: {name}") if verbose else None
+      ffb_flops = 0
       # FLOPs for wieghts a
-      flops += batch_size * seq_len * d_model * d_ff +  batch_size * seq_len * d_ff * d_model
+      ffb_flops += batch_size * seq_len * d_model * d_ff +  batch_size * seq_len * d_ff * d_model
 
       # FLOPs for the bias additions in the two linear transformations
-      flops += batch_size * seq_len * d_ff + batch_size * seq_len * d_model
+      ffb_flops += batch_size * seq_len * d_ff + batch_size * seq_len * d_model
 
       if isinstance(module.activation, torch.nn.ReLU) or isinstance(module.activation, torch.nn.GELU):
-        flops += batch_size * seq_len * d_ff
+        ffb_flops += batch_size * seq_len * d_ff
+
+      print(f"Feed forward block flops: {ffb_flops}") if verbose else None
+      flops += ffb_flops  
 
     ## FinalBlock
     elif isinstance(module, FinalBlock):
@@ -1337,4 +1355,45 @@ def get_FLOPs(model, config, verbose=False):
 
   print(f"FLOPs: {flops}") if verbose else None
   return flops
+
+def get_MMac(model, config, verbose=False):
+  """
+    This code was provided by Copilot AI
+    This function calculates the number of multiply-accumulate operations (MACs)
+    and the number of parameters in a model. The model must take (batch_size, seq_len, channels) as input 
+    and not the more common (1, batch_size, channels, seq_len) format.
+    Args:
+      model: The model to calculate the MACs and parameters for.
+      batch_size: The batch size to use for the model.
+      seq_len: The sequence length to use for the model.
+      channels: The number of channels to use for the model.
+
+    Returns: macs, params
+      macs: The number of MACs in the model.
+      params: The number of parameters in the model.
+
+  """
+  if 'transformer' not in config:
+     config = {'transformer': config}
+
+  seq_len = config['transformer']['architecture']['seq_len']
+  channels = config['transformer']['architecture']['n_ant']
+  batch_size = 1
+
+  wrapped_model = ModelWrapper(model, batch_size=batch_size,  seq_len=seq_len, channels=channels)
+
+  # Specify the input size of your model
+  # This should match the input size your model expects
+  if config['transformer']['architecture']['data_type'] == 'trigger':
+    input_size = (batch_size,seq_len, channels)  
+  elif config['transformer']['architecture']['data_type'] == 'chunked':
+    input_size = (batch_size, channels, seq_len)  
+  # Calculate FLOPs
+  macs, params = get_model_complexity_info(wrapped_model, input_size, as_strings=False,
+                                          print_per_layer_stat=False, verbose=False)
+  if verbose:
+    print('{:<30}  {:<8}'.format('Computational complexity: ', macs))
+    print('{:<30}  {:<8}'.format('Number of parameters: ', params))
+  
+  return macs, params   
      

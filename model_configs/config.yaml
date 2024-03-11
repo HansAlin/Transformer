@@ -14,7 +14,7 @@ transformer:
     GSA: False
     h: 4
     inherit_model: null
-    max_relative_position: 64
+    max_relative_position: 32
     residual_type: 'pre_ln' # Posible options: 'pre_ln', 'post_ln'
     n_ant: &n_ant 4
     normalization: layer # Posible options: 'layer', 'batch'

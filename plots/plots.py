@@ -148,7 +148,7 @@ def plot_performance_curve(y_preds, ys, configs, bins=1000, save_path='', text =
     style.use('seaborn-colorblind')
     if text != '':
       text = ' ' + text
-    if save_path == '' and length == 1:
+    if length == 1:
         save_path = config['transformer']['basic']['model_path'] + 'plot/' + f'model_{config["transformer"]["basic"]["model_num"]}_{curve}_{text.replace(" ", "_")}.png'
         plt.savefig(save_path)
     else:    
@@ -886,53 +886,70 @@ def change_format_units(df):
  
 
 
-def plot_attention_scores(model, x, save_path):
-    model.eval()
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 
-    out = model(x, src_mask=None)
-    x = x.detach().numpy()
-    first_att = model.layers[0].self_attention_block.attention_scores
-    first_att = first_att.detach().numpy()
+def plot_attention_scores(model, x, y, save_path='/home/halin/Master/Transformer/figures/', extra_identifier=''):
+    if y == 0:
+      y = 'noise'
+    elif y == 1:
+      y = 'signal'
 
-    fig = plt.figure(figsize=(10, 10))
+    if not os.path.exists(save_path):
+      os.makedirs(save_path)
 
-    # Create a GridSpec object
-    gs = gridspec.GridSpec(2, 2, width_ratios=[1, 4], height_ratios=[4, 1])
+    x = x.cpu().detach().numpy()
+    item = 1
+    for name, module in model.named_modules():
+      if isinstance(module, mm.MultiHeadAttentionBlock):
+        first_att = module.attention_scores
+        first_att = first_att.cpu().detach().numpy()
 
-    # Create the subplots
-    ax0 = plt.subplot(gs[0])
-    ax1 = plt.subplot(gs[1])
-    ax3 = plt.subplot(gs[3])
+        fig = plt.figure(figsize=(20, 20))  # Increase the size of the figure
+        outer_grid = gridspec.GridSpec(2, 2, wspace=0.1, hspace=0.1)  # Add some space between the figures
+        fig.suptitle(f'Attention Scores {item}- {y}', fontsize=16)
+        for i in range(4):
+          inner_grid = gridspec.GridSpecFromSubplotSpec(2, 2, 
+                                                        subplot_spec=outer_grid[i], 
+                                                        width_ratios=[1, 5], 
+                                                        height_ratios=[5, 1],
+                                                        wspace=0,
+                                                        hspace=0)
 
-    x_reduced = x[0,:,0]
-    fig.suptitle('Attention Scores')
-    # Plot the attention scores
-    im = ax1.imshow(first_att[0,0,:,:], cmap='hot', interpolation='nearest')
-        # Remove the x and y ticks
-    ax1.set_xticks([])
-    ax1.set_yticks([])
-    # Plot the reduced input as a curve along the x axis
-    ax3.plot(x_reduced)
-    ax3.grid()
-    ax3.set_xlim([0, len(x_reduced)]) 
-    # Plot the reduced input as a curve along the y axis
-    ax0.plot(x_reduced, range(len(x_reduced)))
-    ax0.grid()
-    ax0.set_ylim([len(x_reduced), 0]) 
-    ax0.invert_yaxis()  # Invert the y axis to align it with the imshow plot
+          ax0 = plt.Subplot(fig, inner_grid[0])
+          ax1 = plt.Subplot(fig, inner_grid[1])
+          ax3 = plt.Subplot(fig, inner_grid[3])
 
-    # Create a new Axes object for the colorbar
-    cax = fig.add_axes([0.9, 0.27, 0.03, 0.6])
+          fig.add_subplot(ax0)
+          fig.add_subplot(ax1)
+          fig.add_subplot(ax3)
 
-    # Create a colorbar in the new Axes object
-    cbar = fig.colorbar(im, cax=cax)
+          x_reduced = x[0,:,0]
+          ax1.set_title(f"Head {i+1}")
+          # Plot the attention scores
+          im = ax1.imshow(first_att[0,i,:,:], cmap='hot', interpolation='none')
+          # Remove the x and y ticks
+          ax1.set_xticks([])
+          ax1.set_yticks([])
+          # Plot the reduced input as a curve along the x axis
+          ax3.plot(x_reduced)
+          ax3.grid()
+          ax3.set_xlim([0, len(x_reduced)]) 
+          # Plot the reduced input as a curve along the y axis
+          ax0.plot(x_reduced, range(len(x_reduced)))
+          ax0.grid()
+          ax0.set_ylim([len(x_reduced), 0]) 
+          ax0.invert_xaxis()  # Invert the y axis to align it with the imshow plot
 
-    # Adjust the spacing between the subplots
-    plt.subplots_adjust(wspace=0, hspace=0)
-    # plt.tight_layout()
-    plt.savefig(save_path)
-    plt.close()
+          # Create a new Axes object for the colorbar
+          cax = fig.add_axes([0.96, 0.2, 0.01, 0.6])
 
+          # Create a colorbar in the new Axes object
+          cbar = fig.colorbar(im, cax=cax)
+        fig.subplots_adjust(left=0.05, right=0.95, bottom=0.05, top=0.95, wspace=0, hspace=0)
+        plt.savefig(save_path + f'{extra_identifier}_attention_scores_{item}_{y}.png')
+        plt.close()
+        item += 1
 def plot_veff(models):
 
   for model in models:
@@ -967,3 +984,30 @@ def plot_hist(values, names, log=False, bins=100, xlim=0, ylim=10000,save_path='
     plt.savefig(save_path)
     
     plt.close() 
+
+def plot_tensor(tensor, name, save_folder='/home/halin/Master/Transformer/figures/'):
+  """
+  This function plots a table of the relative embeddings
+  Args:
+    embedding_table (numpy.array): the table to plot
+  """    
+  fig, ax = plt.subplots()
+  x = ax.imshow(tensor, cmap='hot',)
+  ax.figure.colorbar(x, ax=ax)
+
+  ax.set_title(f"{name.replace('_', ' ') }")
+  plt.savefig(save_folder + f'relative_embedding_table_{name}.png')
+
+def plot_layers(state_dict, layer, extra_name='', save_folder='/home/halin/Master/Transformer/figures/'):
+  item = 1
+  for (k, v) in state_dict.items():
+    if layer in k:
+        print(k, v.shape)
+        name = f"layer_{layer}_{item}_{extra_name}"
+        plot_tensor(
+            v.cpu().detach().numpy(),
+            name=name,
+            save_folder=save_folder
+        )
+        item += 1
+

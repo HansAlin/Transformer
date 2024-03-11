@@ -7,7 +7,7 @@ import sys
 
 CODE_DIR_1  ='/home/halin/Master/Transformer/'
 sys.path.append(CODE_DIR_1)
-from models.models import LayerNormalization, BatchNormalization, ResidualConnection, MultiHeadAttentionBlock, FeedForwardBlock, EncoderBlock, Encoder, InputEmbeddings, PositionalEncoding, FinalBlock, EncoderTransformer, build_encoder_transformer
+from models.models import LayerNormalization, BatchNormalization, ResidualConnection, MultiHeadAttentionBlock, FeedForwardBlock, EncoderBlock, Encoder, InputEmbeddings, PositionalEncoding, FinalBlock, EncoderTransformer, build_encoder_transformer, get_FLOPs
 from dataHandler.datahandler import prepare_data, get_chunked_data, get_trigger_data
 from model_configs.config import get_config
 
@@ -16,24 +16,50 @@ def count_parameters(layer):
 
 class BaseTest(unittest.TestCase):
     batch_size = 32
-    seq_len = 256
-    channels = 4
-    d_model = 64
-    num_heads = 8
+    seq_len = 128
+    d_model = 256
+    h = 2
     dropout = 0.1
-    d_ff = 512
-    max_relative_position = 10
+    d_ff = 256
+    max_relative_position = 64
     out_put_size =1
-    N = 6
+    N = 2
     n_ant = 4
-    h = 8
-    activations = ['relu', 'gelu']
-    normalizations = ['layer', 'batch']
-    residual_types = ['post_ln', 'pre_ln']
-    pos_enc_types = ['Relative']  # Posible options: 'Sinusoidal', 'Relative',  'Learnable''None',
+    activations = ['gelu'] # Posible options: 'relu', 'gelu'
+    normalizations = ['batch'] # Posible options: 'layer', 'batch'
+    residual_types = [ 'pre_ln'] # Posible options: 'pre_ln', 'post_ln'
+    pos_enc_types = ['Sinusoidal']  # Posible options: 'Sinusoidal', 'Relative',  'Learnable''None',
     GSAs = [True]
-    projection_types = ['linear']  # Posible options: 'linear', 'cnn'
-    input_embeddings = ['cnn'] # options 'lin_relu_drop', 'lin_gelu_drop', 'linear', 'cnn', 'ViT'
+    projection_types = ['cnn']  # Posible options: 'linear', 'cnn'
+    input_embeddings = ['ViT'] # options 'lin_relu_drop', 'lin_gelu_drop', 'linear', 'cnn', 'ViT'
+    kernel_size = 2
+    stride = 2
+    data_type = 'trigger'
+
+    config = get_config(0)
+    config['transformer']['architecture']['encoder_type'] = 'normal'
+    config['transformer']['architecture']['normalization'] = normalizations[0]
+    config['transformer']['architecture']['residual_type'] = residual_types[0]
+    config['transformer']['architecture']['data_type'] = 'trigger'
+    config['transformer']['architecture']['seq_len'] = seq_len
+    config['transformer']['training']['batch_size'] = batch_size
+    config['transformer']['architecture']['output_size'] = out_put_size
+    config['transformer']['architecture']['d_model'] = d_model
+    config['transformer']['architecture']['d_ff'] = d_ff
+    config['transformer']['architecture']['h'] = h
+    config['transformer']['architecture']['max_relative_position'] = max_relative_position
+    config['transformer']['architecture']['dropout'] = dropout
+    config['transformer']['architecture']['N'] = N
+    config['transformer']['architecture']['activation'] = activations[0]
+    config['transformer']['architecture']['pos_enc_type'] = pos_enc_types[0]
+    config['transformer']['architecture']['GSA'] = GSAs[0]
+    config['transformer']['architecture']['projection_type'] = projection_types[0]
+    config['transformer']['architecture']['embed_type'] = input_embeddings[0]
+    config['transformer']['architecture']['input_embeddings'] = {}
+    config['transformer']['architecture']['input_embeddings']['kernel_size'] = kernel_size
+    config['transformer']['architecture']['input_embeddings']['stride'] = stride
+    # config['transformer']['architecture']['projection_cnn']['kernel_size'] = self.kernel_size
+    # config['transformer']['architecture']['projection_cnn']['stride'] = self.stride
 
 class TestLayers(BaseTest):
 
@@ -114,30 +140,32 @@ class TestInputEmbeddings(BaseTest):
         for embedding_type in self.input_embeddings:
             self.helper_input_embeddings(embedding_type)
 
-    def helper_input_embeddings(self, embedding_type, kernel_size=3, stride=2, padding=0):
+    def helper_input_embeddings(self, embedding_type):
+        kernel_size = self.kernel_size
+        stride = self.stride
         #torch.manual_seed(0)
         input_embeddings = InputEmbeddings(
             d_model=self.d_model, 
-            channels=self.n_ant, 
+            n_ant=self.n_ant, 
             embed_type=embedding_type,
-            padding=padding,
             kernel_size=kernel_size,
             stride=stride,
             )
         if embedding_type == 'cnn':
-            padding  = (kernel_size - self.seq_len % kernel_size) // 2
+            padding  = (kernel_size - 1) // 2
             expected_seq_len = (self.seq_len + 2 * padding - kernel_size) // stride + 1
             batch_size = self.batch_size
             d_model = self.d_model
         elif embedding_type == 'ViT':
             expected_seq_len = self.seq_len // kernel_size
             batch_size = self.batch_size
-            d_model = self.d_model * (self.channels // kernel_size + 1 ) 
+            d_model = self.d_model 
         else:
             expected_seq_len = self.seq_len
             batch_size = self.batch_size
             d_model = self.d_model
-        print(f"Number of parameters: {count_parameters(input_embeddings)}")    
+        print(f"Number of parameters: {count_parameters(input_embeddings)}") 
+        print(f"FLOPs: {get_FLOPs(input_embeddings, self.config, verbose=False)}")   
         input_data = torch.randn(self.batch_size, self.seq_len, self.n_ant)
         output = input_embeddings(input_data)
         self.assertEqual(output.shape, (batch_size, expected_seq_len, d_model))
@@ -179,11 +207,12 @@ class TestMultiHeadAttentionBlock(BaseTest):
                                                                 max_seq_len=1024,
                                                                 dropout=self.dropout, 
                                                                 max_relative_position=self.max_relative_position, 
-                                                                relative_positional_encoding=relative_positional_encoding,
+                                                                positional_encoding=relative_positional_encoding,
                                                                 GSA=GSA,
                                                                 projection_type=projection_type,
                                                                 )
             print(f"Number of parameters: {count_parameters(multi_head_attention_block)}")
+            print(f"FLOPs: {get_FLOPs(multi_head_attention_block, self.config, verbose=True)}")
             # Apply Xavier initialization to all weights in the MultiHeadAttentionBlock
             multi_head_attention_block.apply(lambda m: nn.init.xavier_uniform_(m.weight) if hasattr(m, 'weight') else None)
 
@@ -211,11 +240,14 @@ class TestEncoder(BaseTest):
         for relative_positional_encoding in self.relative_positional_encodings:
             # Create the blocks
             self_attention_block = MultiHeadAttentionBlock(d_model=self.d_model, 
-                                                                    h=self.h, 
-                                                                    dropout=self.dropout, 
-                                                                    max_relative_position=self.max_relative_position, 
-                                                                    relative_positional_encoding=relative_positional_encoding,)
-
+                                                                h=self.h, 
+                                                                max_seq_len=1024,
+                                                                dropout=self.dropout, 
+                                                                max_relative_position=self.max_relative_position, 
+                                                                positional_encoding=relative_positional_encoding,
+                                                                GSA=self.GSA,
+                                                                projection_type=s[0],
+                                                                )
 
             # Iterate over the combinations of normalization and location
             for activation in self.activations:
@@ -260,7 +292,7 @@ class TestEncoder(BaseTest):
                         torch.manual_seed(0)
                         # Create the blocks
                         self_attention_block = MultiHeadAttentionBlock(d_model=self.d_model,
-                                                                    h=self.num_heads,
+                                                                    h=self.h,
                                                                     dropout=self.dropout,
                                                                     max_relative_position=self.max_relative_position,
                                                                     relative_positional_encoding=relative_positional_encoding,)
@@ -295,7 +327,7 @@ class TestEncoder(BaseTest):
         config['architecture']['N'] = self.N
         config['architecture']['d_model'] = self.d_model
         config['architecture']['d_ff'] = self.d_ff
-        config['architecture']['num_heads'] = self.num_heads
+        config['architecture']['h'] = self.h
         config['architecture']['dropout'] = self.dropout
         config['architecture']['max_relative_position'] = self.max_relative_position
         config['architecture']['seq_len'] = self.seq_len
@@ -362,21 +394,18 @@ class TestDataLoader(BaseTest):
 class TestModel(BaseTest):
 
     def testModel(self):
-        config = get_config(0)['transformer']
-        config['architecture']['encoder_type'] = 'normal'
-        config['architecture']['normalization'] = 'layer'
-        config['architecture']['residual_type'] = 'pre_ln'
-        config['architecture']['data_type'] = 'trigger'
-        config['architecture']['seq_len'] = self.seq_len
-        config['training']['batch_size'] = self.batch_size
-        config['architecture']['output_size'] = self.out_put_size
 
-        model = build_encoder_transformer(config)
+        config = self.config    
+
+        model = build_encoder_transformer(config['transformer'])
+        print(f"Number of parameters: {count_parameters(model)}"),
+        flops = get_FLOPs(model, config)
+        print(f"FLOPS: {flops}")
 
         
         
 
-        if config['architecture']['data_type'] == 'chunked':
+        if config['transformer']['architecture']['data_type'] == 'chunked':
             data = torch.randn(self.batch_size, self.n_ant, self.seq_len)
             output = model(data)
             print(f"Output shape: {output.shape}", end=' ')
@@ -421,8 +450,8 @@ if __name__ == '__main__':
     # suite.addTest(TestDataLoader('test_chunked_data'))
     # suite.addTest(TestDataLoader('test_trigger_data'))
 
-    # suite.addTest(TestInputEmbeddings('test_input_embeddings'))
-    suite.addTest(TestModel('testModel'))
+    suite.addTest(TestInputEmbeddings('test_input_embeddings'))
+    #suite.addTest(TestModel('testModel'))
 
     runner = unittest.TextTestRunner()
     runner.run(suite)

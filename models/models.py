@@ -136,24 +136,36 @@ class ViTEmbeddings(nn.Module):
     self.kernel_size = kernel_size
     self.height = kernel_size
 
-
-    self.vertical_stride = channels // kernel_size
+    
+    if kernel_size == channels:
+      self.vertical_stride = 1
+    else:
+      self.vertical_stride = kernel_size
+    assert channels % kernel_size == 0, "The number of channels must be divisible by the kernel size"
     self.horizontal_stride = kernel_size
-    self.conv = nn.Conv2d(1, self.out_put_size, kernel_size=(self.height, self.height), stride=(self.horizontal_stride, self.vertical_stride), padding=(0, 0))
+    self.conv = nn.Conv2d(1, self.out_put_size, kernel_size=(self.height, self.height), stride=(self.vertical_stride, self.horizontal_stride), padding=(0, 0))
 
   def forward(self, x):
-    x = x.unsqueeze(1)  # Add an extra dimension for channels
-
+    x = x.transpose(1, 2) # (batch_size, seq_len, channels) --> (batch_size, channels, seq_len)
+    x = x.unsqueeze(1)  # Add an extra dimension for channels (batch_size, 1, channels, seq_len)
+     
     # Calculate padding dynamically
-    seq_len = x.size(2)
-    padding = 0
+    seq_len = x.size(-1)
+   
     if seq_len % self.height != 0:
-        padding = (self.height - seq_len % self.height) // 2
+      total_padding = (self.kernel_size - seq_len % self.kernel_size) % self.kernel_size
+      padding_left = total_padding // 2
+      padding_right = total_padding - padding_left
+    else:
+      padding_left = 0
+      padding_right = 0  
 
-    x = F.pad(x, (padding, 0))  # Add padding to the sequence length dimension
-    x = self.conv(x)
-    x = x.transpose(1,2)
-    x = x.flatten(start_dim=2, end_dim=3)  # Remove the height dimension
+    x = F.pad(x, (padding_left, padding_right))  # Add padding to the sequence length dimension
+    x = self.conv(x) # (batch_size, out_put_size (d_model), channels//kernel_size, seq_len//kernel_size)
+    x = x.permute(0, 2, 3, 1)  # (batch_size, channels//kernel_size, seq_len//kernel_size, out_put_size (d_model)
+    x = x.flatten(start_dim=1, end_dim=2)  # (batch_size, d_model, new_seq_len) Remove the height dimension
+  
+    
     # x = x.transpose(1, 2)  # Swap the "seq_len" and "d_model" dimensions
     return x  
 
@@ -461,7 +473,10 @@ class MultiHeadAttentionBlock(nn.Module):
       value = self.W_v(v) # (batch_size, seq_len, d_model) --> (batch_size, seq_len, d_model)
     elif self.projection_type == 'cnn':
       batch_size, seq_len, _ = q.shape
+      print(q.shape)
+      print(f"Batch size: {batch_size}, seq_len: {seq_len}, d_model: {self.d_model}, h: {self.h}, d_h: {self.d_h}")
       q = q.view(batch_size, self.h, self.d_h, seq_len)
+      print(q.shape)
       k = k.view(batch_size, self.h, self.d_h, seq_len)
       v = v.view(batch_size, self.h, self.d_h, seq_len)
       query = self.W_q(q)

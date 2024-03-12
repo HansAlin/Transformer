@@ -3,6 +3,8 @@ import unittest
 import torch
 import torch.nn as nn
 import sys
+import copy
+import itertools
 
 
 CODE_DIR_1  ='/home/halin/Master/Transformer/'
@@ -15,51 +17,12 @@ def count_parameters(layer):
     return sum(p.numel() for p in layer.parameters() if p.requires_grad)
 
 class BaseTest(unittest.TestCase):
-    batch_size = 32
-    seq_len = 128
-    d_model = 256
-    h = 2
-    dropout = 0.1
-    d_ff = 256
-    max_relative_position = 64
-    out_put_size =1
-    N = 2
-    n_ant = 4
-    activations = ['gelu'] # Posible options: 'relu', 'gelu'
-    normalizations = ['batch'] # Posible options: 'layer', 'batch'
-    residual_types = [ 'pre_ln'] # Posible options: 'pre_ln', 'post_ln'
-    pos_enc_types = ['Sinusoidal']  # Posible options: 'Sinusoidal', 'Relative',  'Learnable''None',
-    GSAs = [True]
-    projection_types = ['cnn']  # Posible options: 'linear', 'cnn'
-    input_embeddings = ['ViT'] # options 'lin_relu_drop', 'lin_gelu_drop', 'linear', 'cnn', 'ViT'
-    kernel_size = 2
-    stride = 2
-    data_type = 'trigger'
+    def __init__(self, methodName='runTest', inputs=None, device=None):
+        super().__init__(methodName)
+        self.config = inputs
+        self.device = device
+    
 
-    config = get_config(0)
-    config['transformer']['architecture']['encoder_type'] = 'normal'
-    config['transformer']['architecture']['normalization'] = normalizations[0]
-    config['transformer']['architecture']['residual_type'] = residual_types[0]
-    config['transformer']['architecture']['data_type'] = 'trigger'
-    config['transformer']['architecture']['seq_len'] = seq_len
-    config['transformer']['training']['batch_size'] = batch_size
-    config['transformer']['architecture']['output_size'] = out_put_size
-    config['transformer']['architecture']['d_model'] = d_model
-    config['transformer']['architecture']['d_ff'] = d_ff
-    config['transformer']['architecture']['h'] = h
-    config['transformer']['architecture']['max_relative_position'] = max_relative_position
-    config['transformer']['architecture']['dropout'] = dropout
-    config['transformer']['architecture']['N'] = N
-    config['transformer']['architecture']['activation'] = activations[0]
-    config['transformer']['architecture']['pos_enc_type'] = pos_enc_types[0]
-    config['transformer']['architecture']['GSA'] = GSAs[0]
-    config['transformer']['architecture']['projection_type'] = projection_types[0]
-    config['transformer']['architecture']['embed_type'] = input_embeddings[0]
-    config['transformer']['architecture']['input_embeddings'] = {}
-    config['transformer']['architecture']['input_embeddings']['kernel_size'] = kernel_size
-    config['transformer']['architecture']['input_embeddings']['stride'] = stride
-    # config['transformer']['architecture']['projection_cnn']['kernel_size'] = self.kernel_size
-    # config['transformer']['architecture']['projection_cnn']['stride'] = self.stride
 
 class TestLayers(BaseTest):
 
@@ -136,83 +99,90 @@ class TestLayers(BaseTest):
 class TestInputEmbeddings(BaseTest):
 
     def test_input_embeddings(self):
-        #torch.manual_seed(0)
-        for embedding_type in self.input_embeddings:
-            self.helper_input_embeddings(embedding_type)
+        d_model = self.config['transformer']['architecture']['d_model']
+        n_ant = self.config['transformer']['architecture']['n_ant']
+        embed_type = self.config['transformer']['architecture']['embed_type']
+        kernel_size = self.config['transformer']['architecture']['input_embeddings']['kernel_size']
+        stride = self.config['transformer']['architecture']['input_embeddings']['stride']
+        seq_len = self.config['transformer']['architecture']['seq_len']
+        batch_size = self.config['transformer']['training']['batch_size']
+        print()
+        print(f"Testing {embed_type} embedding with kernel size {kernel_size} and stride {stride}")
 
-    def helper_input_embeddings(self, embedding_type):
-        kernel_size = self.kernel_size
-        stride = self.stride
         #torch.manual_seed(0)
+
         input_embeddings = InputEmbeddings(
-            d_model=self.d_model, 
-            n_ant=self.n_ant, 
-            embed_type=embedding_type,
+            d_model=d_model, 
+            n_ant=n_ant, 
+            embed_type=embed_type,
             kernel_size=kernel_size,
             stride=stride,
             )
-        if embedding_type == 'cnn':
+        if embed_type == 'cnn':
             padding  = (kernel_size - 1) // 2
-            expected_seq_len = (self.seq_len + 2 * padding - kernel_size) // stride + 1
-            batch_size = self.batch_size
-            d_model = self.d_model
-        elif embedding_type == 'ViT':
-            expected_seq_len = self.seq_len // kernel_size
-            batch_size = self.batch_size
-            d_model = self.d_model 
+            expected_seq_len = (seq_len + 2 * padding - kernel_size) // stride + 1
+            batch_size = batch_size
+            d_model = d_model
+        elif embed_type == 'ViT':
+            if seq_len % kernel_size != 0:
+                total_padding = (kernel_size - seq_len % kernel_size) % kernel_size
+                expected_seq_len = (seq_len + total_padding) // kernel_size
+            else:
+                expected_seq_len = seq_len // kernel_size         
+            expected_seq_len = expected_seq_len * (n_ant // kernel_size)
+            batch_size = batch_size
+            d_model = d_model 
         else:
-            expected_seq_len = self.seq_len
-            batch_size = self.batch_size
-            d_model = self.d_model
+            expected_seq_len = seq_len
+            batch_size = batch_size
+            d_model = d_model
         print(f"Number of parameters: {count_parameters(input_embeddings)}") 
         print(f"FLOPs: {get_FLOPs(input_embeddings, self.config, verbose=False)}")   
-        input_data = torch.randn(self.batch_size, self.seq_len, self.n_ant)
+        input_data = torch.randn(batch_size, seq_len, n_ant)
         output = input_embeddings(input_data)
+        print(f"Output shape: {output.shape}")
         self.assertEqual(output.shape, (batch_size, expected_seq_len, d_model))
 
 
 class TestMultiHeadAttentionBlock(BaseTest):
 
-    def setUp(self) -> None:
-        torch.manual_seed(0)
-
-    def tearDown(self):
-        torch.cuda.empty_cache()    
+ 
 
     def test_MultiHeadAttentionBlock(self):
-        #torch.manual_seed(10)
-        for relative_positional_encoding in self.pos_enc_types:
-            for GSA in self.GSAs:
-                for projection_type in self.projection_types:
-                    self.helper_MultiHeadAttentionBlock(relative_positional_encoding, GSA, projection_type)
+        relative_positional_encoding = self.config['transformer']['architecture']['pos_enc_type']  
+        GSA = self.config['transformer']['architecture']['GSA']
+        projection_type = self.config['transformer']['architecture']['projection_type']
+        batch_size = self.config['transformer']['training']['batch_size']
+        seq_len = self.config['transformer']['architecture']['seq_len']
+        d_model = self.config['transformer']['architecture']['d_model']
+        dropout = self.config['transformer']['training']['dropout']
+        max_relative_position = self.config['transformer']['architecture']['max_relative_position']
+        h = self.config['transformer']['architecture']['h']
 
-
-    def helper_MultiHeadAttentionBlock(self, relative_positional_encoding, GSA, projection_type):
-        #torch.manual_seed(0)
         print(f"Positional encoding: {relative_positional_encoding}, GSA: {GSA}, Projection type: {projection_type}")
         with torch.autograd.set_detect_anomaly(True):
             # Create some input data
             torch.manual_seed(100)
-            q = torch.randn(self.batch_size, self.seq_len, self.d_model)
-            k = torch.randn(self.batch_size, self.seq_len, self.d_model)
-            v = torch.randn(self.batch_size, self.seq_len, self.d_model)
-            mask = None # torch.ones(self.batch_size, 1, seq_len).to(dtype=torch.bool)
+            q = torch.randn(batch_size, seq_len, d_model)
+            k = torch.randn(batch_size, seq_len, d_model)
+            v = torch.randn(batch_size, seq_len, d_model)
+            mask = None # torch.ones(batch_size, 1, seq_len).to(dtype=torch.bool)
             if relative_positional_encoding == 'Relative':
                 relative_positional_encoding = True
             else:
                 relative_positional_encoding = False
             # Initialize the MultiHeadAttentionBlock layer
-            multi_head_attention_block = MultiHeadAttentionBlock(d_model=self.d_model, 
-                                                                h=self.h, 
+            multi_head_attention_block = MultiHeadAttentionBlock(d_model=d_model, 
+                                                                h=h, 
                                                                 max_seq_len=1024,
-                                                                dropout=self.dropout, 
-                                                                max_relative_position=self.max_relative_position, 
+                                                                dropout=dropout, 
+                                                                max_relative_position=max_relative_position, 
                                                                 positional_encoding=relative_positional_encoding,
                                                                 GSA=GSA,
                                                                 projection_type=projection_type,
                                                                 )
             print(f"Number of parameters: {count_parameters(multi_head_attention_block)}")
-            print(f"FLOPs: {get_FLOPs(multi_head_attention_block, self.config, verbose=True)}")
+            print(f"FLOPs: {get_FLOPs(multi_head_attention_block, self.config, verbose=False)}")
             # Apply Xavier initialization to all weights in the MultiHeadAttentionBlock
             multi_head_attention_block.apply(lambda m: nn.init.xavier_uniform_(m.weight) if hasattr(m, 'weight') else None)
 
@@ -395,21 +365,25 @@ class TestModel(BaseTest):
 
     def testModel(self):
 
-        config = self.config    
+        config = self.config   
+        batch_size = get_value(config, 'batch_size') 
+        n_ant = get_value(config, 'n_ant')
+        seq_len = get_value(config, 'seq_len')
 
         model = build_encoder_transformer(config['transformer'])
         print(f"Number of parameters: {count_parameters(model)}"),
+        print(f"Input embeddings: {get_value(config, 'embed_type')}, Positional encoding: {get_value(config, 'pos_enc_type')}, Projection type: {get_value(config, 'projection_type')}, Projection type: {get_value(config, 'projection_type')}, Kernel size: {get_value(config, 'kernel_size')}, Stride: {get_value(config, 'stride')},")
         flops = get_FLOPs(model, config)
         print(f"FLOPS: {flops}")
 
-        
+        model.to(self.device)
         
 
         if config['transformer']['architecture']['data_type'] == 'chunked':
-            data = torch.randn(self.batch_size, self.n_ant, self.seq_len)
+            data = torch.randn(batch_size, n_ant, seq_len).to(self.device)
             output = model(data)
             print(f"Output shape: {output.shape}", end=' ')
-            true_out_put_shape = torch.randn(self.batch_size, 1).shape
+            true_out_put_shape = torch.randn(batch_size, 1).shape
             print(f"True output shape: {true_out_put_shape}")
             self.assertEqual(output.shape, true_out_put_shape)
             output2 = model.obtain_pre_activation(data)
@@ -418,10 +392,10 @@ class TestModel(BaseTest):
             self.assertEqual(output2.shape, true_out_put_shape)
             
         else:
-            data = torch.randn(self.batch_size, self.seq_len, self.n_ant)
+            data = torch.randn(batch_size, seq_len, n_ant).to(self.device)
             output = model(data)
             print(f"Output shape: {output.shape}", end=' ')
-            true_out_put_shape = torch.Size([self.batch_size])
+            true_out_put_shape = torch.Size([batch_size])
             print(f"True output shape: {true_out_put_shape}")
             self.assertEqual(output.shape, true_out_put_shape)
 
@@ -431,15 +405,96 @@ class TestModel(BaseTest):
         self.assertTrue(hasattr(model, 'network_blocks'))
         self.assertTrue(len(model.network_blocks) > 1)
         self.assertTrue(hasattr(model, 'forward')) 
-        print(f"Tetwork blocks [1]: {model.network_blocks[1]}")
+  
+
+def update_nested_dict(d, key, value):
+    for k, v in d.items():
+        if isinstance(v, dict):
+            update_nested_dict(v, key, value)
+        if k == key:
+            d[k] = value
+
+def get_value(d, key):
+    for k, v in d.items():
+        if isinstance(v, dict):
+            found = get_value(v, key)
+            if found is not None:
+                return found
+        if k == key:
+            return v
+    return None   
 
 if __name__ == '__main__':
+    if torch.cuda.is_available(): 
+      device = torch.device(f'cuda:{0}')
+    else:
+        device = torch.device("cpu")
+
     suite = unittest.TestSuite()
+    config = get_config(0)
+    cnn_configs = [
+            {'kernel_size': 3, 'stride': 1},
+            {'kernel_size': 3, 'stride': 2},
+        ]
+    vit_configs = [
+            {'kernel_size': 2, 'stride': 2},
+            {'kernel_size': 4, 'stride': 4},
+        ]
+  
+    test_dict = {
+                # 'GSA': [True, False],
+                # 'projection_type': ['linear', 'cnn'], 
+                # 'activation': ['relu', 'gelu'],
+                # 'normalization': ['layer', 'batch'],
+                'embed_type': ['ViT']#, 'ViT', 'linear'],
+                # 'pos_enc_type':['Relative', 'Sinusoidal', 'Learnable'],
+
+    }
+    combinations = list(itertools.product(*test_dict.values()))
+
+    configs = []
+    for combination in combinations:
+        params = dict(zip(test_dict.keys(), combination))
+
+        if params['embed_type'] == 'cnn':
+
+            for cnn_config in cnn_configs:
+                params_copy = params.copy()
+                params_copy.update(cnn_config)
+                
+                for (test_key, value) in params_copy.items():
+                    update_nested_dict(config, test_key, value)
+                new_config = copy.deepcopy(config)
+                configs.append(new_config)
+
+        elif params['embed_type'] == 'ViT':
+
+            for vit_config in vit_configs:
+                params_copy = params.copy()
+                params_copy.update(vit_config)
+                params.update(vit_config)
+                for (test_key, value) in params_copy.items():
+                    update_nested_dict(config, test_key, value)
+                new_config = copy.deepcopy(config)
+                configs.append(new_config)
+
+        else:
+            for (test_key, value) in params.items():
+                update_nested_dict(config, test_key, value)
+            new_config = copy.deepcopy(config)
+            configs.append(new_config)
+
+    for config in configs:
+        suite.addTest(TestInputEmbeddings('test_input_embeddings', inputs=config))
+        # suite.addTest(TestMultiHeadAttentionBlock('test_MultiHeadAttentionBlock', inputs=config))
+        # suite.addTest(TestModel('testModel', inputs=config, device=device))
+
+    
     # suite.addTest(TestLayers('test_LayerNormalization'))
     # suite.addTest(TestLayers('test_BatchNormalization'))
     
     
-    # suite.addTest(TestMultiHeadAttentionBlock('test_MultiHeadAttentionBlock'))
+    # 
 
     # suite.addTest(TestLayers('test_residual_connection'))
 
@@ -450,8 +505,8 @@ if __name__ == '__main__':
     # suite.addTest(TestDataLoader('test_chunked_data'))
     # suite.addTest(TestDataLoader('test_trigger_data'))
 
-    suite.addTest(TestInputEmbeddings('test_input_embeddings'))
-    #suite.addTest(TestModel('testModel'))
+    
+    
 
     runner = unittest.TextTestRunner()
     runner.run(suite)

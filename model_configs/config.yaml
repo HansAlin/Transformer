@@ -6,9 +6,9 @@ transformer:
     activation: 'relu' # Posible options: 'relu', 'gelu'
     by_pass: false
     d_ff: 256
-    d_model: 128 # Have to be dividable by h
+    d_model: 512 # Have to be dividable by h
     data_type: trigger # Possible options: 'trigger', 'chunked'
-    embed_type: linear # Posible options: 'lin_relu_drop', 'lin_gelu_drop', 'linear',
+    embed_type: cnn # Posible options: 'lin_relu_drop', 'lin_gelu_drop', 'linear', 'cnn', 'ViT'
     encoder_type: normal # Posible options: 'normal', 'none', 'bypass', 'vanilla'
     final_type: d_model_average_linear # Posible options: 'double_linear', 'single_linear', 'seq_average_linear', 'd_model_average_linear' for unknown seq_len chose 'd_model_average_linear'
     GSA: False
@@ -23,8 +23,11 @@ transformer:
     output_size: 1
     pos_enc_type: Relative # Posible options: 'Sinusoidal', 'Relative',  'Learnable''None',
     pretrained: null
-    projection_type: 'linear' # Posible options: 'linear', 'cnn'
+    projection_type: 'cnn' # Posible options: 'linear', 'cnn', 
     seq_len: &seq_len 128
+    input_embeddings:
+      kernel_size: 3 # options for cnn: 5, 3, 1, options for ViT: 1, 2, 4
+      stride: 1 # options for cnn: 2, 1, options for ViT: 1, 2, 4 Note: for ViT stride has to be equal to kernel_size
   basic:
     data_path: ''
     model: null

@@ -203,128 +203,65 @@ class TestMultiHeadAttentionBlock(BaseTest):
 class TestEncoder(BaseTest):
     def test_encoder_block(self):
 
+        d_model = get_value(self.config, 'd_model')
+        h = get_value(self.config, 'h')
+        dropout = get_value(self.config, 'dropout')
+        max_relative_position = get_value(self.config, 'max_relative_position')
+        relative_positional_encoding = get_value(self.config, 'pos_enc_type')
+        GSA = get_value(self.config, 'GSA')
+        projection_type = get_value(self.config, 'projection_type')
+        activation = get_value(self.config, 'activation')
+        d_ff = get_value(self.config, 'd_ff')
+        residual_type = get_value(self.config, 'residual_type')
+        normalization = get_value(self.config, 'normalization')
+        batch_size = get_value(self.config, 'batch_size')
+        seq_len = get_value(self.config, 'seq_len')
+
         # Create a random input tensor
-        x = torch.randn(self.batch_size, self.seq_len, self.d_model)
+        x = torch.randn(batch_size, seq_len, d_model)
         src_mask = None #torch.ones(self.batch_size, 1, self.seq_len)
 
-        for relative_positional_encoding in self.relative_positional_encodings:
-            # Create the blocks
-            self_attention_block = MultiHeadAttentionBlock(d_model=self.d_model, 
-                                                                h=self.h, 
-                                                                max_seq_len=1024,
-                                                                dropout=self.dropout, 
-                                                                max_relative_position=self.max_relative_position, 
-                                                                positional_encoding=relative_positional_encoding,
-                                                                GSA=self.GSA,
-                                                                projection_type=s[0],
-                                                                )
+        self_attention_block = MultiHeadAttentionBlock(d_model=d_model, 
+                                                            h=h, 
+                                                            max_seq_len=1024,
+                                                            dropout=dropout, 
+                                                            max_relative_position=max_relative_position, 
+                                                            positional_encoding=relative_positional_encoding,
+                                                            GSA=GSA,
+                                                            projection_type=projection_type,
+                                                            )
 
-            # Iterate over the combinations of normalization and location
-            for activation in self.activations:
-                for normalization in self.normalizations:
-                    for residual_type in self.residual_types:
-                        torch.manual_seed(0)
-                        feed_forward_block = FeedForwardBlock(d_model=self.d_model,
-                                                d_ff=self.d_ff,
-                                                dropout=self.dropout, 
+ 
+        feed_forward_block = FeedForwardBlock(d_model=d_model,
+                                                d_ff=d_ff,
+                                                dropout=dropout, 
                                                 activation=activation)
                         # Create the EncoderBlock
-                        encoder_block = EncoderBlock(
-                                                    features=self.d_model,
-                                                    self_attention_block=self_attention_block, 
-                                                    feed_forward_block=feed_forward_block, 
-                                                    dropout=self.dropout, 
-                                                    residual_type=residual_type,
-                                                    normalization=normalization, 
-                                                    )
+        encoder_block = EncoderBlock( features=d_model,
+                                        self_attention_block=self_attention_block, 
+                                        feed_forward_block=feed_forward_block, 
+                                        dropout=dropout, 
+                                        residual_type=residual_type,
+                                        normalization=normalization, 
+                                )
 
-                        # Pass the input tensor through the EncoderBlock
-                        output = encoder_block(x, src_mask)
+        FLOPs = get_FLOPs(encoder_block, self.config, verbose=False)
+        print()
+        print(f'Pos. enc.: {relative_positional_encoding}, GSA: {GSA}, Projection type: {projection_type}, Activation: {activation}, Residual type: {residual_type}, Normalization: {normalization}, FLOPs: {FLOPs}')    
+    
 
-                        # Check that the output has the same shape as the input
-                        self.assertEqual(output.shape, x.shape)
+        # Pass the input tensor through the EncoderBlock
+        output = encoder_block(x, src_mask)
 
-                        # Check that the output is not all zeros
-                        self.assertTrue(torch.any(output != 0))
+        # Check that the output has the same shape as the input
+        self.assertEqual(output.shape, x.shape)
 
-    def test_encoder(self):
-        # Create a random input tensor
-        x = torch.randn(self.batch_size, self.seq_len, self.d_model)
-        mask = None #torch.ones(self.batch_size, 1, self.seq_len)
+        # Check that the output is not all zeros
+        self.assertTrue(torch.any(output != 0))
 
         
-        
-        # Iterate over the normalization types and the activation functions
-        for relative_positional_encoding in [True, False]:
-            for activation in self.activations:
-                for normalization in self.normalizations:
-                    for residual_type in self.residual_types:
-                        torch.manual_seed(0)
-                        # Create the blocks
-                        self_attention_block = MultiHeadAttentionBlock(d_model=self.d_model,
-                                                                    h=self.h,
-                                                                    dropout=self.dropout,
-                                                                    max_relative_position=self.max_relative_position,
-                                                                    relative_positional_encoding=relative_positional_encoding,)
-                        feed_forward_block = FeedForwardBlock(self.d_model, self.d_ff, self.dropout, activation)
-                        encoder_block = EncoderBlock(features=self.d_model,
-                                                    self_attention_block=self_attention_block, 
-                                                    feed_forward_block=feed_forward_block, 
-                                                    dropout=self.dropout, 
-                                                    residual_type=residual_type,
-                                                    normalization=normalization, 
-                                                        )
-                        # Create a ModuleList of EncoderBlocks
-                        layers = nn.ModuleList([encoder_block for _ in range(6)])
-                        # Create the Encoder
-                        encoder = Encoder(layers)
-
-                        # Pass the input tensor through the Encoder
-                        output = encoder(x, mask)
-
-                        # Check that the output has the same shape as the input
-                        self.assertEqual(output.shape, x.shape)
-
-                        # Check that the output is not all zeros
-                        self.assertTrue(torch.any(output != 0))
 
 
-
-
-    def test_encode_encoder(self):
-        input_data = torch.randn(self.batch_size, self.seq_len, self.n_ant)
-        config = get_config(0)
-        config['architecture']['N'] = self.N
-        config['architecture']['d_model'] = self.d_model
-        config['architecture']['d_ff'] = self.d_ff
-        config['architecture']['h'] = self.h
-        config['architecture']['dropout'] = self.dropout
-        config['architecture']['max_relative_position'] = self.max_relative_position
-        config['architecture']['seq_len'] = self.seq_len
-        config['architecture']['batch_size'] = self.batch_size
-        config['architecture']['output_size'] = self.out_put_size
-        if config['architecture']['data_type'] == 'cunked':
-            config['architecture']['output_size'] = self.seq_len
-        else:
-            config['architecture']['output_size'] = 1 
-
-        expected_output_size = torch.Size([self.batch_size])    
-        
-        for location in ['post', 'pre']:
-            for normalization in ['layer', 'batch']:
-                for relative_positional_encoding in [True, False]:
-                    for activation in ['relu', 'gelu']:
-                        for encoding_type in ['normal', 'none', 'bypass']:
-                            config['architecture']['normalization'] = normalization
-                            config['architecture']['relative_positional_encoding'] = relative_positional_encoding
-                            config['architecture']['activation'] = activation
-                            config['architecture']['encoding_type'] = encoding_type
-                            config['architecture']['location'] = location
-                            model = build_encoder_transformer(config)
-                            output = model.encode(input_data)
-                            self.assertEqual(output.shape, expected_output_size)
-                            self.assertTrue(torch.any(output != 0))
-            
 
 class TestDataLoader(BaseTest):
 
@@ -371,10 +308,17 @@ class TestModel(BaseTest):
         seq_len = get_value(config, 'seq_len')
 
         model = build_encoder_transformer(config['transformer'])
-        print(f"Number of parameters: {count_parameters(model)}"),
-        print(f"Input embeddings: {get_value(config, 'embed_type')}, Positional encoding: {get_value(config, 'pos_enc_type')}, Projection type: {get_value(config, 'projection_type')}, Projection type: {get_value(config, 'projection_type')}, Kernel size: {get_value(config, 'kernel_size')}, Stride: {get_value(config, 'stride')},")
         flops = get_FLOPs(model, config)
-        print(f"FLOPS: {flops}")
+    
+        print(f"\nFLOP: {flops/(1e6):<6.1f}M, "
+        f"Number of parameters: {count_parameters(model)/1000:<6.1f}k, "
+        f"Input embeddings: {get_value(config, 'embed_type'):<10}, "
+        f"Kernel size: {get_value(config, 'kernel_size'):<6}, "
+        f"Stride: {get_value(config, 'stride'):<6}"
+        f"Positional encoding: {get_value(config, 'pos_enc_type'):<11}, "
+        f"Projection type: {get_value(config, 'projection_type'):<10}, "
+        )
+        
 
         model.to(self.device)
         
@@ -382,21 +326,21 @@ class TestModel(BaseTest):
         if config['transformer']['architecture']['data_type'] == 'chunked':
             data = torch.randn(batch_size, n_ant, seq_len).to(self.device)
             output = model(data)
-            print(f"Output shape: {output.shape}", end=' ')
+            #print(f"Output shape: {output.shape}", end=' ')
             true_out_put_shape = torch.randn(batch_size, 1).shape
-            print(f"True output shape: {true_out_put_shape}")
+            #print(f"True output shape: {true_out_put_shape}")
             self.assertEqual(output.shape, true_out_put_shape)
             output2 = model.obtain_pre_activation(data)
-            print(f"Output2 shape: {output2.shape}", end=' ')
-            print(f"True output shape: {true_out_put_shape}")
+            #print(f"Output2 shape: {output2.shape}", end=' ')
+            #print(f"True output shape: {true_out_put_shape}")
             self.assertEqual(output2.shape, true_out_put_shape)
             
         else:
             data = torch.randn(batch_size, seq_len, n_ant).to(self.device)
             output = model(data)
-            print(f"Output shape: {output.shape}", end=' ')
+            #print(f"Output shape: {output.shape}", end=' ')
             true_out_put_shape = torch.Size([batch_size])
-            print(f"True output shape: {true_out_put_shape}")
+            #print(f"True output shape: {true_out_put_shape}")
             self.assertEqual(output.shape, true_out_put_shape)
 
             
@@ -443,11 +387,11 @@ if __name__ == '__main__':
   
     test_dict = {
                 # 'GSA': [True, False],
-                # 'projection_type': ['linear', 'cnn'], 
+                'projection_type': ['linear', 'cnn'], 
                 # 'activation': ['relu', 'gelu'],
                 # 'normalization': ['layer', 'batch'],
-                'embed_type': ['ViT']#, 'ViT', 'linear'],
-                # 'pos_enc_type':['Relative', 'Sinusoidal', 'Learnable'],
+                'embed_type': ['ViT', 'cnn', 'linear'],# 'ViT', 'linear'],
+                'pos_enc_type':['Relative', 'Sinusoidal', 'Learnable'],
 
     }
     combinations = list(itertools.product(*test_dict.values()))
@@ -456,7 +400,7 @@ if __name__ == '__main__':
     for combination in combinations:
         params = dict(zip(test_dict.keys(), combination))
 
-        if params['embed_type'] == 'cnn':
+        if params.get('embed_type') == 'cnn':
 
             for cnn_config in cnn_configs:
                 params_copy = params.copy()
@@ -467,7 +411,7 @@ if __name__ == '__main__':
                 new_config = copy.deepcopy(config)
                 configs.append(new_config)
 
-        elif params['embed_type'] == 'ViT':
+        elif params.get('embed_type') == 'ViT':
 
             for vit_config in vit_configs:
                 params_copy = params.copy()
@@ -485,9 +429,10 @@ if __name__ == '__main__':
             configs.append(new_config)
 
     for config in configs:
-        suite.addTest(TestInputEmbeddings('test_input_embeddings', inputs=config))
+        # suite.addTest(TestInputEmbeddings('test_input_embeddings', inputs=config))
         # suite.addTest(TestMultiHeadAttentionBlock('test_MultiHeadAttentionBlock', inputs=config))
-        # suite.addTest(TestModel('testModel', inputs=config, device=device))
+        suite.addTest(TestModel('testModel', inputs=config, device=device))
+        # suite.addTest(TestEncoder('test_encoder_block', inputs=config, device=device))
 
     
     # suite.addTest(TestLayers('test_LayerNormalization'))
@@ -498,9 +443,6 @@ if __name__ == '__main__':
 
     # suite.addTest(TestLayers('test_residual_connection'))
 
-    # suite.addTest(TestEncoder('test_encoder_block'))
-    # suite.addTest(TestEncoder('test_encoder'))
-    # suite.addTest(TestEncoder('test_encode_encoder'))
 
     # suite.addTest(TestDataLoader('test_chunked_data'))
     # suite.addTest(TestDataLoader('test_trigger_data'))

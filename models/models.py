@@ -473,12 +473,9 @@ class MultiHeadAttentionBlock(nn.Module):
       value = self.W_v(v) # (batch_size, seq_len, d_model) --> (batch_size, seq_len, d_model)
     elif self.projection_type == 'cnn':
       batch_size, seq_len, _ = q.shape
-      print(q.shape)
-      print(f"Batch size: {batch_size}, seq_len: {seq_len}, d_model: {self.d_model}, h: {self.h}, d_h: {self.d_h}")
-      q = q.view(batch_size, self.h, self.d_h, seq_len)
-      print(q.shape)
-      k = k.view(batch_size, self.h, self.d_h, seq_len)
-      v = v.view(batch_size, self.h, self.d_h, seq_len)
+      q = q.reshape(batch_size, self.h, self.d_h, seq_len)
+      k = k.reshape(batch_size, self.h, self.d_h, seq_len)
+      v = v.reshape(batch_size, self.h, self.d_h, seq_len)
       query = self.W_q(q)
       key = self.W_k(k)
       value = self.W_v(v)

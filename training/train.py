@@ -46,6 +46,23 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
 
   for config in configs:
 
+    #######################################################################
+    #  Set up the GPU's to use                                           #
+    #######################################################################
+    if torch.cuda.is_available(): 
+      device = torch.device(f'cuda:{cuda_device}')
+      if second_device == None:
+        print(f"Let's use GPU {cuda_device}!")
+        
+      else:  
+        if torch.cuda.device_count() > 1 and get_least_utilized_gpu()[second_device] == 0 :
+            print(f"Let's use GPU {cuda_device} and {second_device}!")
+            model = nn.DataParallel(model, device_ids=[cuda_device, second_device])
+        else:
+            print(f"Let's use GPU {cuda_device}!")
+            device = torch.device(f'cuda:{cuda_device}')
+    else:
+        device = torch.device("cpu")
  
     df = pd.DataFrame([], columns= ['Train_loss', 'Val_loss', 'metric', 'Epochs', 'lr'])
     if not retrained:
@@ -99,27 +116,7 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
     #  python3 -m tensorboard.main --logdir=/mnt/md0/halin/Models/model_1/trainingdata
     
 
-    #######################################################################
-    #  Set up the GPU's to use                                           #
-    #######################################################################
-    if torch.cuda.is_available(): 
-      device = torch.device(f'cuda:{cuda_device}')
-      if second_device == None:
-        print(f"Let's use GPU {cuda_device}!")
 
-      else:  
-        if torch.cuda.device_count() > 1 and get_least_utilized_gpu()[second_device] == 0 :
-            print(f"Let's use GPU {cuda_device} and {second_device}!")
-            model = nn.DataParallel(model, device_ids=[cuda_device, second_device])
-
-
-        else:
-            print(f"Let's use GPU {cuda_device}!")
-            device = torch.device(f'cuda:{cuda_device}')
-
-
-    else:
-        device = torch.device("cpu")
 
     model = model.to(device)
 

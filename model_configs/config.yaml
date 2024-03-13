@@ -8,7 +8,7 @@ transformer:
     d_ff: 128
     d_model: 32 # Have to be dividable by h
     data_type: trigger # Possible options: 'trigger', 'chunked'
-    embed_type: cnn # Posible options: 'lin_relu_drop', 'lin_gelu_drop', 'linear', 'cnn', 'ViT'
+    embed_type: ViT # Posible options: 'lin_relu_drop', 'lin_gelu_drop', 'linear', 'cnn', 'ViT'
     encoder_type: normal # Posible options: 'normal', 'none', 'bypass', 'vanilla'
     final_type: d_model_average_linear # Posible options: 'double_linear', 'single_linear', 'seq_average_linear', 'd_model_average_linear' for unknown seq_len chose 'd_model_average_linear'
     GSA: False
@@ -26,8 +26,8 @@ transformer:
     projection_type: 'cnn' # Posible options: 'linear', 'cnn', 
     seq_len: &seq_len 128
     input_embeddings:
-      kernel_size: 3 # options for cnn: 5, 3, 1, options for ViT: 1, 2, 4
-      stride: 1 # options for cnn: 2, 1, options for ViT: 1, 2, 4 Note: for ViT stride has to be equal to kernel_size
+      kernel_size: 4 # options for cnn: 5, 3, 1, options for ViT: 1, 2, 4
+      stride: 4 # options for cnn: 2, 1, options for ViT: 1, 2, 4 Note: for ViT stride has to be equal to kernel_size
   basic:
     data_path: ''
     model: null

@@ -12,6 +12,7 @@ sys.path.append(CODE_DIR_1)
 from models.models import LayerNormalization, BatchNormalization, ResidualConnection, MultiHeadAttentionBlock, FeedForwardBlock, EncoderBlock, Encoder, InputEmbeddings, PositionalEncoding, FinalBlock, EncoderTransformer, build_encoder_transformer, get_FLOPs
 from dataHandler.datahandler import prepare_data, get_chunked_data, get_trigger_data
 from model_configs.config import get_config
+import lossFunctions.lossFunctions as ll
 
 def count_parameters(layer):
     return sum(p.numel() for p in layer.parameters() if p.requires_grad)
@@ -351,6 +352,45 @@ class TestModel(BaseTest):
         self.assertTrue(hasattr(model, 'forward')) 
   
 
+class TestLossFunctions(BaseTest):
+
+    def setUp(self):
+        self.device = torch.device("cpu")
+        self.hinge_loss = ll.HingeLoss(self.device)
+
+    def test_hinge_loss(self):
+        y_pred_1 = torch.tensor([-1, 1, -1, 1], device=self.device)
+        y_true_1 = torch.tensor([0, 1, 0, 1], device=self.device)
+        expected_loss = torch.tensor(0.0, device=self.device)
+        loss = self.hinge_loss(y_pred_1, y_true_1)
+        self.assertTrue(torch.equal(loss, expected_loss))
+        loss = loss = self.hinge_loss.forward(y_pred_1, y_true_1)
+        self.assertTrue(torch.equal(loss, expected_loss))
+
+        y_pred_2 = torch.tensor([-2, -2, -2, -2], device=self.device)
+        y_true_2 = torch.tensor([0, 0, 0, 0], device=self.device)
+        expected_loss = torch.tensor(0.0, device=self.device)
+        loss = self.hinge_loss(y_pred_2, y_true_2)
+        self.assertTrue(torch.equal(loss, expected_loss))
+        loss = loss = self.hinge_loss.forward(y_pred_2, y_true_2)
+        self.assertTrue(torch.equal(loss, expected_loss))
+
+
+        y_pred_3 = torch.tensor([2, 2, 2, 2], device=self.device)
+        y_true_3 = torch.tensor([0, 0, 0, 0], device=self.device)
+        expected_loss = torch.tensor(3.0, device=self.device)
+        loss = self.hinge_loss(y_pred_3, y_true_3)
+        self.assertTrue(torch.equal(loss, expected_loss))
+        loss = loss = self.hinge_loss.forward(y_pred_3, y_true_3)
+        self.assertTrue(torch.equal(loss, expected_loss))
+
+
+
+
+
+
+
+
 def update_nested_dict(d, key, value):
     for k, v in d.items():
         if isinstance(v, dict):
@@ -390,8 +430,8 @@ if __name__ == '__main__':
                 'projection_type': ['linear', 'cnn'], 
                 # 'activation': ['relu', 'gelu'],
                 # 'normalization': ['layer', 'batch'],
-                'embed_type': ['ViT', 'cnn', 'linear'],# 'ViT', 'linear'],
-                'pos_enc_type':['Relative', 'Sinusoidal', 'Learnable'],
+                # 'embed_type': ['ViT', 'cnn', 'linear'],# 'ViT', 'linear'],
+                # 'pos_enc_type':['Relative', 'Sinusoidal', 'Learnable'],
 
     }
     combinations = list(itertools.product(*test_dict.values()))
@@ -431,8 +471,9 @@ if __name__ == '__main__':
     for config in configs:
         # suite.addTest(TestInputEmbeddings('test_input_embeddings', inputs=config))
         # suite.addTest(TestMultiHeadAttentionBlock('test_MultiHeadAttentionBlock', inputs=config))
-        suite.addTest(TestModel('testModel', inputs=config, device=device))
+        # suite.addTest(TestModel('testModel', inputs=config, device=device))
         # suite.addTest(TestEncoder('test_encoder_block', inputs=config, device=device))
+        suite.addTest(TestLossFunctions('test_hinge_loss', inputs=config, device=device))
 
     
     # suite.addTest(TestLayers('test_LayerNormalization'))

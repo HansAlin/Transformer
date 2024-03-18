@@ -11,9 +11,9 @@ sys.path.append(CODE_DIR_1)
 # for path in sys.path:
 #    print(path)
 from models.models import InputEmbeddings, LayerNormalization, FinalBlock, build_encoder_transformer
-from dataHandler.datahandler import get_data, prepare_data, find_hyperparameters, get_model_config, collect_config_to_df
+import dataHandler.datahandler as dd
 # from training.train import test_model
-from plots.plots import get_area_under_curve, get_noise_reduction, get_roc, plot_performance_curve, histogram, plot_performance, plot_collections, plot_table, plot_results, plot_sns_table
+import plots.plots as pp
 import torch
 import subprocess
 import pandas as pd
@@ -179,13 +179,20 @@ def condense_sequence(match):
 # plot_results(model_num, config)
 
 #######################################################################
-# Plot current training from training                                 #
+# Plot dataframe                            #
 # #######################################################################
-# model_num = 131
-# df = pd.read_pickle(f'/mnt/md0/halin/Models/model_{model_num}/y_pred_data.pkl')
-# print(df)
+model_num = 231
+df = pd.read_pickle(f'/home/halin/Master/Transformer/Test/data/epoch_data_model_{model_num}.pkl')
+best_index = df['Efficiency'].idxmax()
+print(df.loc[best_index])
+
 
 ########################################################################
-# Plot veff                                                            #
+# Plot results                                                          #
 ########################################################################
-models = [201,202]
+
+# model_num = 234
+# config = dd.get_model_config(model_num)
+# plot_path = f'/home/halin/Master/Transformer/figures/loss/'
+# pp.plot_results(model_number=model_num, path=plot_path, config=config['transformer'])
+

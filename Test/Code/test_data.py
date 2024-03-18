@@ -283,7 +283,7 @@ def add_key_if_not_exists(dict_obj, key, value):
 # Get new FLOPs values                                              #
 ########################################################################
 
-model_numbers = [201,202,203,204,205,206,207,208,209, 213]
+model_numbers = [230,231,232,233,234]
 print('{:<20} {:>20} {:>20} '.format('Model number', 'FLOPs', 'MACs'))
 for model_number in model_numbers:
     config = dd.get_model_config(model_num=model_number, type_of_file='yaml')

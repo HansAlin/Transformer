@@ -19,6 +19,7 @@ import tensorboard
 from models.models import build_encoder_transformer
 from dataHandler.datahandler import save_data, save_model, create_model_folder, get_model_path, get_chunked_data, get_trigger_data
 from evaluate.evaluate import test_model, validate, get_energy, get_MMac, count_parameters
+import lossFunctions.lossFunctions as ll
 
 
 def get_least_utilized_gpu():
@@ -128,6 +129,8 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
       criterion = nn.BCELoss().to(device)
     elif loss_type == 'BCEWithLogits':
       criterion = nn.BCEWithLogitsLoss().to(device)
+    elif loss_type == 'hinge':
+      criterion == ll.HingeLoss().to(device)
     else:
       print("No loss function found")
       return None

@@ -33,7 +33,7 @@ from analysis_tools.model_loaders import LoadModelFromConfig
 from models.models import build_encoder_transformer, load_model
 from model_configs.config import get_config
 from dataHandler.datahandler import get_model_config, get_model_path
-from evaluate.evaluate import get_transformer_triggers
+from evaluate.evaluate import get_transformer_triggers, get_threshold
 
 ABS_PATH_HERE = '/home/halin/Master/Transformer/'
 plt.rcParams["font.family"] = "serif"
@@ -52,11 +52,12 @@ parser = argparse.ArgumentParser()
 # pos_enc_type [116, 128, 129]
 
 
-transformer_models = {201:'early_stop', 
-                      213:'early_stop',
-                      230:'early_stop', 
-                    #   219:'final',
-                    #   223:'early_stop'
+transformer_models = {201:'final', 
+                      230:'230_18.pth',
+                      231:'231_5.pth',
+                      232:'232_10.pth', 
+                      233:'233_99.pth',
+                      234:'234_10.pth'
                       }
 test = False
 
@@ -67,7 +68,7 @@ def qualitative_colors(length, darkening_factor=0.6):
     return darker_colors
 
 
-device = 0
+device = 1
 torch.cuda.set_device(device)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}, name of GPU: {torch.cuda.get_device_name(device=device)}")
@@ -276,12 +277,15 @@ def LoadTransformerModel(model_num, model_list, text):
     if 'transformer' in config:
         config = config['transformer']
     name = str(config['basic']["model_num"])
-    print(f"Threshold for model {name}: {config['results']['TRESH_AT_10KNRF']}")
-    if config['results']['TRESH_AT_10KNRF'] == 0:
+    threshold, sigmoid = get_threshold(config, text=text, verbose=False)
+    print(f"Threshold for model {name}: {threshold}, sigmoid: {sigmoid}")
+    if threshold == 0:
         assert False, "Model not trained"
     model_list[name] = dict()
     model_list[name]["config"] = config
     model_list[name]['data_config'] = GetConfig('/home/halin/Master/Transformer/data_config.yaml')
+    model_list[name]['threshold'] = threshold
+    model_list[name]['sigmoid'] = sigmoid
     
     model = load_model(config, text=text)
 

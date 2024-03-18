@@ -36,8 +36,11 @@ def test_model(model, test_loader, device, config, plot_attention=False, extra_i
     test_loader : the test data loader
     device : the device to use
     config: config file for the model
+    plot_attention: whether to plot the attention scores or not
+    extra_identifier: an extra identifier for the plot
+    noise_rejection_rate: the noise rejection rate, typical 1e4
   Return:
-    y_pred_data, accuracy, efficiency, precission
+    y_pred_data, accuracy, efficiency, precission,threshold
   """
   data_type = config['architecture'].get('data_type', 'chunked')
 
@@ -60,7 +63,7 @@ def test_model(model, test_loader, device, config, plot_attention=False, extra_i
 
   with torch.no_grad():
 
-    for istep in tqdm(range(len(test_loader))):
+    for istep in tqdm(range(len(test_loader)), disable=True):
 
       x_test, y_test = test_loader.__getitem__(istep)
       if plot_attention:
@@ -101,8 +104,8 @@ def test_model(model, test_loader, device, config, plot_attention=False, extra_i
       x_test, y_test = x_test.to(device), y_test.to(device)
       y_test = y_test.squeeze() 
       outputs = model(x_test)
-      if config['training']['loss_function'] == 'BCEWithLogits':
-        outputs = torch.sigmoid(outputs)
+      # if config['training']['loss_function'] == 'BCEWithLogits':
+      #   outputs = torch.sigmoid(outputs)
       y_pred.append(outputs.cpu().detach().numpy())
       y.append(y_test.cpu().detach().numpy()) 
       pred_round.append(outputs.cpu().detach().numpy())
@@ -325,10 +328,13 @@ def get_transformer_triggers(waveforms, trigger_times, model_name, pre_trig):
   upsampling = data_config['training']['upsampling']
   frac_into_waveform = data_config['training']['start_frac']
   model = model_name['model']
+  threshold = model_name['threshold']
+  sigmoid = model_name['sigmoid']
 
   current_length = waveforms.shape[1]
   assert current_length >= target_length
 
+  
   pct_pass = 0
 
   with torch.no_grad():
@@ -356,12 +362,13 @@ def get_transformer_triggers(waveforms, trigger_times, model_name, pre_trig):
               elif config['architecture']['data_type'] == 'chunked':
                  x = x  
               yhat = model(x)
-              yhat = torch.sigmoid(yhat)
+              if sigmoid:
+                yhat = torch.sigmoid(yhat)
               # if config['results']['TRESH_AT_10KNRF'] > yhat.cpu().squeeze() and config['basic']['model_num'] == 213:
               #   print(yhat.cpu().squeeze())
               #   pass
                  
-              triggers[i] = yhat.cpu().squeeze() > config['results']['TRESH_AT_10KNRF']
+              triggers[i] = yhat.cpu().squeeze() > threshold
               pct_pass += 1 * triggers[i]
           except Exception as e:
               print("Exception: ", str(e))
@@ -776,3 +783,21 @@ def noise_rejection(model_number, model_type='final', cuda_device=0, verbose=Fal
   print(f"Noise rejection rate: {len(outputs)/np.sum(interpret_signal)}")
   return outputs  
   
+def get_threshold(config, text='final', verbose=False):
+    try:
+        model_path = get_model_path(config, text=text)
+        states = torch.load(model_path)
+        threshold = states['threshold']
+        sigmoid = False
+        if verbose:
+            print(f"Model path: {model_path}, Threshold: {threshold}, Sigmoid: {sigmoid}")
+        return threshold, sigmoid
+    except:
+        if 'transformer' in config:
+            config = config['transformer']
+        threshold = config['results']['TRESH_AT_10KNRF']  
+        sigmoid = True
+        if verbose:
+            print(f"Model path: {model_path}, Threshold: {threshold}, Sigmoid: {sigmoid}")
+        return threshold, sigmoid
+

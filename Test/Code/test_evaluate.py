@@ -1,6 +1,8 @@
 import torch
 import sys
 from itertools import zip_longest
+import pandas as pd
+import glob
 
 CODE_DIR_1  ='/home/halin/Master/Transformer/'
 sys.path.append(CODE_DIR_1)
@@ -142,67 +144,99 @@ from analysis_tools.config import GetConfig
 #################################################################################
 # Test perfomance
 #################################################################################
-model_nums = [201,201,213,213,230,230]
-device = 0
-texts = ['final', 'early_stop', 'final', 'early_stop', 'final', 'early_stop'] #['early_stop', 'early_stop', 'final', 'final']
-text2s = ['threshol test', 'threshol test', 'threshol test','threshol test','threshol test','threshol test']#['no positional encoding', 'positional encoding', 'no positional encoding', 'positional encoding']
+test = False
 data_config = dd.get_data_config()
 train_data, val_data, test_data = dd.get_trigger_data(config=data_config,
-                                                   subset=False)
+                                                   subset=test)
 del train_data
 del val_data
 
-models = []
-textss = []
-text2ss = []
-AOCs = []
-NSEs = []
-thresholds = []
+models = [230,231,232,233,234]
+device = 1
+for model_num in models:
 
-print(f"{'Model number':<15} {'Which model':<15} {'Pos. type':<25} {'AOC':<15} {'NSE':<15} {'Threshold':<15}")
-for model_num, text, text2 in zip_longest(model_nums, texts, text2s):
     config = dd.get_model_config(model_num=model_num, type_of_file='yaml')
-    if text2 == 'no positional encoding':
-        config['transformer']['architecture']['pos_enc_type'] = 'None'
-    model = mm.load_model(config, text=text, verbose=False)
 
+    if 'transformer' in config:
+        config = config['transformer']
 
-    y_pred_data, accuracy, efficiency, precission = test_model(model=model,
-                                                    test_loader=test_data,
-                                                    device=device,
-                                                    config=config['transformer'],
-                                                    plot_attention=False,
-                                                    extra_identifier=model_num,)
+    model_path = f'/mnt/md0/halin/Models/model_{model_num}/saved_model/*.pth'
+    model_epoch_path = glob.glob(model_path)
 
-    AOC, nse, threshold =  pp.plot_performance_curve([y_pred_data['y_pred']], 
-                                                     [y_pred_data['y']], 
-                                                     [config], 
-                                                     curve='nr', 
-                                                     x_lim=[0.8,1], 
-                                                     bins=10000, 
-                                                     log_bins=False, 
-                                                     reject_noise=1e4,
-                                                     save_path=f'/home/halin/Master/Transformer/figures/performance_{text}_{text2}_',
-                                                     text= f'{text} {text2}',
-                                                     )
-    # print(f'{model_num:<15} {text:<15} {text2:<25} {AOC:<15.6f} {nse:<15.6f} {threshold:<15.6f}')
-#     pp.histogram(y_pred_data['y_pred'], 
-#                 y=y_pred_data['y'], 
-#                 config=config['transformer'],
-#                 bins=100, 
-#                 save_path=f'/home/halin/Master/Transformer/figures/performance_{text}_{text2}_',
-#                 text= f'{text} {text2}',
-#                 )
-    models.append(model_num)
-    textss.append(text)
-    text2ss.append(text2)
-    AOCs.append(AOC)
-    NSEs.append(nse)
-    thresholds.append(threshold)
+    data_dict = {'Epoch': [], 'Efficiency': [], 'Threshold': []}
+
+    best_efficiency = 0
+
+    for model_path in model_epoch_path:
+        model = mm.build_encoder_transformer(config)
+        state = torch.load(model_path)
+
+        if 'threshold' in state:
+            del state['threshold']
+        model.load_state_dict(state, strict=False)
+
+        y_pred_data, accuracy, efficiency, precission, threshold = test_model(model=model,
+                                                        test_loader=test_data,
+                                                        device=device,
+                                                        config=config,
+                                                        plot_attention=False,
+                                                        extra_identifier=model_num,)
+
+        # AOC, nse, threshold2 =  pp.plot_performance_curve([y_pred_data['y_pred']], 
+        #                                                  [y_pred_data['y']], 
+        #                                                  [config], 
+        #                                                  curve='nr', 
+        #                                                  x_lim=[0.8,1], 
+        #                                                  bins=10000, 
+        #                                                  log_bins=False, 
+        #                                                  reject_noise=1e4,
+        #                                                  save_path=f'/home/halin/Master/Transformer/figures/performance_model_{model_num}_{text}_{text2}.png',
+        #                                                  text= f'{text} {text2}',
+        #                                                  )
+        # # print(f'{model_num:<15} {text:<15} {text2:<25} {AOC:<15.6f} {nse:<15.6f} {threshold:<15.6f}')
+        epoch = model_path.split('_')[-1].split('.')[0]
+        state_dict = torch.load(model_path)
+      
+        try:
+            state_dict['model_state_dict']['threshold'] = threshold
+        except:
+            state_dict['threshold'] = threshold
+        if not test:
+            torch.save(state_dict, model_path)
+
+        print(f"Epoch {epoch:>10}   with threshold {threshold:>10.2f} has an efficiency of {efficiency:>10.4f}")
+        
+        # pp.histogram(y_pred_data['y_pred'], 
+        #             y=y_pred_data['y'], 
+        #             config=config['transformer'],
+        #             bins=100, 
+        #             save_path=f'/home/halin/Master/Transformer/figures/hist/hist_model_num_{model_num}_{text}_{text2}.png',
+        #             text= f'{epoch} {text2}',
+        #             threshold=threshold,
+        #             )
     
-print(f"{'Model number':<15} {'Which model':<15} {'Pos. type':<25} {'AOC':<15} {'NSE':<15} {'Threshold':<15}")
-for model_num, text, text2, AOC, nse, threshold in zip_longest(model_nums, texts, text2s, AOCs, NSEs, thresholds):    
-    print(f'{model_num:<15} {text:<15} {text2:<25} {AOC:<15.6f} {nse:<15.6f} {threshold:<15.6f}')
+        if efficiency > best_efficiency:
+            best_efficiency = efficiency
+            best_model = epoch
+    
+        data_dict['Epoch'].append(epoch)
+        data_dict['Efficiency'].append(efficiency)
+        data_dict['Threshold'].append(threshold)
+
+    df = pd.DataFrame(data_dict)
+    df.to_pickle(f'/home/halin/Master/Transformer/Test/data/epoch_data_model_{model_num}.pkl')
+    
+
+#     models.append(model_num)
+    
+#     text2ss.append(text2)
+#     AOCs.append(AOC)
+#     NSEs.append(nse)
+#     thresholds1.append(threshold1)
+#     thresholds2.append(threshold2)
+#     thresholds3.append(threshold3)
+    
+
     
 
 # model_num = 301

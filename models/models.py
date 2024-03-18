@@ -1124,8 +1124,10 @@ def load_model(config, text='early_stop', verbose=False):
     model.adds = get_FLOPs(model, original_config, verbose=verbose)
     model.multiplys = 0
     return model
-
-  state_dict = state['model_state_dict']
+  try:
+    state_dict = state['model_state_dict']
+  except:
+    state_dict = state  
 
   def count_matching_chars_from_right(s1, s2):
       # Reverse both strings

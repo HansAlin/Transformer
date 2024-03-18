@@ -15,7 +15,7 @@ import models.models as mm
 from dataHandler.datahandler import get_trigger_data, get_model_path, get_model_config
 #from evaluate.evaluate import get_model_path
 
-def histogram(y_pred, y, config, bins=100, save_path='', text=''):
+def histogram(y_pred, y, config, bins=100, save_path='', text='', threshold=None):
     """
           This function plots the histogram of the predictions of a given model.
           Args:
@@ -32,25 +32,36 @@ def histogram(y_pred, y, config, bins=100, save_path='', text=''):
       if not isExist:
         os.makedirs(save_path)
         print("The new directory is created!")
-
+      save_path + f"model_{config['basic']['model_num']}_histogram{text}.png"
 
     plt.rcParams['text.usetex'] = True
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(10, 5))
     signal_mask = y == 1
     y_pred_signal = y_pred[signal_mask]
     y_pred_noise = y_pred[~signal_mask]
-    signal_wights = np.ones_like(y_pred_signal) / len(y_pred_signal)
-    noise_weights = np.ones_like(y_pred_noise) / len(y_pred_noise)
+    median_signal = np.median(y_pred_signal)
+    median_noise = np.median(y_pred_noise)
+    mean_signal = np.mean(y_pred_signal)
+    mean_noise = np.mean(y_pred_noise)
+    # signal_wights = np.ones_like(y_pred_signal) / len(y_pred_signal)
+    # noise_weights = np.ones_like(y_pred_noise) / len(y_pred_noise)
 
     ax.set_title(f"Model {config['basic']['model_num']} {text}")
-    ax.hist(y_pred_signal, bins=bins, label='Pred signal', weights=signal_wights, alpha=0.5)
-    ax.hist(y_pred_noise, bins=bins, label='Pred noise', weights=noise_weights, alpha=0.5)
+    ax.hist(y_pred_signal, bins=bins, label='Pred signal', alpha=0.5) # weights=signal_wights, 
+    ax.hist(y_pred_noise, bins=bins, label='Pred noise', alpha=0.5) # weights=noise_weights, 
     ax.set_yscale('log')
-    ax.legend()
+    
     ax.set_xlabel(r'noise $\leftrightarrow$ signal')
+    if threshold is not None:
+        ax.axvline(x=threshold, color='r', linestyle='--', label=f'Threshold {threshold:.2f}')
+    ax.axvline(x=median_signal, color='g', linestyle='--', label=f'Median signal {median_signal:.2f}')
+    ax.axvline(x=median_noise, color='b', linestyle='--', label=f'Median noise {median_noise:.2f}')
+    ax.axvline(x=mean_signal, color='g', linestyle='-', label=f'Mean signal {mean_signal:.2f}')
+    ax.axvline(x=mean_noise, color='b', linestyle='-', label=f'Mean noise {mean_noise:.2f}')    
+    ax.legend()
     if text != '':
       text = '_' + text
-    plt.savefig(save_path + f"model_{config['basic']['model_num']}_histogram{text}.png")
+    plt.savefig(save_path)
     plt.clf()
     plt.close()
 
@@ -95,7 +106,9 @@ def plot_performance_curve(y_preds, ys, configs, bins=1000, save_path='', text =
       if not isExist:
         os.makedirs(save_path)
         print("The new directory is created!")
-
+   
+      save_path = save_path + f'model_{config["transformer"]["basic"]["model_num"]}_{curve}_{text.replace(" ", "_")}.png'  
+    
     if labels == None:
       if configs[0] != None:
         ax.set_title(f"Model {configs[0]['transformer']['basic']['model_num']} {text}")
@@ -146,13 +159,8 @@ def plot_performance_curve(y_preds, ys, configs, bins=1000, save_path='', text =
       ax.set_xlim(x_lim)
     ax.grid()
     style.use('seaborn-colorblind')
-    if text != '':
-      text = ' ' + text
-    if length == 1:
-        save_path = config['transformer']['basic']['model_path'] + 'plot/' + f'model_{config["transformer"]["basic"]["model_num"]}_{curve}_{text.replace(" ", "_")}.png'
-        plt.savefig(save_path)
-    else:    
-      plt.savefig(save_path + f'_{text.replace(" ", "_")}.png')
+
+    plt.savefig(save_path)
     plt.close()
 
     return get_area_under_curve(x,y), nse, threshold
@@ -160,12 +168,17 @@ def plot_performance_curve(y_preds, ys, configs, bins=1000, save_path='', text =
 def plot_results(model_number, config, path=''):
   if path == '':
     path = config['basic']['model_path']
+    plot_path = path + f'plot/' 
+    df = pd.read_pickle(path + 'dataframe.pkl')
+  else:
+    plot_path = path
+    df = pd.read_pickle(config['basic']['model_path'] + 'dataframe.pkl')
 
-  df = pd.read_pickle(path + 'dataframe.pkl')
+  
 
   # Loss plot 
   fig, ax = plt.subplots()
-  plot_path = path + f'plot/' 
+  
   isExist = os.path.exists(plot_path)
   if not isExist:
       os.makedirs(plot_path)

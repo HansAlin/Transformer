@@ -1009,23 +1009,29 @@ def get_model_config(model_num, path='/mnt/md0/halin/Models/', type_of_file='txt
       config: dictionary, the model configuration
         
     """
-    if 'yaml' in path:
-      CONFIG_PATH = path 
-      with open(CONFIG_PATH, 'r') as file:
-          config = yaml.safe_load(file)
-    elif type_of_file == 'txt':  
-      CONFIG_PATH = path + f'model_{model_num}/config{sufix}.txt'
-      with open(CONFIG_PATH, 'rb') as f:
-          config = pickle.load(f)
-    else:
-      CONFIG_PATH = path + f'model_{model_num}/config{sufix}.yaml'
-      with open(CONFIG_PATH, 'r') as file:
-          config = yaml.safe_load(file)
+    try:
+      if 'yaml' in path:
+        CONFIG_PATH = path 
+        with open(CONFIG_PATH, 'r') as file:
+            config = yaml.safe_load(file)
+      elif type_of_file == 'txt':  
+        CONFIG_PATH = path + f'model_{model_num}/config{sufix}.txt'
+        with open(CONFIG_PATH, 'rb') as f:
+            config = pickle.load(f)
+      else:
+        CONFIG_PATH = path + f'model_{model_num}/config{sufix}.yaml'
+        with open(CONFIG_PATH, 'r') as file:
+            config = yaml.safe_load(file)
 
-    if 'transformer' not in config:
-      return {'transformer': config}
-    else:
-      return config
+      if 'transformer' not in config:
+        return {'transformer': config}
+      else:
+        return config
+    except:
+      CONFIG_PATH = '/home/halin/Master/nuradio-analysis/configs/chunked/' + f'config_{model_num}.yaml'
+      with open(CONFIG_PATH, 'r') as file:
+        config = yaml.safe_load(file)
+      return config  
 
 
 

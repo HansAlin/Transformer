@@ -350,6 +350,7 @@ class TestModel(BaseTest):
         self.assertTrue(hasattr(model, 'network_blocks'))
         self.assertTrue(len(model.network_blocks) > 1)
         self.assertTrue(hasattr(model, 'forward')) 
+        self.assertTrue(not torch.any(torch.isnan(output)))
   
 
 class TestLossFunctions(BaseTest):
@@ -418,11 +419,11 @@ if __name__ == '__main__':
     config = get_config(0)
     cnn_configs = [
             {'kernel_size': 3, 'stride': 1},
-            {'kernel_size': 3, 'stride': 2},
+           # {'kernel_size': 3, 'stride': 2},
         ]
     vit_configs = [
-            {'kernel_size': 2, 'stride': 2},
-            {'kernel_size': 4, 'stride': 4},
+            # {'kernel_size': 2, 'stride': 2},
+            # {'kernel_size': 4, 'stride': 4},
         ]
   
     test_dict = {
@@ -471,9 +472,9 @@ if __name__ == '__main__':
     for config in configs:
         # suite.addTest(TestInputEmbeddings('test_input_embeddings', inputs=config))
         # suite.addTest(TestMultiHeadAttentionBlock('test_MultiHeadAttentionBlock', inputs=config))
-        # suite.addTest(TestModel('testModel', inputs=config, device=device))
+        suite.addTest(TestModel('testModel', inputs=config, device=device))
         # suite.addTest(TestEncoder('test_encoder_block', inputs=config, device=device))
-        suite.addTest(TestLossFunctions('test_hinge_loss', inputs=config, device=device))
+        # suite.addTest(TestLossFunctions('test_hinge_loss', inputs=config, device=device))
 
     
     # suite.addTest(TestLayers('test_LayerNormalization'))

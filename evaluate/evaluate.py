@@ -11,6 +11,7 @@ from matplotlib import pyplot as plt
 import matplotlib
 import itertools
 import glob
+import time
 
 from models.models import ModelWrapper, get_n_params, build_encoder_transformer, load_model, ResidualConnection, MultiHeadAttentionBlock, InputEmbeddings, PositionalEncoding, FinalBlock, FeedForwardBlock, CnnInputEmbeddings, BatchNormalization, LayerNormalization, ViTEmbeddings
 from dataHandler.datahandler import get_model_config, get_chunked_data, save_data, get_model_path
@@ -42,6 +43,9 @@ def test_model(model, test_loader, device, config, plot_attention=False, extra_i
   Return:
     y_pred_data, accuracy, efficiency, precission,threshold
   """
+  if 'transformer' in config:
+     config = config['transformer']
+
   data_type = config['architecture'].get('data_type', 'chunked')
 
   model.to(device)
@@ -113,6 +117,8 @@ def test_model(model, test_loader, device, config, plot_attention=False, extra_i
     threshold, accuracy, efficiency, precission, recall, F1 = validate(np.concatenate(y), np.concatenate(pred_round), noise_rejection=noise_rejection_rate)
   y_pred = np.concatenate(y_pred)
   y = np.concatenate(y)
+  if data_type == 'chunked':
+    y_pred = y_pred.flatten()
   y_pred_data = pd.DataFrame({'y_pred': y_pred, 'y': y})
 
   return y_pred_data, accuracy, efficiency, precission, threshold
@@ -319,10 +325,22 @@ def get_results(model_num, device=0):
     save_data(config=config, y_pred_data=y_pred_data)
     return accuracy, efficiency, precission
 
+def find_key_in_dict(nested_dict, target_key):
+    for key, value in nested_dict.items():
+        if key == target_key:
+            return value
+        elif isinstance(value, dict):
+            result = find_key_in_dict(value, target_key)
+            if result is not None:
+                return result
+    return None
+
 def get_transformer_triggers(waveforms, trigger_times, model_name, pre_trig):
+  start_time = time.time()
   config = model_name['config']
   triggers = np.zeros((len(waveforms)))
-  target_length = config['architecture']['seq_len']
+  
+  target_length = find_key_in_dict(config, 'seq_len')
   data_config = model_name['data_config']
   sampling_rate = data_config['sampling']['rate'] 
   upsampling = data_config['training']['upsampling']
@@ -357,9 +375,9 @@ def get_transformer_triggers(waveforms, trigger_times, model_name, pre_trig):
 
           try:
               x = this_wvf[cut_low_bin:cut_high_bin].swapaxes(0, 1).unsqueeze(0)
-              if config['architecture']['data_type'] == 'trigger':
+              if find_key_in_dict(config, 'data_type') == 'trigger':
                 x = x.transpose(1, 2)
-              elif config['architecture']['data_type'] == 'chunked':
+              elif find_key_in_dict(config, 'data_type') == 'chunked':
                  x = x  
               yhat = model(x)
               if sigmoid:
@@ -377,6 +395,7 @@ def get_transformer_triggers(waveforms, trigger_times, model_name, pre_trig):
               continue
 
   pct_pass /= len(pre_trig)
+  print(f"Elapsed time: {(time.time() - start_time):.2f}")
   return triggers, pct_pass
 
 def qualitative_colors(length):
@@ -784,20 +803,27 @@ def noise_rejection(model_number, model_type='final', cuda_device=0, verbose=Fal
   return outputs  
   
 def get_threshold(config, text='final', verbose=False):
-    try:
-        model_path = get_model_path(config, text=text)
-        states = torch.load(model_path)
-        threshold = states['threshold']
+    if config['architecture']['data_type'] == 'chunked':
+        path = config['basic']['model_path'] + '/config_' + str(config['basic']['model_num']) + f'_{text}_skipsize_206.npz'
+        npzfile = np.load(path)
+        threshold = float(npzfile['one_hz_threshold'])
         sigmoid = False
-        if verbose:
-            print(f"Model path: {model_path}, Threshold: {threshold}, Sigmoid: {sigmoid}")
         return threshold, sigmoid
-    except:
-        if 'transformer' in config:
-            config = config['transformer']
-        threshold = config['results']['TRESH_AT_10KNRF']  
-        sigmoid = True
-        if verbose:
-            print(f"Model path: {model_path}, Threshold: {threshold}, Sigmoid: {sigmoid}")
-        return threshold, sigmoid
+    else:
+      try:
+          model_path = get_model_path(config, text=text)
+          states = torch.load(model_path)
+          threshold = states['threshold']
+          sigmoid = False
+          if verbose:
+              print(f"Model path: {model_path}, Threshold: {threshold}, Sigmoid: {sigmoid}")
+          return threshold, sigmoid
+      except:
+          if 'transformer' in config:
+              config = config['transformer']
+          threshold = config['results']['TRESH_AT_10KNRF']  
+          sigmoid = True
+          if verbose:
+              print(f"Model path: {model_path}, Threshold: {threshold}, Sigmoid: {sigmoid}")
+          return threshold, sigmoid
 

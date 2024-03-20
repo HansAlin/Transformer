@@ -145,22 +145,33 @@ from analysis_tools.config import GetConfig
 # Test perfomance
 #################################################################################
 test = False
-data_config = dd.get_data_config()
-train_data, val_data, test_data = dd.get_trigger_data(config=data_config,
-                                                   subset=test)
+chunked = False
+models = [235]
+device = 0
+text2 = ''
+
+if chunked:
+    config = dd.get_model_config(model_num=models[0], type_of_file='yaml')
+    train_data, val_data, test_data = dd.get_chunked_data(64, config=config, subset=test)
+else:
+    data_config = dd.get_data_config()
+    train_data, val_data, test_data = dd.get_trigger_data(config=data_config,
+                                                    subset=test)
+
 del train_data
 del val_data
 
-models = [230,231,232,233,234]
-device = 1
+
 for model_num in models:
 
     config = dd.get_model_config(model_num=model_num, type_of_file='yaml')
 
-    if 'transformer' in config:
-        config = config['transformer']
-
-    model_path = f'/mnt/md0/halin/Models/model_{model_num}/saved_model/*.pth'
+    # if 'transformer' in config and chunked == False:
+    #     config = config['transformer']
+    if chunked:
+        model_path = f'/home/halin/Master/nuradio-analysis/data/models/fLow_0.08-fhigh_0.23-rate_0.5/config_{model_num}/*.pth'
+    else:
+        model_path = f'/mnt/md0/halin/Models/model_{model_num}/saved_model/*.pth'
     model_epoch_path = glob.glob(model_path)
 
     data_dict = {'Epoch': [], 'Efficiency': [], 'Threshold': []}
@@ -168,12 +179,15 @@ for model_num in models:
     best_efficiency = 0
 
     for model_path in model_epoch_path:
-        model = mm.build_encoder_transformer(config)
-        state = torch.load(model_path)
 
-        if 'threshold' in state:
-            del state['threshold']
-        model.load_state_dict(state, strict=False)
+        which_epoch = model_path.split('_')[-1].split('.')[0]
+        model = mm.load_model(config, which_epoch, verbose=False)
+        # model = mm.build_encoder_transformer(config)
+        # state = torch.load(model_path)
+
+        # if 'threshold' in state:
+        #     del state['threshold']
+        # model.load_state_dict(state, strict=False)
 
         y_pred_data, accuracy, efficiency, precission, threshold = test_model(model=model,
                                                         test_loader=test_data,
@@ -197,23 +211,23 @@ for model_num in models:
         epoch = model_path.split('_')[-1].split('.')[0]
         state_dict = torch.load(model_path)
       
-        try:
-            state_dict['model_state_dict']['threshold'] = threshold
-        except:
-            state_dict['threshold'] = threshold
-        if not test:
-            torch.save(state_dict, model_path)
+        # try:
+        #     state_dict['model_state_dict']['threshold'] = threshold
+        # except:
+        #     state_dict['threshold'] = threshold
+        # if not test:
+        #     torch.save(state_dict, model_path)
 
         print(f"Epoch {epoch:>10}   with threshold {threshold:>10.2f} has an efficiency of {efficiency:>10.4f}")
         
-        # pp.histogram(y_pred_data['y_pred'], 
-        #             y=y_pred_data['y'], 
-        #             config=config['transformer'],
-        #             bins=100, 
-        #             save_path=f'/home/halin/Master/Transformer/figures/hist/hist_model_num_{model_num}_{text}_{text2}.png',
-        #             text= f'{epoch} {text2}',
-        #             threshold=threshold,
-        #             )
+        pp.histogram(y_pred_data['y_pred'], 
+                    y=y_pred_data['y'], 
+                    config=config['transformer'],
+                    bins=100, 
+                    save_path=f'/home/halin/Master/Transformer/figures/hist/hist_model_num_{model_num}_{epoch}_{text2}.png',
+                    text= f'{epoch} {text2}',
+                    threshold=threshold,
+                    )
     
         if efficiency > best_efficiency:
             best_efficiency = efficiency

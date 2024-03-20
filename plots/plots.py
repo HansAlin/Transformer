@@ -25,7 +25,8 @@ def histogram(y_pred, y, config, bins=100, save_path='', text='', threshold=None
               bins (int): number of bins in the histogram
               savefig_path (str): path to save the plot, optional
     """
-
+    if 'transformer' in config:
+      config = config['transformer']
     if save_path == '':
       save_path = config['basic']['model_path'] + 'plot/' 
       isExist = os.path.exists(save_path)

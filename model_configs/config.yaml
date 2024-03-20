@@ -5,7 +5,7 @@ transformer:
     N: 2
     activation: 'relu' # Posible options: 'relu', 'gelu'
     by_pass: false
-    d_ff: 128
+    d_ff: 64
     d_model: 32 # Have to be dividable by h
     data_type: trigger # Possible options: 'trigger', 'chunked'
     embed_type: linear # Posible options: 'lin_relu_drop', 'lin_gelu_drop', 'linear', 'cnn', 'ViT'
@@ -23,8 +23,8 @@ transformer:
     output_size: 1
     pos_enc_type: Relative # Posible options: 'Sinusoidal', 'Relative',  'Learnable''None',
     pretrained: null
-    projection_type: 'cnn' # Posible options: 'linear', 'cnn', 
-    seq_len: &seq_len 128
+    projection_type: 'linear' # Posible options: 'linear', 'cnn', 
+    seq_len: &seq_len 256
     input_embeddings:
       kernel_size: 3 # options for cnn: 5, 3, 1, options for ViT: 1, 2, 4
       stride: 1 # options for cnn: 2, 1, options for ViT: 1, 2, 4 Note: for ViT stride has to be equal to kernel_size

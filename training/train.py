@@ -169,6 +169,9 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
         
         outputs = model(x_batch)
 
+        if data_type == 'chunked':
+          outputs = outputs.squeeze()
+
         loss = criterion(outputs, y_batch.squeeze())
 
         loss.backward()

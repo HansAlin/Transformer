@@ -52,15 +52,23 @@ parser = argparse.ArgumentParser()
 # pos_enc_type [116, 128, 129]
 
 
-transformer_models = {201:'final', 
-                      230:'230_18.pth',
-                      231:'231_5.pth',
-                      232:'232_10.pth', 
-                      233:'233_99.pth',
-                      234:'234_10.pth'
-                      }
 test = False
+chunked = False
 
+# if chunked:
+# transformer_models = {301: 'best',
+#                     #   302: 'best'
+#                       }
+# else:
+transformer_models = {  
+                        302: 'best',
+                        201:'final', 
+# #                       230:'early_stop.pth',
+# #                       231:'231_5.pth',
+# #                       232:'232_10.pth', 
+# #                       233:'233_37.pth',
+# #                       234:'234_4.pth'
+                     }
 
 def qualitative_colors(length, darkening_factor=0.6):
     colors = [cm.Set3(i) for i in np.linspace(0, 1, length)]
@@ -68,65 +76,24 @@ def qualitative_colors(length, darkening_factor=0.6):
     return darker_colors
 
 
-device = 1
+device = 2
 torch.cuda.set_device(device)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}, name of GPU: {torch.cuda.get_device_name(device=device)}")
   
 
-# Get noise
-data_path = '/home/acoleman/data/rno-g/signal-generation/data/npy-files/veff/fLow_0.08-fhigh_0.23-rate_0.5/CDF_0.7/'
-# file_list = glob.glob(data_path+'VeffData_nu_*.npz')
-file_list =[data_path + 'VeffData_nu_mu_cc_16.00eV.npz',
-            data_path + 'VeffData_nu_mu_cc_16.50eV.npz',           
-            data_path + 'VeffData_nu_mu_cc_17.00eV.npz',
-            data_path + 'VeffData_nu_mu_cc_17.50eV.npz',
-            data_path + 'VeffData_nu_mu_cc_18.00eV.npz',
-            data_path + 'VeffData_nu_mu_cc_18.50eV.npz',
-            data_path + 'VeffData_nu_mu_cc_19.00eV.npz',
-            data_path + 'VeffData_nu_mu_nc_16.00eV.npz',
-            data_path + 'VeffData_nu_mu_nc_16.50eV.npz',
-            data_path + 'VeffData_nu_mu_nc_17.00eV.npz',
-            data_path + 'VeffData_nu_mu_nc_17.50eV.npz',
-            data_path + 'VeffData_nu_mu_nc_18.00eV.npz',
-            data_path + 'VeffData_nu_mu_nc_18.50eV.npz',
-            data_path + 'VeffData_nu_mu_nc_19.00eV.npz',
+if chunked:
+    data_path = '/mnt/md0/acoleman/rno-g/signal-generation/data/npy-files/veff/fLow_0.08-fhigh_0.23-rate_0.5/CDF_0.7/'
+    file_list=glob.glob(os.path.join(data_path, "*.npz"))
+else:    
+    data_path = '/home/acoleman/data/rno-g/signal-generation/data/npy-files/veff/fLow_0.08-fhigh_0.23-rate_0.5/CDF_0.7/'
+    file_list = glob.glob(data_path+'VeffData_nu_*.npz')
 
+print(file_list)
+# answer  =input("Continue? y/n: ")
+# if answer == 'n':
+#     sys.exit()
 
-            data_path + 'VeffData_nu_e_cc_16.00eV.npz',
-            data_path + 'VeffData_nu_e_cc_16.50eV.npz',
-            data_path + 'VeffData_nu_e_cc_17.00eV.npz',
-            data_path + 'VeffData_nu_e_cc_17.50eV.npz',
-            data_path + 'VeffData_nu_e_cc_18.00eV.npz',
-            data_path + 'VeffData_nu_e_cc_18.50eV.npz',
-            data_path + 'VeffData_nu_e_cc_19.00eV.npz',
-            data_path + 'VeffData_nu_e_nc_16.00eV.npz',
-            data_path + 'VeffData_nu_e_nc_16.50eV.npz',
-            data_path + 'VeffData_nu_e_nc_17.00eV.npz',
-            data_path + 'VeffData_nu_e_nc_17.50eV.npz',
-            data_path + 'VeffData_nu_e_nc_18.00eV.npz',
-            data_path + 'VeffData_nu_e_nc_18.50eV.npz',
-            data_path + 'VeffData_nu_e_nc_19.00eV.npz',
-
-            data_path + 'VeffData_nu_tau_cc_16.00eV.npz',
-            data_path + 'VeffData_nu_tau_cc_16.50eV.npz',
-            data_path + 'VeffData_nu_tau_cc_17.00eV.npz',
-            data_path + 'VeffData_nu_tau_cc_17.50eV.npz',
-            data_path + 'VeffData_nu_tau_cc_18.00eV.npz',
-            data_path + 'VeffData_nu_tau_cc_18.50eV.npz',
-            data_path + 'VeffData_nu_tau_cc_19.00eV.npz',
-            data_path + 'VeffData_nu_tau_nc_16.00eV.npz',
-            data_path + 'VeffData_nu_tau_nc_16.50eV.npz',
-            data_path + 'VeffData_nu_tau_nc_17.00eV.npz',
-            data_path + 'VeffData_nu_tau_nc_17.50eV.npz',
-            data_path + 'VeffData_nu_tau_nc_18.00eV.npz',
-            data_path + 'VeffData_nu_tau_nc_18.50eV.npz',
-            data_path + 'VeffData_nu_tau_nc_19.00eV.npz',
-
-
-                
-
-            ]
 
 if test:
     file_list = file_list[:1]
@@ -274,10 +241,14 @@ def LoadModel(filename, model_list):
 
 def LoadTransformerModel(model_num, model_list, text):
     config = get_model_config(model_num=model_num, type_of_file='yaml', )
-    if 'transformer' in config:
-        config = config['transformer']
-    name = str(config['basic']["model_num"])
-    threshold, sigmoid = get_threshold(config, text=text, verbose=False)
+    try:
+        name = str(config['basic']["model_num"])
+    except:
+        name = str(config['transformer']["basic"]["model_num"])
+
+    #threshold, sigmoid = get_threshold(config['transformer'], text=text, verbose=False)
+    threshold, sigmoid = 3, False
+
     print(f"Threshold for model {name}: {threshold}, sigmoid: {sigmoid}")
     if threshold == 0:
         assert False, "Model not trained"
@@ -396,6 +367,7 @@ for filename in file_list:
             n_ref_trig = int(sum(file_dat[standard_triggers[0]].astype(bool)))
             n_or_trig = int(sum(np.bitwise_or(triggers.astype(bool), file_dat[standard_triggers[0]].astype(bool))))
             print(f"\t  N_rnn: {n_rnn_trig}, N_ref: {n_ref_trig}, N_or: {n_or_trig}, % improve {n_or_trig / n_ref_trig:0.2f}")
+
         elif all_models[ml_trig_name]["type"] == "CNN":
 
             # Calculate "good" pre-trig events
@@ -414,6 +386,7 @@ for filename in file_list:
             )
 
             triggers = np.bitwise_and(triggers.astype(bool), pre_trig)
+
         elif all_models[ml_trig_name]["type"] == "Transformer":
                         # Calculate "good" pre-trig events
             test_variable = file_dat[pre_trigger]
@@ -431,14 +404,28 @@ for filename in file_list:
                 f"\t  N_pre: {n_pre_trig}, N_trans: {n_transform_trig}, N_ref: {n_ref_trig}, N_or: {n_or_trig}, %det {n_transform_trig / n_pre_trig:0.2f}, % improve {n_or_trig / n_ref_trig:0.2f}"
             )
 
-            triggers = np.bitwise_and(triggers.astype(bool), pre_trig)    
+            triggers = np.bitwise_and(triggers.astype(bool), pre_trig)
+
         elif all_models[ml_trig_name]["type"] == "Chunk":
             triggers = GetChunkTriggers(waveforms, signal_labels, all_models[ml_trig_name])
+
         else:
             print("Type", all_models[ml_trig_name]["type"], "is unknown")
             assert False
 
         ## Perform an OR with the reference trigger
+        # print(f"filedat: {file_dat.files}") 
+        # for file in file_dat.files:
+        #     print(f"{file}: {file_dat[file].shape}")
+        # true_true = np.sum(np.logical_and(triggers,                                    file_dat[standard_triggers[1]]))
+        # true_false = np.sum(np.logical_and(triggers,                    np.logical_not(file_dat[standard_triggers[1]])))
+        # false_true = np.sum(np.logical_and(np.logical_not(triggers),                   file_dat[standard_triggers[1]])) 
+        # false_false = np.sum(np.logical_and(np.logical_not(triggers),   np.logical_not(file_dat[standard_triggers[1]])))
+
+        # print(f"True True: {true_true}, True False: {true_false}, False True: {false_true}, False False: {false_false}")
+        # labels = np.any(file_dat['label'], axis=(1,2))
+        # signals = np.sum(labels)  
+
         trig_mask = np.bitwise_or(triggers.astype(bool), file_dat[standard_triggers[0]].astype(bool)).astype(bool)
         all_dat[lgE][flavor][current][ml_trig_name]["weight"] += np.sum(file_dat["weight"][trig_mask])
 
@@ -475,6 +462,10 @@ for lgE in all_dat.keys():
                 avg_veff[trig_name][-1] += (
                     all_dat[lgE][flavor][current][trig_name]["weight"] / all_dat[lgE][flavor][current]["n_tot"]
                 )
+
+plot = input("Plot? y/n: ")
+if plot == 'n':
+    sys.exit()
 
 colors = qualitative_colors(len(standard_triggers) + len(list(all_models.keys())))
 markers = itertools.cycle(("s", "P", "o", "^", ">", "X"))
@@ -540,6 +531,9 @@ for i, name in enumerate(standard_triggers + list(all_models.keys())):
 
     avg = np.array(avg_veff[name]) / np.array(avg_veff[reference_trigger])
 
+    # sorting_index = np.argsort(lgEs)
+    # lgEs = np.array(lgEs)[sorting_index]
+    # avg = np.array(avg)[sorting_index]
 
     print(lgEs)
     print(avg)
@@ -550,7 +544,7 @@ for i, name in enumerate(standard_triggers + list(all_models.keys())):
         label=name.replace("_", " "),
         color=colors[i],
         marker=marker,
-        linestyle=linestyle,
+        #linestyle=linestyle,
     )
 style.use('seaborn-colorblind')
 ymin, ymax = ax.get_ylim()

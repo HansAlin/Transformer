@@ -73,7 +73,7 @@ def main():
     args.start_model_num = None
     args.epochs = 100
     args.test = False
-    args.cuda_device = 0
+    args.cuda_device = 1
     args.config_number = 0
     args.inherit_model = None
     args.retrain = False

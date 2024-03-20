@@ -661,8 +661,8 @@ def get_chunked_data(batch_size, config, subset=True):
       extra_gap_per_waveform=config["training"]["extra_gap_per_waveform"],
       probabilistic_sampling_ensure_signal_region=config["training"]["probabilistic_sampling_ensure_signal_region"],
       probabilistic_sampling_oversampling=config["training"]["probabilistic_sampling_oversampling"],
-      #probabilistic_sampling_ensure_min_signal_fraction=config["training"]["probabilistic_sampling_ensure_min_signal_fraction"],
-      #probabilistic_sampling_ensure_min_signal_num_bins=config["training"]["probabilistic_sampling_ensure_min_signal_num_bins"]
+      # probabilistic_sampling_ensure_min_signal_fraction=config["training"]["probabilistic_sampling_ensure_min_signal_fraction"],
+      # probabilistic_sampling_ensure_min_signal_num_bins=config["training"]["probabilistic_sampling_ensure_min_signal_num_bins"]
       )
   
   del x_train
@@ -687,8 +687,8 @@ def get_chunked_data(batch_size, config, subset=True):
       extra_gap_per_waveform=config["training"]["extra_gap_per_waveform"],
       probabilistic_sampling_ensure_signal_region=config["training"]["probabilistic_sampling_ensure_signal_region"],
       probabilistic_sampling_oversampling=config["training"]["probabilistic_sampling_oversampling"],
-      #probabilistic_sampling_ensure_min_signal_fraction=config["training"]["probabilistic_sampling_ensure_min_signal_fraction"],
-      #probabilistic_sampling_ensure_min_signal_num_bins=config["training"]["probabilistic_sampling_ensure_min_signal_num_bins"]
+      # probabilistic_sampling_ensure_min_signal_fraction=config["training"]["probabilistic_sampling_ensure_min_signal_fraction"],
+      # probabilistic_sampling_ensure_min_signal_num_bins=config["training"]["probabilistic_sampling_ensure_min_signal_num_bins"]
       )
   
   del x_val
@@ -713,8 +713,8 @@ def get_chunked_data(batch_size, config, subset=True):
         extra_gap_per_waveform=config["training"]["extra_gap_per_waveform"],
         probabilistic_sampling_ensure_signal_region=config["training"]["probabilistic_sampling_ensure_signal_region"],
         probabilistic_sampling_oversampling=config["training"]["probabilistic_sampling_oversampling"],
-        #probabilistic_sampling_ensure_min_signal_fraction=config["training"]["probabilistic_sampling_ensure_min_signal_fraction"],
-        #probabilistic_sampling_ensure_min_signal_num_bins=config["training"]["probabilistic_sampling_ensure_min_signal_num_bins"]
+        # probabilistic_sampling_ensure_min_signal_fraction=config["training"]["probabilistic_sampling_ensure_min_signal_fraction"],
+        # probabilistic_sampling_ensure_min_signal_num_bins=config["training"]["probabilistic_sampling_ensure_min_signal_num_bins"]
         )
   
   del x_test

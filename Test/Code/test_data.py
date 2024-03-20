@@ -12,6 +12,7 @@ from tqdm import tqdm
 import sys
 import pandas as pd
 import yaml
+import glob
 import pickle
 CODE_DIR_1  ='/home/halin/Master/Transformer/'
 sys.path.append(CODE_DIR_1)
@@ -283,16 +284,39 @@ def add_key_if_not_exists(dict_obj, key, value):
 # Get new FLOPs values                                              #
 ########################################################################
 
-model_numbers = [230,231,232,233,234]
-print('{:<20} {:>20} {:>20} '.format('Model number', 'FLOPs', 'MACs'))
-for model_number in model_numbers:
-    config = dd.get_model_config(model_num=model_number, type_of_file='yaml')
-    model = mm.load_model(config)
-    FLOPs = mm.get_FLOPs(model, config)
-    MACs = config['transformer']['num of parameters']['MACs']
-    MACs = int(MACs)*2
-    FLOPs = FLOPs / 10**6
-    MACs = MACs / 10**6
-    print('{:<20} {:>20.1f} M {:>20.1f} M'.format(model_number, FLOPs, MACs))
-    config['transformer']['num of parameters']['MACs'] = int(FLOPs/2 * 10**6)
-    dd.save_data(config)
+# model_numbers = [230,231,232,233,234]
+# print('{:<20} {:>20} {:>20} '.format('Model number', 'FLOPs', 'MACs'))
+# for model_number in model_numbers:
+#     config = dd.get_model_config(model_num=model_number, type_of_file='yaml')
+#     model = mm.load_model(config)
+#     FLOPs = mm.get_FLOPs(model, config)
+#     MACs = config['transformer']['num of parameters']['MACs']
+#     MACs = int(MACs)*2
+#     FLOPs = FLOPs / 10**6
+#     MACs = MACs / 10**6
+#     print('{:<20} {:>20.1f} M {:>20.1f} M'.format(model_number, FLOPs, MACs))
+#     config['transformer']['num of parameters']['MACs'] = int(FLOPs/2 * 10**6)
+#     dd.save_data(config)
+
+########################################################################
+# Look at data                                                         #
+########################################################################
+        
+data_path = '/home/acoleman/data/rno-g/signal-generation/data/npy-files/veff/fLow_0.08-fhigh_0.23-rate_0.5/CDF_0.7/'
+file_list = glob.glob(data_path+'VeffData_nu_*.npz')   
+file_dat = np.load(file_list[0])
+for file in file_dat:
+    print(file)
+    print(file_dat[file].shape)
+    print(file_dat[file].dtype)
+    print(file_dat[file].min())
+    print(file_dat[file].max())
+    print(file_dat[file].mean())
+    print(file_dat[file].std())
+    print('-------------------')
+
+trig_1Hz = file_dat['trig_1Hz']
+trig_10kHz = file_dat['trig_10kHz']
+wvf = file_dat['wvf']  
+trggered_events = wvf[trig_1Hz]  
+max_values = np.amax(trggered_events, axis=(-2,-1)) 

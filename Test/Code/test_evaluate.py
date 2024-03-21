@@ -179,7 +179,8 @@ for model_num in models:
     best_efficiency = 0
 
     for model_path in model_epoch_path:
-
+        if '_52.pth' not in model_path:
+            continue
         which_epoch = model_path.split('_')[-1].split('.')[0]
         model = mm.load_model(config, which_epoch, verbose=False)
         # model = mm.build_encoder_transformer(config)
@@ -211,12 +212,12 @@ for model_num in models:
         epoch = model_path.split('_')[-1].split('.')[0]
         state_dict = torch.load(model_path)
       
-        # try:
-        #     state_dict['model_state_dict']['threshold'] = threshold
-        # except:
-        #     state_dict['threshold'] = threshold
-        # if not test:
-        #     torch.save(state_dict, model_path)
+        try:
+            state_dict['model_state_dict']['threshold'] = threshold
+        except:
+            state_dict['threshold'] = threshold
+        if not test:
+            torch.save(state_dict, model_path)
 
         print(f"Epoch {epoch:>10}   with threshold {threshold:>10.2f} has an efficiency of {efficiency:>10.4f}")
         

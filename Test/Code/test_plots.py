@@ -181,7 +181,7 @@ def condense_sequence(match):
 #######################################################################
 # Plot dataframe                            #
 # #######################################################################
-model_nums = [230,231,232,233,234]
+model_nums = [230,231,232,234,235]
 for model_num in model_nums:
     df = pd.read_pickle(f'/home/halin/Master/Transformer/Test/data/epoch_data_model_{model_num}.pkl')
     best_index = df['Efficiency'].idxmax()

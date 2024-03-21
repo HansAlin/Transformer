@@ -41,9 +41,7 @@ def add_key_if_not_exists(dict_obj, key, value):
 ###################################################################
 # Add data to config file                                         #
 # ###################################################################
-#         model_numbers = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14, 15, 16, 17, 18, 19, 20, 21, 22, 23,24,25,26,27]
-# model_numbers = [99,100,101,102,103,104,105,106,107,108,109,110,111,108,112,113,114,115,116,117,118,119,120,121,122,123,124,125,127]
-# model_numbers =  [99,100,101,102,103,104,105,106,107,108,109,110,111,108,112,113,114,115,116,117,118,119,120,121,122,123,124,125,127]
+model_numbers = [301,302,303,304,305]
 # bins = 10000
 # col_1 = 'model_num'
 # col_2 = 'encoder_type'
@@ -61,15 +59,21 @@ def add_key_if_not_exists(dict_obj, key, value):
 # # col_14 = 'data_type'
 # col_15 = 'NSE_AT_10KNRF'
 # print('{:<20} {:>20} {:>20} {:>20}  '.format('Model number', 'Prev NSE_AT_10KNRF','Nev ROC NSE_AT_10KNR', 'ROC Threshold' ))
-# for model_number in model_numbers:
-#     config = get_model_config(model_num=model_number, type_of_file='yaml')
-    # model = build_encoder_transformer(config)
+for model_number in model_numbers:
+    config = dd.get_model_config(model_num=model_number, type_of_file='yaml')
+    model = mm.load_model(config)
+    results = count_parameters(model, verbose=False)
+    flops = mm.get_FLOPs(model, config)
+    macs = int(mm.get_MMac(model, config)[0])
+    print(f"FLOPs: {flops/1e6:>10.0f} M, MACs: {macs/1e6:>10.0f} M,  Encoder: {results['encoder_param']:>10}, Input: {results['src_embed_param']:>5}, Final: {results['final_param']:>5}, Total: {results['total_trainable_param']:>10}")
     # results = count_parameters(model, verbose=False)
-    # config['encoder_param'] = results['encoder_param']
-    # config['input_param'] = results['src_embed_param']
-    # config['final_param'] = results['final_param']
-    # config['pos_param'] = results['buf_param']
-    # config['num_param'] = results['total_trainable_param']
+    config['transformer']['num of parameters']['encoder_param'] = results['encoder_param']
+    config['transformer']['num of parameters']['input_param'] = results['src_embed_param']
+    config['transformer']['num of parameters']['final_param'] = results['final_param']
+    config['transformer']['num of parameters']['pos_param'] = results['buf_param']
+    config['transformer']['num of parameters']['num_param'] = results['total_trainable_param']
+    config['transformer']['num of parameters']['MACs'] = int(flops/2)
+    dd.save_data(config)
     # macs, params = get_MMac(model=model, 
     #             batch_size=config['batch_size'], 
     #             seq_len=config['seq_len'], 
@@ -302,21 +306,21 @@ def add_key_if_not_exists(dict_obj, key, value):
 # Look at data                                                         #
 ########################################################################
         
-data_path = '/home/acoleman/data/rno-g/signal-generation/data/npy-files/veff/fLow_0.08-fhigh_0.23-rate_0.5/CDF_0.7/'
-file_list = glob.glob(data_path+'VeffData_nu_*.npz')   
-file_dat = np.load(file_list[0])
-for file in file_dat:
-    print(file)
-    print(file_dat[file].shape)
-    print(file_dat[file].dtype)
-    print(file_dat[file].min())
-    print(file_dat[file].max())
-    print(file_dat[file].mean())
-    print(file_dat[file].std())
-    print('-------------------')
+# data_path = '/home/acoleman/data/rno-g/signal-generation/data/npy-files/veff/fLow_0.08-fhigh_0.23-rate_0.5/CDF_0.7/'
+# file_list = glob.glob(data_path+'VeffData_nu_*.npz')   
+# file_dat = np.load(file_list[0])
+# for file in file_dat:
+#     print(file)
+#     print(file_dat[file].shape)
+#     print(file_dat[file].dtype)
+#     print(file_dat[file].min())
+#     print(file_dat[file].max())
+#     print(file_dat[file].mean())
+#     print(file_dat[file].std())
+#     print('-------------------')
 
-trig_1Hz = file_dat['trig_1Hz']
-trig_10kHz = file_dat['trig_10kHz']
-wvf = file_dat['wvf']  
-trggered_events = wvf[trig_1Hz]  
-max_values = np.amax(trggered_events, axis=(-2,-1)) 
+# trig_1Hz = file_dat['trig_1Hz']
+# trig_10kHz = file_dat['trig_10kHz']
+# wvf = file_dat['wvf']  
+# trggered_events = wvf[trig_1Hz]  
+# max_values = np.amax(trggered_events, axis=(-2,-1)) 

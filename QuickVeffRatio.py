@@ -68,6 +68,7 @@ transformer_models = {
 # #                       232:'232_10.pth', 
 # #                       233:'233_37.pth',
 # #                       234:'234_4.pth'
+#                         235: '235_52.pth',     
                      }
 
 def qualitative_colors(length, darkening_factor=0.6):

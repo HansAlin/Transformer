@@ -902,23 +902,26 @@ def get_model_path(config, text=''):
 
 def save_data(config, df=None, y_pred_data=None, text=''):
 
-  if 'transformer' in config:
-    path = config['transformer']['basic']['model_path']
-  else:
-     path = config['basic']['model_path']
-  
   if text != '':
     text = '_' + text
-  with open(path + f'config{text}.txt', "wb") as fp:
-    pickle.dump(config, fp)
 
-  with open(path + f'config{text}.yaml', 'w') as data:
+  if 'transformer' in config:
+    if '/home/halin/Master/nuradio-analysis/data/models/fLow_0.08-fhigh_0.23-rate_0.5/' in config['transformer']['basic']['model_path']:
+      path = f"/home/halin/Master/nuradio-analysis/configs/chunked/config_{config['transformer']['basic']['model_num']}.yaml"
+      with open(path, 'w') as data:
+        yaml.dump(config, data, default_flow_style=False) 
+    else:
+      path = config['transformer']['basic']['model_path']
+      with open(path + f'config{text}.yaml', 'w') as data:
+        yaml.dump(config, data, default_flow_style=False)  
+
+  else:
+    path = config['basic']['model_path']
+    with open(path + f'config{text}.yaml', 'w') as data:
         yaml.dump(config, data, default_flow_style=False) 
 
-  # A easier to read part
-  with open(path + f'text_config{text}.txt', 'w') as data:
-    for key, value in config.items():
-      data.write('%s: %s\n' % (key, value))
+  
+
 
   if df is not None:  
     df.to_pickle(path + f'dataframe{text}.pkl')

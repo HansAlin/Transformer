@@ -336,7 +336,7 @@ def find_key_in_dict(nested_dict, target_key):
     return None
 
 def get_transformer_triggers(waveforms, trigger_times, model_name, pre_trig):
-  start_time = time.time()
+  
   config = model_name['config']
   triggers = np.zeros((len(waveforms)))
   
@@ -395,7 +395,7 @@ def get_transformer_triggers(waveforms, trigger_times, model_name, pre_trig):
               continue
 
   pct_pass /= len(pre_trig)
-  print(f"Elapsed time: {(time.time() - start_time):.2f}")
+ 
   return triggers, pct_pass
 
 def qualitative_colors(length):

@@ -15,6 +15,8 @@ import torch
 import sys
 import glob
 import matplotlib.cm as cm
+import time
+import pandas as pd
  
 CODE_DIR_1  ='/home/halin/Master/Transformer/'
 sys.path.append(CODE_DIR_1)
@@ -52,7 +54,7 @@ parser = argparse.ArgumentParser()
 # pos_enc_type [116, 128, 129]
 
 
-test = False
+test =  False
 chunked = False
 
 # if chunked:
@@ -61,15 +63,24 @@ chunked = False
 #                       }
 # else:
 transformer_models = {  
-                        302: 'best',
+                        # 302: 'best',
                         201:'final', 
-# #                       230:'early_stop.pth',
-# #                       231:'231_5.pth',
-# #                       232:'232_10.pth', 
-# #                       233:'233_37.pth',
-# #                       234:'234_4.pth'
-#                         235: '235_52.pth',     
+                      230:'early_stop.pth',
+                      231:'231_5.pth',
+                      232:'232_10.pth', 
+                      233:'233_37.pth',
+                      234:'234_16.pth',
+                        235: '235_52.pth',     
                      }
+model_dict = {}
+for model_num in transformer_models.keys():
+    model_dict[str(model_num)] = { 
+                       'count': 0, 
+                       'time': 0,
+                       'total_signals': 0,
+                       'predicted_signals': 0}
+
+best_model_dict = dict()
 
 def qualitative_colors(length, darkening_factor=0.6):
     colors = [cm.Set3(i) for i in np.linspace(0, 1, length)]
@@ -97,7 +108,7 @@ print(file_list)
 
 
 if test:
-    file_list = file_list[:1]
+    file_list = file_list[:3]
 
 sampling_string = data_path.split("/")[-3]
 band_flow = float(sampling_string.split("-")[0].split("_")[1])
@@ -291,6 +302,8 @@ for model_num, model_type in transformer_models.items():
 for filename in file_list:
     print(filename)
 
+    best_pred = 0
+
     basename = os.path.basename(filename)
     flavor = basename.split("_")[2]
     current = basename.split("_")[3]
@@ -359,7 +372,7 @@ for filename in file_list:
     signal_labels = torch.Tensor(signal_labels).to(device)
 
     trigger_times = file_dat["trig_time"]
-
+    best_model = None
     for ml_trig_name in all_models.keys():
         print(f"\t{ml_trig_name}")
         if all_models[ml_trig_name]["type"] == "RNN":
@@ -392,18 +405,26 @@ for filename in file_list:
                         # Calculate "good" pre-trig events
             test_variable = file_dat[pre_trigger]
             pre_trig = file_dat[pre_trigger].astype(bool)
-
+            start_time = time.time()
             triggers, pct_pass = get_transformer_triggers(
                 waveforms, trigger_times, all_models[ml_trig_name], pre_trig=np.argwhere(pre_trig).squeeze()
             )
-
+            elapsed_time = time.time() - start_time
+            
             n_pre_trig = int(sum(pre_trig)) # Number of true positive events from pre-trigger 'trig_10kHz'
             n_transform_trig = int(sum(triggers)) # Number of true positive events from transformer
             n_ref_trig = int(sum(file_dat[standard_triggers[0]].astype(bool))) # Number of true positive events from pre-trigger 'trig_1Hz'
             n_or_trig = int(sum(np.bitwise_or(triggers.astype(bool), file_dat[standard_triggers[0]].astype(bool))))
             print(
-                f"\t  N_pre: {n_pre_trig}, N_trans: {n_transform_trig}, N_ref: {n_ref_trig}, N_or: {n_or_trig}, %det {n_transform_trig / n_pre_trig:0.2f}, % improve {n_or_trig / n_ref_trig:0.2f}"
+                f"\t  N_pre: {n_pre_trig}, N_trans: {n_transform_trig}, N_ref: {n_ref_trig}, N_or: {n_or_trig}, %det {n_transform_trig / n_pre_trig:0.2f}, % improve {n_or_trig / n_ref_trig:0.2f}, time: {elapsed_time:0.2f}"
             )
+            model_dict[ml_trig_name]['predicted_signals'] += n_transform_trig
+            model_dict[ml_trig_name]['total_signals'] += n_pre_trig
+            model_dict[ml_trig_name]['time'] += elapsed_time
+            if n_transform_trig > best_pred:
+                best_pred = n_transform_trig
+                best_model = ml_trig_name
+                
 
             triggers = np.bitwise_and(triggers.astype(bool), pre_trig)
 
@@ -442,7 +463,9 @@ for filename in file_list:
                 continue
             i_all = np.argmin(np.abs(snr - snr_centers))
             all_dat[lgE][flavor][current][ml_trig_name]["snr_trig"][1, i_all] += np.sum(file_dat["weight"])
+    model_dict[best_model]['count'] += 1
 
+        
 
 avg_veff = dict()
 for trig_name in standard_triggers + list(all_models.keys()):
@@ -463,10 +486,16 @@ for lgE in all_dat.keys():
                 avg_veff[trig_name][-1] += (
                     all_dat[lgE][flavor][current][trig_name]["weight"] / all_dat[lgE][flavor][current]["n_tot"]
                 )
-
-plot = input("Plot? y/n: ")
-if plot == 'n':
-    sys.exit()
+print("Results:")
+model_num_str = ''
+for model_num in model_dict.keys():
+    model_num_str += f'{model_num}_'
+    print(f"Model number: {model_num}, count: {model_dict[model_num]['count']:>5}, time: {model_dict[model_num]['time']:>7.0f}, total signals: {model_dict[model_num]['total_signals']:>7}, predicted signals: {model_dict[model_num]['predicted_signals']:>7}, Fraction: {model_dict[model_num]['predicted_signals']/model_dict[model_num]['total_signals']:>0.3f}")                
+pd.DataFrame(model_dict).to_pickle(f'/home/halin/Master/Transformer/Test/data/veff_model_{model_num_str}dict.pkl')
+if test:
+    plot = input("Plot? y/n: ")
+    if plot == 'n':
+        sys.exit()
 
 colors = qualitative_colors(len(standard_triggers) + len(list(all_models.keys())))
 markers = itertools.cycle(("s", "P", "o", "^", ">", "X"))
@@ -525,6 +554,8 @@ fig, ax = plt.subplots(
     ncols=ncols, nrows=nrows, figsize=(ncols * 12 * 0.7, nrows * 8 * 0.7), gridspec_kw={"wspace": 0.2, "hspace": 0.2}
 )
 
+sorting_index = np.argsort(lgEs)
+lgEs = np.array(lgEs)[sorting_index]
 
 for i, name in enumerate(standard_triggers + list(all_models.keys())):
     marker = next(markers)
@@ -532,9 +563,8 @@ for i, name in enumerate(standard_triggers + list(all_models.keys())):
 
     avg = np.array(avg_veff[name]) / np.array(avg_veff[reference_trigger])
 
-    # sorting_index = np.argsort(lgEs)
-    # lgEs = np.array(lgEs)[sorting_index]
-    # avg = np.array(avg)[sorting_index]
+
+    avg = np.array(avg)[sorting_index]
 
     print(lgEs)
     print(avg)

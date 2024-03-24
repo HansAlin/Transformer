@@ -181,9 +181,70 @@ def condense_sequence(match):
 #######################################################################
 # Plot dataframe                            #
 # #######################################################################
-model_nums = [230,231,232,234,235]
+
+def try_convert_to_int(value):
+    try:
+        return int(value), True
+    except ValueError:
+        return value, False
+
+model_nums = [235]
 for model_num in model_nums:
     df = pd.read_pickle(f'/home/halin/Master/Transformer/Test/data/epoch_data_model_{model_num}.pkl')
+
+    epochs = df['Epoch'].values
+    efficiencies = df['Efficiency'].values
+
+
+    epoch_ints = []
+    epoch_strs = []
+
+    efficiency_int = []
+    efficiency_str = []
+
+    for epoch, efficiency in zip(epochs, efficiencies):
+
+        value, is_int = try_convert_to_int(epoch)
+
+        if is_int:
+            epoch_ints.append(value)
+            efficiency_int.append(efficiency)
+        else:
+            epoch_strs.append(epoch)
+            efficiency_str.append(efficiency)
+
+    epoch_strs = []
+    count = 0
+    for value in efficiency_str:
+        try:
+            index = epoch_ints.index(value)
+            print(f"The value {value} is at index {index} in the list.")
+            epoch_strs.append(value + 1)
+        except ValueError:
+            print(f"The value {value} is not in the list.")
+            epoch_strs.append(count + 1)
+            count += 1
+    
+    epoch_ints = np.array(epoch_ints)
+    sorta = np.argsort(epoch_ints)
+    epoch_ints = epoch_ints[sorta]
+    efficiency_int = np.array(efficiency_int)[sorta]
+
+    int_plot = False
+    if len(epoch_strs) > 0:
+        plt.plot(epoch_ints, efficiency_int, label=f'Model {model_num}')
+        plt.ylim(0.8,1.0)
+        int_plot = True
+    if len(epoch_strs) > 0 and not int_plot:
+        plt.scatter(epoch_strs, efficiency_str)    
+   
+    plt.xlabel('Epoch')
+    plt.ylabel('Efficiency')
+    plt.legend()
+    plt.grid()
+    plt.show()
+    plt.savefig(f'/home/halin/Master/Transformer/figures/efficiency/efficiency_model_{model_num}.png')
+    plt.close()
     best_index = df['Efficiency'].idxmax()
     print(f"Model number: {model_num}")
     print(df.loc[best_index])

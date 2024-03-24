@@ -147,8 +147,9 @@ from analysis_tools.config import GetConfig
 test = False
 chunked = False
 models = [235]
-device = 0
+device = 1
 text2 = ''
+text1 = ''
 
 if chunked:
     config = dd.get_model_config(model_num=models[0], type_of_file='yaml')
@@ -179,8 +180,8 @@ for model_num in models:
     best_efficiency = 0
 
     for model_path in model_epoch_path:
-        if '_52.pth' not in model_path:
-            continue
+        # if '_52.pth' not in model_path:
+        #     continue
         which_epoch = model_path.split('_')[-1].split('.')[0]
         model = mm.load_model(config, which_epoch, verbose=False)
         # model = mm.build_encoder_transformer(config)
@@ -197,20 +198,21 @@ for model_num in models:
                                                         plot_attention=False,
                                                         extra_identifier=model_num,)
 
-        # AOC, nse, threshold2 =  pp.plot_performance_curve([y_pred_data['y_pred']], 
-        #                                                  [y_pred_data['y']], 
-        #                                                  [config], 
-        #                                                  curve='nr', 
-        #                                                  x_lim=[0.8,1], 
-        #                                                  bins=10000, 
-        #                                                  log_bins=False, 
-        #                                                  reject_noise=1e4,
-        #                                                  save_path=f'/home/halin/Master/Transformer/figures/performance_model_{model_num}_{text}_{text2}.png',
-        #                                                  text= f'{text} {text2}',
-        #                                                  )
+        AOC, nse, threshold2 =  pp.plot_performance_curve([y_pred_data['y_pred']], 
+                                                         [y_pred_data['y']], 
+                                                         [config], 
+                                                         curve='nr', 
+                                                         x_lim=[0.8,1], 
+                                                         bins=10000, 
+                                                         log_bins=False, 
+                                                         reject_noise=1e4,
+                                                         save_path=f'/home/halin/Master/Transformer/figures/efficiency/performance_model_{model_num}_{which_epoch}_{text2}.png',
+                                                         text= f'{which_epoch} {text2}',
+                                                         )
         # # print(f'{model_num:<15} {text:<15} {text2:<25} {AOC:<15.6f} {nse:<15.6f} {threshold:<15.6f}')
         epoch = model_path.split('_')[-1].split('.')[0]
         state_dict = torch.load(model_path)
+    
       
         try:
             state_dict['model_state_dict']['threshold'] = threshold
@@ -219,7 +221,7 @@ for model_num in models:
         if not test:
             torch.save(state_dict, model_path)
 
-        print(f"Epoch {epoch:>10}   with threshold {threshold:>10.2f} has an efficiency of {efficiency:>10.4f}")
+    #     print(f"Epoch {epoch:>10}   with threshold {threshold:>10.2f} has an efficiency of {efficiency:>10.4f}")
         
         pp.histogram(y_pred_data['y_pred'], 
                     y=y_pred_data['y'], 
@@ -230,9 +232,9 @@ for model_num in models:
                     threshold=threshold,
                     )
     
-        if efficiency > best_efficiency:
-            best_efficiency = efficiency
-            best_model = epoch
+    #     if efficiency > best_efficiency:
+    #         best_efficiency = efficiency
+    #         best_model = epoch
     
         data_dict['Epoch'].append(epoch)
         data_dict['Efficiency'].append(efficiency)

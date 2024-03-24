@@ -41,7 +41,7 @@ def add_key_if_not_exists(dict_obj, key, value):
 ###################################################################
 # Add data to config file                                         #
 # ###################################################################
-model_numbers = [301,302,303,304,305]
+model_numbers = [235]
 # bins = 10000
 # col_1 = 'model_num'
 # col_2 = 'encoder_type'

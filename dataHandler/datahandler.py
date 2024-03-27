@@ -126,8 +126,8 @@ def get_trigger_data(config, random_seed=123, subset=False, save_test_set=False)
         train_data, val_data, test_data
 
   """
-  if 'transformer' in config:
-    config = config['transformer']
+  # if 'transformer' in config:
+  #   config = config['transformer']
   if 'input_length' not in config:
      new_config= get_data_config('data_config.yaml')
      new_config['input_length'] = config['architecture']['seq_len']

@@ -8,23 +8,25 @@ transformer:
     d_ff: 64
     d_model: 32 # Have to be dividable by h
     data_type: trigger # Possible options: 'trigger', 'chunked'
-    embed_type: linear # Posible options: 'lin_relu_drop', 'lin_gelu_drop', 'linear', 'cnn', 'ViT'
+    embed_type: cnn # Posible options: 'lin_relu_drop', 'lin_gelu_drop', 'linear', 'cnn', 'ViT'
     encoder_type: normal # Posible options: 'normal', 'none', 'bypass', 'vanilla'
     final_type: d_model_average_linear # Posible options: 'double_linear', 'single_linear', 'seq_average_linear', 'd_model_average_linear' for unknown seq_len chose 'd_model_average_linear'
     GSA: False
     h: 4
     inherit_model: null
-    max_relative_position: 32
+    max_relative_position: 16
     residual_type: 'pre_ln' # Posible options: 'pre_ln', 'post_ln'
     n_ant: &n_ant 4
     normalization: layer # Posible options: 'layer', 'batch'
+    max_pool: True
     omega: 10000
     output_shape: null
     output_size: 1
-    pos_enc_type: Relative # Posible options: 'Sinusoidal', 'Relative',  'Learnable''None',
+    pos_enc_type: Sinusoidal # Posible options: 'Sinusoidal', 'Relative',  'Learnable''None',
+    pre_def_dot_product: True # Posible options: True, False If true it uses the dot product defined in pytorch
     pretrained: null
-    projection_type: 'linear' # Posible options: 'linear', 'cnn', 
-    seq_len: &seq_len 256
+    projection_type: 'cnn' # Posible options: 'linear', 'cnn', 
+    seq_len: &seq_len 128
     input_embeddings:
       kernel_size: 3 # options for cnn: 5, 3, 1, options for ViT: 1, 2, 4
       stride: 1 # options for cnn: 2, 1, options for ViT: 1, 2, 4 Note: for ViT stride has to be equal to kernel_size
@@ -67,7 +69,7 @@ transformer:
     dropout: 0
     early_stop: 100
     learning_rate: 0.001
-    loss_function: 'BCEWithLogits' # Posible options: 'BCE', 'BCEWithLogits'
+    loss_function: 'hinge' # Posible options: 'BCE', 'BCEWithLogits', H
     metric: Efficiency # Posible options: 'Accuracy', 'Efficiency', 'Precision'
     num_epochs: 100
     step_size: 7
@@ -85,6 +87,11 @@ sampling:
     order_high: 10
     type: butter
 
+data_locations:
+  base_folder: /mnt/md0/acoleman/rno-g/signal-generation/data/npy-files
+  tag_folder_veff: CDF_0.7
+  pre_trig: 
+    prod: '3.421'
 
 training:
   learning_rate: 0.001

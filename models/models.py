@@ -3,6 +3,7 @@ import torch.nn as nn
 import math
 from typing import List
 from torch.nn.modules import MultiheadAttention, Linear, Dropout, BatchNorm1d, TransformerEncoderLayer
+import torch.nn.functional as F
 from dataHandler.datahandler import save_data, get_model_path
 
 import sys
@@ -96,7 +97,7 @@ class CnnInputEmbeddings(nn.Module):
       stride (int, optional): The stride. Defaults to 1.
       kernel_size (int, optional): The kernel size. Defaults to 3.
   """
-  def __init__(self, channels, d_model, stride: int = 1, kernel_size: int = 3):
+  def __init__(self, channels, d_model, stride: int = 1, kernel_size: int = 3, max_pool: bool = False):
     super().__init__()
 
     self.kernel_size = kernel_size
@@ -105,8 +106,16 @@ class CnnInputEmbeddings(nn.Module):
     self.stride = stride
     self.out_put_size = d_model//channels
     self.horizontal_padding = (kernel_size - 1) // 2
+
+    if max_pool:
+      self.maxpool = nn.MaxPool2d(kernel_size=(2,2), stride=(2,2))
+      self.out_put_size = self.out_put_size * 2
+    else:
+      self.maxpool = nn.Identity()
+
     self.horizontal_conv = nn.Conv2d(1, self.out_put_size, kernel_size=(kernel_size, 1), padding=(self.horizontal_padding, 0), stride=(stride, 1))
     self.vertical_conv = nn.Conv2d(1, self.out_put_size, kernel_size=(stride, kernel_size), padding=(0,vertical_padding), stride=(stride, 1))
+    
     
 
   def forward(self, x):
@@ -119,6 +128,8 @@ class CnnInputEmbeddings(nn.Module):
     out = out1 + out2  # add the outputs
     out = out.transpose(1,2) # swap (batch_size, seq_len, out_put_size, channels)
     out = out.flatten(start_dim=2, end_dim=3)  # (batch_size, seq_len, out_put_size*channels) --> (batch_size, seq_len, d_model)
+    out = self.maxpool(out)
+
     return out
 
 
@@ -129,6 +140,7 @@ class ViTEmbeddings(nn.Module):
                out_put_size: int,
                kernel_size: int,
                stride: int = 1,
+               max_pool: bool = False,
                ) -> None:
     super().__init__()
     self.channels = channels
@@ -136,6 +148,11 @@ class ViTEmbeddings(nn.Module):
     self.kernel_size = kernel_size
     self.height = kernel_size
 
+    if max_pool:
+      self.max_pool = nn.MaxPool2d(kernel_size=(2,2), stride=(2,2))
+      self.out_put_size = self.out_put_size * 2
+    else:
+      self.max_pool = nn.Identity()
     
     if kernel_size == channels:
       self.vertical_stride = 1
@@ -164,7 +181,8 @@ class ViTEmbeddings(nn.Module):
     x = self.conv(x) # (batch_size, out_put_size (d_model), channels//kernel_size, seq_len//kernel_size)
     x = x.permute(0, 2, 3, 1)  # (batch_size, channels//kernel_size, seq_len//kernel_size, out_put_size (d_model)
     x = x.flatten(start_dim=1, end_dim=2)  # (batch_size, d_model, new_seq_len) Remove the height dimension
-  
+
+    x = self.max_pool(x)
     
     # x = x.transpose(1, 2)  # Swap the "seq_len" and "d_model" dimensions
     return x  
@@ -339,6 +357,7 @@ class MultiHeadAttentionBlock(nn.Module):
                positional_encoding: str = 'Sinusoidal', 
                GSA: bool =False,
                projection_type: str = 'linear',
+               **kwargs
                ):
     super().__init__()
     self.d_model = d_model
@@ -346,6 +365,10 @@ class MultiHeadAttentionBlock(nn.Module):
     self.scale = math.sqrt(self.d_model)
     self.positional_encoding = positional_encoding
     self.projection_type = projection_type
+
+    if kwargs:
+      if 'pre_def_dot_product' in kwargs:
+        self.pre_def_dot_product = kwargs['pre_def_dot_product']
 
     assert d_model % h == 0, "d_model must be divisible by h"
     self.d_h = d_model // h
@@ -365,7 +388,7 @@ class MultiHeadAttentionBlock(nn.Module):
       self.W_0 = nn.Conv2d(d_model, d_model, kernel_size=(5,5), stride=(1,1), padding=(2,2))
 
 
-    
+    self.dropout_value = dropout
     self.dropout = nn.Dropout(dropout)
 
     # For relative positional encoding
@@ -509,7 +532,12 @@ class MultiHeadAttentionBlock(nn.Module):
       key = key.view(key.shape[0], key.shape[1], self.h, self.d_h).transpose(1,2) # (batch_size, seq_len, d_model) --> (batch_size, h, seq_len, d_h)
       value = value.view(value.shape[0], value.shape[1], self.h, self.d_h).transpose(1,2) # (batch_size, seq_len, d_model) --> (batch_size, h, seq_len, d_h)
 
-      x, self.attention_scores = MultiHeadAttentionBlock.attention(query, key, value, mask, self.dropout, self.G, self.GSA)  
+      if self.pre_def_dot_product:
+        x = F.scaled_dot_product_attention(query, key, value, mask, self.dropout_value)
+
+
+      else:
+        x, self.attention_scores = MultiHeadAttentionBlock.attention(query, key, value, mask, self.dropout, self.G, self.GSA)  
     # Concatenate the heads
     # (batch_size, h, seq_len, d_h) --> (batch_size, seq_len, h, d_h) -->
     #  (batch_size, seq_len, h*d_h) = (batch_size, seq_len, d_model)
@@ -912,10 +940,15 @@ def build_encoder_transformer(config):
 
   #########################################################
   # Create the input embeddings                           #
-  #########################################################    
+  #########################################################  
+  max_pool = False   
+
   if config['architecture']['embed_type'] == 'cnn' or config['architecture']['embed_type'] == 'ViT':  
     kernel_size = config['architecture']['input_embeddings']['kernel_size']
     stride = config['architecture']['input_embeddings']['stride']
+    if 'max_pool' in config['architecture']:
+      max_pool = config['architecture']['max_pool']
+
   else:
     kernel_size = None
     stride = None
@@ -924,7 +957,8 @@ def build_encoder_transformer(config):
                                n_ant=channels, dropout=config['training']['dropout'], 
                                embed_type=config['architecture']['embed_type'], 
                                kernel_size=kernel_size,
-                               stride=stride
+                               stride=stride,
+                                max_pool=max_pool,
                                ) for _ in range(num_embeddings)]
   
   #########################################################
@@ -968,7 +1002,9 @@ def build_encoder_transformer(config):
                                                                  max_relative_position=config['architecture']['max_relative_position'], 
                                                                  positional_encoding=config['architecture']['pos_enc_type'],
                                                                  GSA=config['architecture'].get('GSA', False),
-                                                                 projection_type=config['architecture'].get('projection_type', 'linear')
+                                                                 projection_type=config['architecture'].get('projection_type', 'linear'),
+                                                                 pre_def_dot_product=config['architecture'].get('pre_def_dot_product', False)
+
                                                                  )
         else:
           encoder_self_attention_block = MultiHeadAttentionBlock(d_model=config['architecture']['d_model'] , 
@@ -978,7 +1014,9 @@ def build_encoder_transformer(config):
                                                                  max_relative_position=None,
                                                                  positional_encoding=config['architecture']['pos_enc_type'], 
                                                                  GSA=config['architecture'].get('GSA', False),
-                                                                 projection_type=config['architecture'].get('projection_type', 'linear'))
+                                                                 projection_type=config['architecture'].get('projection_type', 'linear'),
+                                                                 pre_def_dot_product=config['architecture'].get('pre_def_dot_product', False)
+                                                                 )
 
         feed_forward_block = FeedForwardBlock(d_model=config['architecture']['d_model'] , 
                                               d_ff=config['architecture']['d_ff'] ,
@@ -1228,6 +1266,7 @@ def get_FLOPs(model, config, verbose=False):
   d_ff = config['transformer']['architecture']['d_ff']
   n_ant = config['transformer']['architecture']['n_ant']
   max_relative_position = config['transformer']['architecture']['max_relative_position']
+  max_pool = config['transformer']['architecture'].get('max_pool', False)
   out_put_size = 1
   flops = 0
 
@@ -1260,7 +1299,10 @@ def get_FLOPs(model, config, verbose=False):
 
        print(f"Input embedding flops: {input_flops}") if verbose else None
        flops += input_flops   
-          
+
+       if max_pool:
+         seq_len = seq_len // 2
+            
 
     ## Positional encoding      
     elif isinstance(module, PositionalEncoding):

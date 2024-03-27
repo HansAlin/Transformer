@@ -107,6 +107,7 @@ class TestInputEmbeddings(BaseTest):
         stride = self.config['transformer']['architecture']['input_embeddings']['stride']
         seq_len = self.config['transformer']['architecture']['seq_len']
         batch_size = self.config['transformer']['training']['batch_size']
+        max_pool = self.config['transformer']['architecture']['max_pool']
         print()
         print(f"Testing {embed_type} embedding with kernel size {kernel_size} and stride {stride}")
 
@@ -118,6 +119,7 @@ class TestInputEmbeddings(BaseTest):
             embed_type=embed_type,
             kernel_size=kernel_size,
             stride=stride,
+            max_pool=max_pool,
             )
         if embed_type == 'cnn':
             padding  = (kernel_size - 1) // 2
@@ -137,6 +139,9 @@ class TestInputEmbeddings(BaseTest):
             expected_seq_len = seq_len
             batch_size = batch_size
             d_model = d_model
+        if max_pool and embed_type != 'linear':
+            expected_seq_len = expected_seq_len // 2
+             
         print(f"Number of parameters: {count_parameters(input_embeddings)}") 
         print(f"FLOPs: {get_FLOPs(input_embeddings, self.config, verbose=False)}")   
         input_data = torch.randn(batch_size, seq_len, n_ant)
@@ -307,6 +312,8 @@ class TestModel(BaseTest):
         batch_size = get_value(config, 'batch_size') 
         n_ant = get_value(config, 'n_ant')
         seq_len = get_value(config, 'seq_len')
+        max_pool = get_value(config, 'max_pool')
+        d_model = get_value(config, 'd_model')
 
         model = build_encoder_transformer(config['transformer'])
         flops = get_FLOPs(model, config)
@@ -318,10 +325,13 @@ class TestModel(BaseTest):
         f"Stride: {get_value(config, 'stride'):<6}"
         f"Positional encoding: {get_value(config, 'pos_enc_type'):<11}, "
         f"Projection type: {get_value(config, 'projection_type'):<10}, "
+        f"Max pool: {get_value(config, 'max_pool'):<5}, "
+        f"Model size: {get_value(config, 'd_model'):<6}, "  
         )
         
 
         model.to(self.device)
+        encoder_layer = model.network_blocks[0]
         
 
         if config['transformer']['architecture']['data_type'] == 'chunked':
@@ -339,12 +349,14 @@ class TestModel(BaseTest):
         else:
             data = torch.randn(batch_size, seq_len, n_ant).to(self.device)
             output = model(data)
-            #print(f"Output shape: {output.shape}", end=' ')
+
+            #print(f"Output shape from encoder: {true_out_put_shape_2}", end=' ')
             true_out_put_shape = torch.Size([batch_size])
             #print(f"True output shape: {true_out_put_shape}")
             self.assertEqual(output.shape, true_out_put_shape)
+           
 
-            
+        print(f"Output shape: {output.shape}", end=' ')    
 
         self.assertIsNotNone(model)
         self.assertTrue(hasattr(model, 'network_blocks'))
@@ -422,17 +434,18 @@ if __name__ == '__main__':
            # {'kernel_size': 3, 'stride': 2},
         ]
     vit_configs = [
-            # {'kernel_size': 2, 'stride': 2},
-            # {'kernel_size': 4, 'stride': 4},
+            {'kernel_size': 2, 'stride': 2},
+            {'kernel_size': 4, 'stride': 4},
         ]
   
     test_dict = {
                 # 'GSA': [True, False],
-                'projection_type': ['linear', 'cnn'], 
+                # 'projection_type': ['linear', 'cnn'], 
                 # 'activation': ['relu', 'gelu'],
                 # 'normalization': ['layer', 'batch'],
-                # 'embed_type': ['ViT', 'cnn', 'linear'],# 'ViT', 'linear'],
+                'embed_type': ['ViT','cnn', 'linear'],# 'ViT', ''cnn', 'linear'],
                 # 'pos_enc_type':['Relative', 'Sinusoidal', 'Learnable'],
+                  'pre_def_dot_product': [True, False],
 
     }
     combinations = list(itertools.product(*test_dict.values()))
@@ -470,9 +483,9 @@ if __name__ == '__main__':
             configs.append(new_config)
 
     for config in configs:
-        # suite.addTest(TestInputEmbeddings('test_input_embeddings', inputs=config))
+        suite.addTest(TestInputEmbeddings('test_input_embeddings', inputs=config))
         # suite.addTest(TestMultiHeadAttentionBlock('test_MultiHeadAttentionBlock', inputs=config))
-        suite.addTest(TestModel('testModel', inputs=config, device=device))
+        # suite.addTest(TestModel('testModel', inputs=config, device=device))
         # suite.addTest(TestEncoder('test_encoder_block', inputs=config, device=device))
         # suite.addTest(TestLossFunctions('test_hinge_loss', inputs=config, device=device))
 

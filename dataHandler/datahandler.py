@@ -18,12 +18,12 @@ import yaml
 
 CODE_DIR_1  ='/home/acoleman/software/NuRadioMC/'
 sys.path.append(CODE_DIR_1)
-CODE_DIR_2 = '/home/acoleman/work/rno-g/'
-sys.path.append(CODE_DIR_2)
+# CODE_DIR_2 = '/home/acoleman/work/rno-g/'
+# sys.path.append(CODE_DIR_2)
 # CODE_DIR_3 = '/home/halin/Master/nuradio-analysis/'
 # sys.path.append(CODE_DIR_3)
-# CODE_DIR_4 = '/home/halin/Master/nuradio-analysis/analysis_tools/'
-# sys.path.append(CODE_DIR_4)
+CODE_DIR_4 = '/home/halin/Master/nuradio-analysis/'
+sys.path.append(CODE_DIR_4)
 
 from NuRadioReco.utilities import units, fft
 
@@ -161,6 +161,28 @@ def get_trigger_data(config, random_seed=123, subset=False, save_test_set=False)
 
   waveform_filenames = data_locations.PreTrigSignalFiles(config=config, nu=nu, inter=inter, lgE=lgE, beam=use_beam) 
   background_filenames = data_locations.HighLowNoiseFiles("3.421", config=config, nFiles=nFiles)
+  print(background_filenames)
+  for background in background_filenames:
+    print(background)
+
+  for waveform in waveform_filenames:
+    print(waveform)
+
+  for i in range(10):
+    control_path = f'/mnt/md0/data/trigger-development/rno-g/noise/high-low/fLow_0.08-fhigh_0.23-rate_0.5/prod_2023.03.24/SNR_3.421-Vrms_5.52-mult_2-fLow_0.08-fhigh_0.23-rate_0.5-File_000{i}.npy'
+    if control_path not in background_filenames:
+      assert False, f"File {control_path} not found in background_filenames"
+  control_folder = '/mnt/md0/data/trigger-development/rno-g/signal/batched/fLow_0.08-fhigh_0.23-rate_0.5/prod_2023.05.16'
+  for control_file in os.listdir(control_folder):
+    print(control_file)
+    not_in = True
+    for waveform_file in waveform_filenames:   
+      if control_file in waveform_file:
+        not_in = False
+  
+    if not_in:
+        assert False, f"File {control_file} not found in waveform_filenames"  
+
 
   if not len(background_filenames):
     background_filenames = data_locations.PhasedArrayNoiseFiles(config, beam=use_beam)
@@ -1103,6 +1125,8 @@ def collect_config_to_df(model_numbers, model_path='/home/hansalin/mnt/Models/',
   return df  
 
 
+
+
 def get_predictions(model_number, model_path='/mnt/md0/halin/Models/'):
   """ This function loads the predictions from a model
       Arg:
@@ -1119,4 +1143,22 @@ def get_predictions(model_number, model_path='/mnt/md0/halin/Models/'):
   y_pred = y_pred_data['y_pred'].to_numpy()
   return y, y_pred
 
+def get_value(dictionary, key):
+  """
+  This function returns the value of a key in a dictionary. If the key is not found, the function returns None.
 
+  Args:
+    dictionary: dictionary, the dictionary to search
+    key: string, the key to search for
+
+  Returns:
+    value: the value of the key in the dictionary
+  """
+  if key in dictionary:
+      return dictionary[key]
+  for k, value in dictionary.items():
+      if isinstance(value, dict):
+          result = get_value(value, key)
+          if result is not None:
+              return result
+  return None

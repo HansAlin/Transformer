@@ -65,9 +65,9 @@ class FeedForwardBlock(nn.Module):
   def __init__(self, d_model: int, d_ff: int, dropout: float = 0.1, activation='relu'):
     # d_ff is the hidden layer size
     super().__init__()
-    self.linear_1 = nn.Linear(d_model, d_ff) # W1 and bias
+    self.linear_1 = nn.Linear(d_model, d_ff, bias=False) # W1
     self.dropout = nn.Dropout(dropout)
-    self.linear_2 = nn.Linear(d_ff, d_model) # W2 and bias
+    self.linear_2 = nn.Linear(d_ff, d_model, bias=False) # W2
     if activation == None:
       self.activation = nn.Identity()
     elif activation == 'relu':
@@ -369,23 +369,25 @@ class MultiHeadAttentionBlock(nn.Module):
     if kwargs:
       if 'pre_def_dot_product' in kwargs:
         self.pre_def_dot_product = kwargs['pre_def_dot_product']
+    else:
+      self.pre_def_dot_product = False    
 
     assert d_model % h == 0, "d_model must be divisible by h"
     self.d_h = d_model // h
 
     if self.projection_type == 'linear':
       # TODO its an option to have biases or not in the linear layers
-      self.W_q = nn.Linear(d_model, d_model) # W_q and bias
-      self.W_k = nn.Linear(d_model, d_model) # W_k and bias
-      self.W_v = nn.Linear(d_model, d_model) # W_v and bias
-      self.W_0 = nn.Linear(self.h*self.d_h, d_model) # W_0 and bias wher self.h*self.d_h = d_model
+      self.W_q = nn.Linear(d_model, d_model, bias=False) # W_q 
+      self.W_k = nn.Linear(d_model, d_model, bias=False) # W_k 
+      self.W_v = nn.Linear(d_model, d_model, bias=False) # W_v 
+      self.W_0 = nn.Linear(self.h*self.d_h, d_model, bias=False) # W_0 wher self.h*self.d_h = d_model
 
     elif self.projection_type == 'cnn':
-      self.W_q = nn.Conv2d(self.h, self.h, kernel_size=(1,1), stride=(1,1))
-      self.W_k = nn.Conv2d(self.h, self.h, kernel_size=(1,1), stride=(1,1))
-      self.W_v = nn.Conv2d(self.h, self.h, kernel_size=(1,1), stride=(1,1))
+      self.W_q = nn.Conv2d(self.h, self.h, kernel_size=(1,1), stride=(1,1), bias=False)
+      self.W_k = nn.Conv2d(self.h, self.h, kernel_size=(1,1), stride=(1,1), bias=False)
+      self.W_v = nn.Conv2d(self.h, self.h, kernel_size=(1,1), stride=(1,1), bias=False)
 
-      self.W_0 = nn.Conv2d(d_model, d_model, kernel_size=(5,5), stride=(1,1), padding=(2,2))
+      self.W_0 = nn.Conv2d(d_model, d_model, kernel_size=(5,5), stride=(1,1), padding=(2,2), bias=False)
 
 
     self.dropout_value = dropout
@@ -626,7 +628,7 @@ class EncoderBlock(nn.Module):
 class VanillaEncoderBlock(nn.Module):
   def __init__(self, d_model: int, h: int, d_ff: int, dropout: float = 0.1, normalization='layer', activation='relu', residual_type='post_ln'):
     super().__init__()
-    self.self_attention_block = MultiheadAttention(d_model, h, dropout)
+    self.self_attn = MultiheadAttention(d_model, h, dropout, bias=False)
     self.dropout_1 = nn.Dropout(dropout)
     self.dropout_2 = nn.Dropout(dropout)
     if normalization == 'layer':
@@ -639,7 +641,7 @@ class VanillaEncoderBlock(nn.Module):
     self.feed_forward_block = FeedForwardBlock(d_model, d_ff, dropout, activation)
     self.residual_type = residual_type
 
-  def forward(self, x, src_mask, src_key_padding_mask=None):
+  def forward(self, x, src_mask, src_key_padding_mask=None, is_causal=None):
     # (batch_size, seq_len, d_model)
     # Multi head attention block
     
@@ -648,7 +650,7 @@ class VanillaEncoderBlock(nn.Module):
     if self.residual_type == 'pre_ln':
       x2 = self.norm_1(x) # --> (seq_len, batch_size, d_model)
       x2 = x2.permute(1, 0, 2) # --> (seq_len, batch_size, d_model)
-      x2  = self.self_attention_block(x2, x2, x2, attn_mask=src_mask, key_padding_mask=src_key_padding_mask)[0]# --> (seq_len, batch_size, d_model)
+      x2  = self.self_attn(x2, x2, x2, attn_mask=src_mask, key_padding_mask=src_key_padding_mask)[0]# --> (seq_len, batch_size, d_model)
       x = x.permute(1, 0, 2) # --> (seq_len, batch_size, d_model)
       x = x + self.dropout_1(x2) # --> (seq_len, batch_size, d_model)
       x = x.permute(1, 0, 2) # --> (batch_size, seq_len, d_model)
@@ -659,7 +661,7 @@ class VanillaEncoderBlock(nn.Module):
       x = x + self.dropout_2(x2)
 
     elif self.residual_type == 'post_ln':
-      x2  = self.self_attention_block(x, x, x, attn_mask=src_mask, key_padding_mask=src_key_padding_mask)[0]
+      x2  = self.self_attn(x, x, x, attn_mask=src_mask, key_padding_mask=src_key_padding_mask)[0]
       x = x + self.dropout_1(x2) # --> (seq_len, batch_size, d_model)
       x = x.permute(1, 0, 2) # --> (batch_size, seq_len, d_model)
       x = self.norm_1(x) # --> (batch_size, seq_len, d_model)
@@ -750,14 +752,16 @@ class VanillaEncoderTransformer(nn.Module):
                final_block: FinalBlock,
                residual_type: str = 'post_ln',
                normalization: str = 'layer',
-               features: int = 512
+               features: int = 512,
+               data_type: str = 'trigger'
                ) -> None:
     super().__init__()
 
-    self.encoder = encoders
-    self.src_embed = src_embed[0]
-    self.src_pos = src_pos[0]
-    self.final_block = final_block
+    # self.encoder = encoders
+    # self.src_embed = src_embed
+    # self.src_pos = src_pos
+    # self.final_block = final_block
+    self.data_type = data_type
     self.residual_type = residual_type
     if residual_type == 'post_ln':
       self.norm = nn.Identity()
@@ -767,18 +771,37 @@ class VanillaEncoderTransformer(nn.Module):
       elif normalization == 'batch':
         self.norm = BatchNormalization(features=features)
 
+    self.network_blocks = nn.ModuleList()
+    block1 = nn.Sequential(src_embed, src_pos, encoders, self.norm)
+    block2 = nn.Sequential(final_block)
+    self.network_blocks.extend([block1, block2])
 
-  def encode(self, src, src_mask=None, src_key_padding_mask=None): 
-    # (batch_size, seq_len, d_model)
-    src = self.src_embed(src)
+  def forward(self, src, src_mask=None, src_key_padding_mask=None): 
+    if self.data_type == 'chunked':
+      src = src.permute(0, 2, 1)
+      # (batch_size, seq_len, d_model)
+      src = self.network_blocks[0][0](src)
+      src = self.network_blocks[0][1](src)
+      src = self.network_blocks[0][2](src)
+      src = self.network_blocks[0][3](src)
+      src = self.network_blocks[1](src)
+      return src.unsqueeze(-1) # (batch_size, 1)
+    else:
+      # (batch_size, seq_len, d_model)
+      src = self.network_blocks[0][0](src)
+      src = self.network_blocks[0][1](src)
+      src = self.network_blocks[0][2](src)
+      src = self.network_blocks[0][3](src)
+      src = self.network_blocks[1](src)
+      return src # (batch_size)
 
-    src = self.src_pos(src)
+  def obtain_pre_activation(self, x):
 
-    src = self.encoder(src, src_mask, src_key_padding_mask)
+        x = self.forward(x)
+        return x
 
-    src = self.final_block(src)
+   
 
-    return src 
     
 
 
@@ -879,6 +902,7 @@ class EncoderTransformer(nn.Module):
 
     def forward(self, src, src_mask=None):
         if self.data_type == 'chunked':
+            # chunked comes as (batch_size, n_ant, seq_len)
             src = src.permute(0, 2, 1)
             src = self.encode_type(src, src_mask)
             return src.unsqueeze(-1)
@@ -1062,12 +1086,14 @@ def build_encoder_transformer(config):
   # Create the transformer
   if config['architecture'].get('encoder_type', 'normal')   == 'vanilla':
     encoder_transformer = VanillaEncoderTransformer(encoders=encoders,
-                                                    src_embed=src_embed,
-                                                    src_pos= src_pos, 
+                                                    src_embed=src_embed[0],
+                                                    src_pos= src_pos[0], 
                                                     final_block=final_block,
                                                     residual_type=config['architecture'].get('residual_type', 'post_ln'),
                                                     normalization=config['architecture'].get('normalization', 'layer')  ,
-                                                    features=features)
+                                                    features=features,
+                                                    data_type=config['architecture']['data_type']
+                                                    )
   else:
     encoder_transformer = EncoderTransformer(features=features,
                                             encoders=encoders,
@@ -1184,7 +1210,7 @@ def load_model(config, text='early_stop', verbose=False):
 
   
   new_state_dict = {}
-  nr_of_model_items = len(model_dict.items())
+  nr_ofs = len(model_dict.items())
   nr_of_state_items = len(state_dict.items())
 
   if verbose:
@@ -1199,7 +1225,7 @@ def load_model(config, text='early_stop', verbose=False):
     print()
   
   for (k1, v1) in model_dict.items():
-      
+      nr_of_model_items = nr_ofs
       # if 'embeddings_table' in k1:
       #   continue
 
@@ -1207,7 +1233,13 @@ def load_model(config, text='early_stop', verbose=False):
       count_states = 0
       for (k2, v2) in state_dict.items():
           count_states += 1
-
+          if k1 == k2:
+              best_match = 1
+              best_k2 = k2
+              best_v2 = v2
+              nr_of_model_items = count_states
+              break
+             
           matching_count = count_matching_chars_from_right(k1, k2)
           if v1.shape != v2.shape:
               matching_count = 0
@@ -1267,6 +1299,9 @@ def get_FLOPs(model, config, verbose=False):
   n_ant = config['transformer']['architecture']['n_ant']
   max_relative_position = config['transformer']['architecture']['max_relative_position']
   max_pool = config['transformer']['architecture'].get('max_pool', False)
+  n_heads = config['transformer']['architecture']['h']
+  embed_type = config['transformer']['architecture']['embed_type']
+  d_h = d_model // n_heads
   out_put_size = 1
   flops = 0
 
@@ -1300,9 +1335,7 @@ def get_FLOPs(model, config, verbose=False):
        print(f"Input embedding flops: {input_flops}") if verbose else None
        flops += input_flops   
 
-       if max_pool:
-         seq_len = seq_len // 2
-            
+
 
     ## Positional encoding      
     elif isinstance(module, PositionalEncoding):
@@ -1314,87 +1347,115 @@ def get_FLOPs(model, config, verbose=False):
 
     ## Residual connection
     elif isinstance(module, ResidualConnection):
+      if max_pool and embed_type != 'linear':
+         seq = seq_len // 2
+      else:
+         seq = seq_len  
+
       print(f"Is a residual connection: {name}") if verbose else None
 
-      flops += batch_size * seq_len * d_model
+      flops += batch_size * seq * d_model
 
       if module.dropout.p > 0:
-        flops += 2 * batch_size * seq_len * d_model
+        flops += 2 * batch_size * seq * d_model
 
       if isinstance(module.norm, BatchNormalization) or isinstance(module.norm, LayerNormalization):
-        flops += 4 * batch_size * seq_len * d_model
+        flops += 4 * batch_size * seq * d_model
 
     ## MultiHeadAttentionBlock
     elif isinstance(module, MultiHeadAttentionBlock):
       print(f"Is a multi head attention block: {name}") if verbose else None
-      # Perform calculations for MultiHeadAttentionBlock
-      n_heads = module.h
-      d_h = module.d_h
+      if max_pool and embed_type != 'linear':
+         seq = seq_len // 2
+      else:
+         seq = seq_len   
 
       MHA_flops = 0
 
       if module.projection_type == 'linear':
-        linear_contribution = 2 * 4 * batch_size * seq_len * d_model * d_model # q x W_q, k x W_k, v x W_v
-        attention_calc = 2 * batch_size * seq_len * seq_len * n_heads * d_h
-        soft_max = batch_size * seq_len * seq_len * n_heads
-        final_mult = 2 * batch_size * n_heads * seq_len * d_h * seq_len
-        scale = 2 * batch_size * seq_len * n_heads * d_model
-        MHA_flops = linear_contribution + attention_calc + soft_max + final_mult + scale
+
+        MHA_flops = 4 * seq*d_model**2 + 2*seq**2*d_model
+
 
 
       elif module.projection_type == 'cnn':
 
-        W_q_k_v = 2 * d_h * d_model * module.W_q.kernel_size[0] * module.W_q.kernel_size[1] * module.W_q.out_channels
-        W_0 = 2 * d_model * module.W_0.kernel_size[0] * module.W_0.kernel_size[1] * module.W_0.out_channels
+        W_q_k_v = seq * d_model * module.W_q.kernel_size[0] * module.W_q.kernel_size[1] * module.W_q.out_channels
+        W_0 = seq * d_model * module.W_0.kernel_size[0] * module.W_0.kernel_size[1] * module.W_0.out_channels
         MHA_flops = W_0 + W_q_k_v
 
 
       if module.positional_encoding == True:
          
-         relative_attention_1 = 2 *batch_size * seq_len * seq_len * n_heads * d_h
-         attention_score = 2 * batch_size * seq_len * seq_len * n_heads
-         relative_attention_2 = 2 * batch_size * seq_len * n_heads * d_h * seq_len
-         add_weight = 2 * batch_size * seq_len * n_heads * d_h
-         MHA_flops += relative_attention_1 + attention_score + relative_attention_2 + add_weight
+         relative_attention_1 = batch_size * seq * seq * n_heads * d_h
+
+         additative_1 = batch_size * n_heads * seq * seq
+         
+         relative_attention_2 = 2 * batch_size  * n_heads * d_h * seq
+
+         additative_2 = batch_size * n_heads * d_h * seq
+         
+         MHA_flops += relative_attention_1 + relative_attention_2 + additative_1 + additative_2
 
       if module.dropout.p > 0:
-        MHA_flops += 2 * batch_size * seq_len * d_model
+        MHA_flops += 2 * batch_size * seq * d_model
 
       print(f"Multi head attention block flops: {MHA_flops}") if verbose else None
       flops += MHA_flops
 
+    elif isinstance(module, MultiheadAttention):
+      if max_pool and embed_type != 'linear':
+         seq = seq_len // 2
+      else:
+         seq = seq_len
+
+      MHA_flops = 4 * seq*d_model**2 + 2*seq**2*d_model
+
+      if module.dropout > 0:
+        MHA_flops += 2 * batch_size * seq * d_model
+
+      print(f"Multi head attention block flops: {MHA_flops}") if verbose else None
+      flops += MHA_flops
 
     ## FeedForwardBlock
     elif isinstance(module, FeedForwardBlock):
+
+      if max_pool and embed_type != 'linear':
+         seq = seq_len // 2
+      else:
+          seq = seq_len   
+
       print(f"Is a feed forward block: {name}") if verbose else None
       ffb_flops = 0
       # FLOPs for wieghts a
-      ffb_flops += batch_size * seq_len * d_model * d_ff +  batch_size * seq_len * d_ff * d_model
+      ffb_flops += batch_size * seq * d_model * d_ff +  batch_size * seq * d_ff * d_model
 
-      # FLOPs for the bias additions in the two linear transformations
-      ffb_flops += batch_size * seq_len * d_ff + batch_size * seq_len * d_model
 
       if isinstance(module.activation, torch.nn.ReLU) or isinstance(module.activation, torch.nn.GELU):
-        ffb_flops += batch_size * seq_len * d_ff
+        ffb_flops += batch_size * seq * d_ff
 
       print(f"Feed forward block flops: {ffb_flops}") if verbose else None
       flops += ffb_flops  
 
     ## FinalBlock
     elif isinstance(module, FinalBlock):
+        if max_pool and embed_type != 'linear':
+         seq = seq_len // 2
+        else:
+          seq = seq_len
         print(f"Is a final block: {name}") if verbose else None
 
         if module.forward_type == module.double_linear_forward:
             flops += 2 * batch_size * d_model * out_put_size + out_put_size  # for the first linear transformation
-            flops += 2 * batch_size * seq_len * out_put_size + out_put_size  # for the second linear transformation
+            flops += 2 * batch_size * seq * out_put_size + out_put_size  # for the second linear transformation
 
         elif module.forward_type == module.single_linear_forward:
-            flops += 2 * batch_size * (d_model * seq_len) * out_put_size + out_put_size
+            flops += 2 * batch_size * (d_model * seq) * out_put_size + out_put_size
 
         elif module.forward_type == module.average_forward:
             if module.dim == 2:  # seq_average_linear
-                flops += batch_size * seq_len  # for the average operation
-                flops += 2 * batch_size * seq_len * out_put_size + out_put_size  # for the linear transformation
+                flops += batch_size * seq  # for the average operation
+                flops += 2 * batch_size * seq * out_put_size + out_put_size  # for the linear transformation
             else:  # d_model_average_linear
                 flops += batch_size * d_model  # for the average operation
                 flops += 2 * batch_size * d_model * out_put_size + out_put_size  # for the linear transformation

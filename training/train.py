@@ -43,7 +43,7 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
   output_size = item[1].shape[-1]
   print(f"Output shape: {output_size}")
 
-
+  precision = torch.float32
 
   for config in configs:
 
@@ -119,23 +119,23 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
 
 
 
-    model = model.to(device)
+    model = model.to(device).to(precision)
 
  
     
     
     loss_type = config['transformer']['training'].get('loss_function', 'BCE')
     if loss_type == 'BCE':
-      criterion = nn.BCELoss().to(device)
+      criterion = nn.BCELoss()
     elif loss_type == 'BCEWithLogits':
-      criterion = nn.BCEWithLogitsLoss().to(device)
-    elif loss_type == 'hinge':
-      criterion == ll.HingeLoss().to(device)
+      criterion = nn.BCEWithLogitsLoss()
+    elif loss_type == 'hinge' or loss_type == 'hinge_max':
+      criterion = ll.HingeLoss(loss_type)
     else:
       print("No loss function found")
       return None
    
-    
+    criterion.to(device).to(precision)
 
     early_stop_count = 0
     min_val_loss = float('inf')
@@ -147,6 +147,8 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
       
       # set the model in training mode
       model.train()
+      first_param = next(model.parameters())
+      print(f"Type: {first_param.dtype} Device: {first_param.device}")
       
       train_loss = []
       val_loss = []
@@ -165,7 +167,7 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
         x_batch, y_batch = train_loader.__getitem__(istep)
         if data_type == 'chunked':
            y_batch = y_batch.max(dim=1)[0]
-        x_batch, y_batch = x_batch.to(device), y_batch.to(device)
+        x_batch, y_batch = x_batch.to(device).to(precision), y_batch.to(device).to(precision)
         
         outputs = model(x_batch)
 
@@ -199,11 +201,9 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
           if data_type == 'chunked':
             y_batch = y_batch.max(dim=1)[0]
 
-          x_batch, y_batch = x_batch.to(device), y_batch.to(device)
+          x_batch, y_batch = x_batch.to(device).to(precision), y_batch.to(device).to(precision)
           outputs = model(x_batch)
           val_loss.append(criterion(outputs, y_batch.squeeze()).item())
-          if  config['transformer']['training']['loss_function']== 'BCEWithLogits':      #
-            outputs = torch.sigmoid(outputs)
           pred = outputs.cpu().detach().numpy()
           preds.append(pred)
           ys.append(y_batch.cpu().detach().numpy())
@@ -242,6 +242,7 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
         print(f"Model saved at epoch {epoch}")
       save_data(config, df)
       save_model(model, optimizer, scheduler, config, epoch, text=f'{epoch}', threshold=threshold,)
+      histogram(preds, ys, config['transformer'], threshold=threshold, text=f'_{epoch}')
       ############################################
       #  Tensorboard
       ############################################

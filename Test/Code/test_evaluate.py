@@ -8,8 +8,9 @@ CODE_DIR_1  ='/home/halin/Master/Transformer/'
 sys.path.append(CODE_DIR_1)
 CODE_DIR_1  ='/home/acoleman/software/NuRadioMC/'
 sys.path.append(CODE_DIR_1)
-CODE_DIR_2 = '/home/acoleman/work/rno-g/'
-sys.path.append(CODE_DIR_2)
+CODE_DIR_4 = '/home/halin/Master/nuradio-analysis/'
+sys.path.append(CODE_DIR_4)
+
 
 from evaluate.evaluate import test_model, get_results, count_parameters, get_MMac,  get_quick_veff_ratio, test_threshold, noise_rejection
 import models.models as mm
@@ -112,18 +113,21 @@ from analysis_tools.config import GetConfig
 #################################################################################
 # Test noise rejection                                                          #
 #################################################################################
-# models = [201, 202, 213]
+# models = [231]
 # values = []
+# thresholds = []
 # for model_num in models:
-#     value = noise_rejection(model_number=model_num, verbose=True, model_type='early_stop')
+#     value, t = noise_rejection(model_number=model_num, verbose=True, model_type='_5', cuda_device=1)
 #     values.append(value)
+#     thresholds.append(t)
 
 # pp.plot_hist(values=values, 
 #              names=models, 
+#              threshold=thresholds,
 #              bins=100, 
 #              log=False,
-#              xlim=0.1,
-#              ylim=4)
+#     )
+
 #################################################################################
 # Test get_FLOPs                                                                #
 #################################################################################
@@ -146,26 +150,39 @@ from analysis_tools.config import GetConfig
 #################################################################################
 test = False
 chunked = False
-models = [235]
+plot = False
+data = True
+to_data_frame = False
+save_thresholds = False
+models = [241]
+seq_len = 128
 device = 1
-text2 = ''
+text2 = 'test_of_noise_content_2'
 text1 = ''
 
-if chunked:
-    config = dd.get_model_config(model_num=models[0], type_of_file='yaml')
-    train_data, val_data, test_data = dd.get_chunked_data(64, config=config, subset=test)
-else:
-    data_config = dd.get_data_config()
-    train_data, val_data, test_data = dd.get_trigger_data(config=data_config,
-                                                    subset=test)
+if data:
+    if chunked:
+        config = dd.get_model_config(model_num=models[0], type_of_file='yaml')
+        train_data, val_data, test_data = dd.get_chunked_data(64, config=config, subset=test)
+    else:
+        data_config = dd.get_data_config()
+        data_config['input_length'] = seq_len
+        train_data, val_data, test_data = dd.get_trigger_data(config=data_config,
+                                                        subset=test)
 
-del train_data
-del val_data
+    del train_data
+    del val_data
 
 
 for model_num in models:
 
     config = dd.get_model_config(model_num=model_num, type_of_file='yaml')
+    if seq_len != dd.get_value(config, 'seq_len'):
+        print(f"Sequence length does not match for model {model_num}, no testing")
+        continue
+    if not to_data_frame:
+        df = pd.read_pickle(f'/home/halin/Master/Transformer/Test/data/epoch_data_model_{model_num}.pkl')
+
 
     # if 'transformer' in config and chunked == False:
     #     config = config['transformer']
@@ -184,21 +201,25 @@ for model_num in models:
         #     continue
         which_epoch = model_path.split('_')[-1].split('.')[0]
         model = mm.load_model(config, which_epoch, verbose=False)
-        # model = mm.build_encoder_transformer(config)
-        # state = torch.load(model_path)
+
+
+        if not to_data_frame:
+            threshold = df[df['Epoch'] == which_epoch]['Threshold'].values[0]    
+            efficiency = df[df['Epoch'] == which_epoch]['Efficiency'].values[0]
+
 
         # if 'threshold' in state:
         #     del state['threshold']
         # model.load_state_dict(state, strict=False)
-
-        y_pred_data, accuracy, efficiency, precission, threshold = test_model(model=model,
+        if data:
+            y_pred_data, accuracy, efficiency, precission, threshold = test_model(model=model,
                                                         test_loader=test_data,
                                                         device=device,
                                                         config=config,
                                                         plot_attention=False,
                                                         extra_identifier=model_num,)
-
-        AOC, nse, threshold2 =  pp.plot_performance_curve([y_pred_data['y_pred']], 
+        if plot:
+            AOC, nse, threshold2 =  pp.plot_performance_curve([y_pred_data['y_pred']], 
                                                          [y_pred_data['y']], 
                                                          [config], 
                                                          curve='nr', 
@@ -209,21 +230,27 @@ for model_num in models:
                                                          save_path=f'/home/halin/Master/Transformer/figures/efficiency/performance_model_{model_num}_{which_epoch}_{text2}.png',
                                                          text= f'{which_epoch} {text2}',
                                                          )
+        if plot:    
+            pp.plot_threshold_efficiency(y_pred=y_pred_data['y_pred'],
+                                     y=y_pred_data['y'],
+                                     save_path=f'/home/halin/Master/Transformer/figures/efficiency/threshold_efficiency_model_{model_num}_{which_epoch}_{text2}.png',
+  
+                                     )
         # # print(f'{model_num:<15} {text:<15} {text2:<25} {AOC:<15.6f} {nse:<15.6f} {threshold:<15.6f}')
         epoch = model_path.split('_')[-1].split('.')[0]
         state_dict = torch.load(model_path)
     
-      
-        try:
-            state_dict['model_state_dict']['threshold'] = threshold
-        except:
-            state_dict['threshold'] = threshold
-        if not test:
-            torch.save(state_dict, model_path)
+        if save_thresholds:
+            try:
+                state_dict['model_state_dict']['threshold'] = threshold
+            except:
+                state_dict['threshold'] = threshold
+            if not test:
+                torch.save(state_dict, model_path)
 
-    #     print(f"Epoch {epoch:>10}   with threshold {threshold:>10.2f} has an efficiency of {efficiency:>10.4f}")
-        
-        pp.histogram(y_pred_data['y_pred'], 
+        print(f"Model: {model_num}, Epoch {epoch:>10}   with threshold {threshold:>10.2f} has an efficiency of {efficiency:>10.4f}")
+        if plot:
+            pp.histogram(y_pred_data['y_pred'], 
                     y=y_pred_data['y'], 
                     config=config['transformer'],
                     bins=100, 
@@ -231,62 +258,30 @@ for model_num in models:
                     text= f'{epoch} {text2}',
                     threshold=threshold,
                     )
-    
-    #     if efficiency > best_efficiency:
-    #         best_efficiency = efficiency
-    #         best_model = epoch
-    
+
         data_dict['Epoch'].append(epoch)
         data_dict['Efficiency'].append(efficiency)
         data_dict['Threshold'].append(threshold)
+    if to_data_frame:
+        df = pd.DataFrame(data_dict)
+        df.to_pickle(f'/home/halin/Master/Transformer/Test/data/epoch_data_model_{model_num}.pkl')
+        
 
-    df = pd.DataFrame(data_dict)
-    df.to_pickle(f'/home/halin/Master/Transformer/Test/data/epoch_data_model_{model_num}.pkl')
-    
-
-#     models.append(model_num)
-    
-#     text2ss.append(text2)
-#     AOCs.append(AOC)
-#     NSEs.append(nse)
-#     thresholds1.append(threshold1)
-#     thresholds2.append(threshold2)
-#     thresholds3.append(threshold3)
-    
-
-    
-
-# model_num = 301
-# model_path = '/home/halin/Master/nuradio-analysis/data/models/fLow_0.08-fhigh_0.23-rate_0.5/config_301/config_301_best.pth'
-# config_path = '/home/halin/Master/nuradio-analysis/configs/chunked/config_301.yaml'
-# config = dd.get_model_config(model_num=301, path=config_path)
-# model = mm.build_encoder_transformer(config['transformer'])
-# state = torch.load(model_path)
-# model.load_state_dict(state)
-
-# train_data, val_data, test_data = dd.get_chunked_data(64, config=config, subset=False)
-# del train_data
-# del val_data
-# y_pred_data, accuracy, efficiency, precission = test_model(model=model,
-#                                                     test_loader=test_data,
-#                                                     device=2,
-#                                                     config=config['transformer'],
-#                                                     plot_attention=True,
-#                                                     extra_identifier=model_num,)
+# #
 
 
-#################################################################################
-# Get relative embedding table
-#################################################################################
+# #################################################################################
+# # Get relative embedding table
+# #################################################################################
 
-# model_number = 213
-# layer = 'relative_positional'
-# config = dd.get_model_config(model_num=model_number, type_of_file='yaml')
-# model = load_model(config, text='early_stop', verbose=False)
+# # model_number = 213
+# # layer = 'relative_positional'
+# # config = dd.get_model_config(model_num=model_number, type_of_file='yaml')
+# # model = load_model(config, text='early_stop', verbose=False)
 
-# pp.plot_layers(state_dict=model.state_dict(),
-#                 layer=layer,
-#                 extra_name='Loaded model',
-#                 )
+# # pp.plot_layers(state_dict=model.state_dict(),
+# #                 layer=layer,
+# #                 extra_name='Loaded model',
+# #                 )
 
 

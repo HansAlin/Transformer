@@ -18,16 +18,17 @@ from dataHandler.datahandler import get_model_config, get_chunked_data, save_dat
 import plots.plots as pp
 CODE_DIR_1  ='/home/acoleman/software/NuRadioMC/'
 sys.path.append(CODE_DIR_1)
-CODE_DIR_2 = '/home/acoleman/work/rno-g/'
-sys.path.append(CODE_DIR_2)
+CODE_DIR_4 = '/home/halin/Master/nuradio-analysis/'
+sys.path.append(CODE_DIR_4)
 
 from analysis_tools.Filters import GetRMSNoise
 from NuRadioReco.utilities import units
+from analysis_tools import data_locations
 
 
    
 
-def test_model(model, test_loader, device, config, plot_attention=False, extra_identifier='', noise_rejection_rate=1e4):
+def test_model(model, test_loader, device, config, plot_attention=False, extra_identifier='', noise_rejection_rate=1e4, precision=torch.float32):
   """
   This function tests the model on the test set
   and returns the accuracy and true positive rate
@@ -41,14 +42,14 @@ def test_model(model, test_loader, device, config, plot_attention=False, extra_i
     extra_identifier: an extra identifier for the plot
     noise_rejection_rate: the noise rejection rate, typical 1e4
   Return:
-    y_pred_data, accuracy, efficiency, precission,threshold
+    y_pred_data, accuracy, efficiency, precision,threshold
   """
   if 'transformer' in config:
      config = config['transformer']
 
   data_type = config['architecture'].get('data_type', 'chunked')
 
-  model.to(device)
+  model.to(device).to(precision)
   model.eval()
   acc = 0
   TP = 0
@@ -105,7 +106,7 @@ def test_model(model, test_loader, device, config, plot_attention=False, extra_i
            
       if data_type == 'chunked':
         y_test = y_test.max(dim=1)[0]
-      x_test, y_test = x_test.to(device), y_test.to(device)
+      x_test, y_test = x_test.to(device).to(precision), y_test.to(device).to(precision)
       y_test = y_test.squeeze() 
       outputs = model(x_test)
       # if config['training']['loss_function'] == 'BCEWithLogits':
@@ -114,20 +115,20 @@ def test_model(model, test_loader, device, config, plot_attention=False, extra_i
       y.append(y_test.cpu().detach().numpy()) 
       pred_round.append(outputs.cpu().detach().numpy())
 
-    threshold, accuracy, efficiency, precission, recall, F1 = validate(np.concatenate(y), np.concatenate(pred_round), noise_rejection=noise_rejection_rate)
+    threshold, accuracy, efficiency, precision, recall, F1 = validate(np.concatenate(y), np.concatenate(pred_round), noise_rejection=noise_rejection_rate)
   y_pred = np.concatenate(y_pred)
   y = np.concatenate(y)
   if data_type == 'chunked':
     y_pred = y_pred.flatten()
   y_pred_data = pd.DataFrame({'y_pred': y_pred, 'y': y})
 
-  return y_pred_data, accuracy, efficiency, precission, threshold
+  return y_pred_data, accuracy, efficiency, precision, threshold
 
 
 def validate(y, y_pred, noise_rejection=1e4):
   """
   This function validates the model on the data and returns the accuracy, 
-  efficiency, precission, recall and F1 score and the threshold at which the
+  efficiency, precision, recall and F1 score and the threshold at which the
   noise rejection is achieved
 
   Args:
@@ -136,12 +137,17 @@ def validate(y, y_pred, noise_rejection=1e4):
     noise_rejection: the noise rejection rate, typical 1e4
     
   Returns:
-    threshold, accuracy, efficiency, precission, recall, F1
+    threshold, accuracy, efficiency, precision, recall, F1
     
     """
   y = y.flatten()
   y_pred = y_pred.flatten()
   count = 0
+
+  totalt_number_of_signals = np.count_nonzero(y)
+  total_number_of_noise = len(y) - totalt_number_of_signals
+
+
   for threshold in np.linspace(min(y_pred), max(y_pred), 1000):
 
     TP = np.sum(np.logical_and(y == 1, y_pred > threshold))
@@ -149,19 +155,22 @@ def validate(y, y_pred, noise_rejection=1e4):
     FP = np.sum(np.logical_and(y == 0, y_pred > threshold))
     FN = np.sum(np.logical_and(y == 1, y_pred < threshold))
 
-    if TN != 0:
-      if FP / TN  < 1 / noise_rejection or count == 1000 - 1:
-        accuracy = (TP + TN) / len(y)
-        efficiency = TP / np.count_nonzero(y) if np.count_nonzero(y) != 0 else 0
-        precission = TP / (TP + FP) if TP + FP != 0 else 0 
-        recall = TP / (TP + FN) if TP + FN != 0 else 0
-        F1 = 2 * (precission * recall) / (precission + recall) if precission + recall != 0 else 0
-        
-        return threshold, accuracy, efficiency, precission, recall, F1
+    if (TN + FP) != 0:
+      noise_rejection_rate = FP / (TN + FP)
+      
+      accuracy = (TP + TN) / len(y)
+      efficiency = TP / np.count_nonzero(y) if np.count_nonzero(y) != 0 else 0
+      precision = TP / (TP + FP) if TP + FP != 0 else 0 
+      recall = TP / (TP + FN) if TP + FN != 0 else 0
+      F1 = 2 * (precision * recall) / (precision + recall) if precision + recall != 0 else 0
+
+      
+      if noise_rejection_rate < 1/noise_rejection:
+        print(f"Noise events: {total_number_of_noise}, False signals: {FP}, Noise rejection rate: {noise_rejection_rate}")
+        return threshold, accuracy, efficiency, precision, recall, F1
     count += 1
   return 0, 0, 0, 0, 0, 0
  
-
 
 def get_gpu_info():
     try:
@@ -321,9 +330,9 @@ def get_results(model_num, device=0):
     train_loader, val_loader, test_loader = get_data(batch_size=config['training']['batch_size'], seq_len=config['architecture']['seq_len'], subset=False)
     del train_loader
     del val_loader
-    y_pred_data, accuracy, efficiency, precission = test_model(model, test_loader, device, config)
+    y_pred_data, accuracy, efficiency, precision = test_model(model, test_loader, device, config)
     save_data(config=config, y_pred_data=y_pred_data)
-    return accuracy, efficiency, precission
+    return accuracy, efficiency, precision
 
 def find_key_in_dict(nested_dict, target_key):
     for key, value in nested_dict.items():
@@ -748,8 +757,9 @@ def noise_rejection(model_number, model_type='final', cuda_device=0, verbose=Fal
       None
   """
   
-
-  noise = np.load('/home/halin/Master/nuradio-analysis/noise-generation/high-low-trigger/data/fLow_0.08-fhigh_0.23-rate_0.5/SNR_3.421-Vrms_5.52-mult_2-fLow_0.08-fhigh_0.23-rate_0.5-File_0000.npy')   
+  noise_path = '/home/halin/Master/nuradio-analysis/noise-generation/high-low-trigger/data/fLow_0.08-fhigh_0.23-rate_0.5/SNR_3.421-Vrms_5.52-mult_2-fLow_0.08-fhigh_0.23-rate_0.5-File_0000.npy'
+  noise_path =     '/mnt/md0/data/trigger-development/rno-g/noise/high-low/fLow_0.08-fhigh_0.23-rate_0.5/prod_2023.03.24/SNR_3.421-Vrms_5.52-mult_2-fLow_0.08-fhigh_0.23-rate_0.5-File_0000.npy'
+  noise = np.load(noise_path)   
   print(noise.shape)
   ##### Normalize the noise
   noise_mean = np.mean(noise)
@@ -765,6 +775,15 @@ def noise_rejection(model_number, model_type='final', cuda_device=0, verbose=Fal
   noise = torch.Tensor(noise)
   noise = noise.permute(0,2,1)
 
+  config = get_model_config(model_num=model_number, type_of_file='yaml')
+
+  if 'transformer' in config:
+    config = config['transformer']
+
+
+  seq_len = config['architecture']['seq_len']  
+  noise = noise[:100000, 250:seq_len+250, :]
+
   if verbose:
     print(f"Mean: {noise_mean}, std: {noise_std}")
     pp.plot_examples(noise.cpu().detach().numpy(), save_path='/home/halin/Master/Transformer/figures/test_1.png')
@@ -773,34 +792,44 @@ def noise_rejection(model_number, model_type='final', cuda_device=0, verbose=Fal
   device = torch.device(f"cuda:{cuda_device}")
  
 
-  config = get_model_config(model_num=model_number, type_of_file='yaml')
-  if 'transformer' in config:
-    config = config['transformer']
+
   model = load_model(config, text=model_type, verbose=False)
   model.to(device)
   chunks = torch.split(noise, 64)
 
   outputs = []
 
+ 
+  try:
+    threshold, sigmoid = get_threshold(config, text=model_type, verbose=False)
+  except:
+    print("No threshold found in model state")
+    threshold = config['results']['TRESH_AT_10KNRF']
+    sigmoid = True
+
+
+  print(f"Model number: {model_number}, epoch type: {model_type}, threshold: {threshold}, sigmoid: {sigmoid}")  
 
 
   with torch.no_grad():
     for chunk in chunks:
-      chunk_noise = chunk.to(device)*1.05
+      chunk_noise = chunk.to(device)
       output = model(chunk_noise)
       self_attention_score = 1
-      output = torch.sigmoid(output)
+      if sigmoid:
+        output = torch.sigmoid(output)
       output = output.cpu().detach().numpy()
       outputs.append(output)
   
   outputs = np.concatenate(outputs)
   outputs = outputs.ravel()
 
+
   
-  interpret_signal = np.where(outputs > config['results']['TRESH_AT_10KNRF'], 1, 0)
+  interpret_signal = np.where(outputs > threshold, 1, 0)
   print(f"Number of noise events interpreted as signal: {np.sum(interpret_signal)}")
   print(f"Noise rejection rate: {len(outputs)/np.sum(interpret_signal)}")
-  return outputs  
+  return outputs, threshold 
   
 def get_threshold(config, text='final', verbose=False):
     if config['architecture']['data_type'] == 'chunked':
@@ -813,7 +842,10 @@ def get_threshold(config, text='final', verbose=False):
       try:
           model_path = get_model_path(config, text=text)
           states = torch.load(model_path)
-          threshold = states['threshold']
+          try:
+            threshold = states['model_state_dict']['threshold']
+          except:
+            threshold = states['threshold']  
           sigmoid = False
           if verbose:
               print(f"Model path: {model_path}, Threshold: {threshold}, Sigmoid: {sigmoid}")

@@ -434,8 +434,8 @@ if __name__ == '__main__':
            # {'kernel_size': 3, 'stride': 2},
         ]
     vit_configs = [
-            {'kernel_size': 2, 'stride': 2},
-            {'kernel_size': 4, 'stride': 4},
+            # {'kernel_size': 2, 'stride': 2},
+            # {'kernel_size': 4, 'stride': 4},
         ]
   
     test_dict = {
@@ -443,9 +443,12 @@ if __name__ == '__main__':
                 # 'projection_type': ['linear', 'cnn'], 
                 # 'activation': ['relu', 'gelu'],
                 # 'normalization': ['layer', 'batch'],
-                'embed_type': ['ViT','cnn', 'linear'],# 'ViT', ''cnn', 'linear'],
+                'embed_type': ['linear', 'cnn'],# 'ViT', ''cnn', 'linear'],
                 # 'pos_enc_type':['Relative', 'Sinusoidal', 'Learnable'],
-                  'pre_def_dot_product': [True, False],
+                #   'pre_def_dot_product': [True, False],
+                #  'data_type': ['trigger'],
+                # 'encoder_type':['vanilla', 'normal'],
+                # 'max_pool': [True, False],
 
     }
     combinations = list(itertools.product(*test_dict.values()))
@@ -483,9 +486,9 @@ if __name__ == '__main__':
             configs.append(new_config)
 
     for config in configs:
-        suite.addTest(TestInputEmbeddings('test_input_embeddings', inputs=config))
+        # suite.addTest(TestInputEmbeddings('test_input_embeddings', inputs=config))
         # suite.addTest(TestMultiHeadAttentionBlock('test_MultiHeadAttentionBlock', inputs=config))
-        # suite.addTest(TestModel('testModel', inputs=config, device=device))
+        suite.addTest(TestModel('testModel', inputs=config, device=device))
         # suite.addTest(TestEncoder('test_encoder_block', inputs=config, device=device))
         # suite.addTest(TestLossFunctions('test_hinge_loss', inputs=config, device=device))
 

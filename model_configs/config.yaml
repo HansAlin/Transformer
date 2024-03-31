@@ -1,29 +1,51 @@
 arch: Transformer
+data_locations:
+  # base_folder: /mnt/md0/data/trigger-development/rno-g
+  #tag_folder_veff: CDF_0.7
+  high_low_noise:   # For pre trigger data
+    prod: prod_2023.03.24
+  pre_trig_signal:  # For pre trigger data
+    prod: prod_2023.05.16 
+  # noiseless_signal:  # For chunked data
+  #   prod: prod_2023.05.30
+  # unbiased_noise: # For chunked data
+  #   prod: prod_2023.02.09  
 
-transformer: 
+
+sampling:
+  band:
+    high: 0.23
+    low: 0.08
+  filter:
+    order_high: 10
+    order_low: 5
+    type: butter
+  rate: 0.5
+
+transformer:
   architecture:
     N: 2
     activation: 'relu' # Posible options: 'relu', 'gelu'
     by_pass: false
-    d_ff: 64
+    d_ff: 128
     d_model: 32 # Have to be dividable by h
     data_type: trigger # Possible options: 'trigger', 'chunked'
-    embed_type: cnn # Posible options: 'lin_relu_drop', 'lin_gelu_drop', 'linear', 'cnn', 'ViT'
+    embed_type: linear # Posible options: 'lin_relu_drop', 'lin_gelu_drop', 'linear', 'cnn', 'ViT'
     encoder_type: normal # Posible options: 'normal', 'none', 'bypass', 'vanilla'
     final_type: d_model_average_linear # Posible options: 'double_linear', 'single_linear', 'seq_average_linear', 'd_model_average_linear' for unknown seq_len chose 'd_model_average_linear'
     GSA: False
     h: 4
     inherit_model: null
-    max_relative_position: 16
+    max_relative_position: 32
     residual_type: 'pre_ln' # Posible options: 'pre_ln', 'post_ln'
     n_ant: &n_ant 4
     normalization: layer # Posible options: 'layer', 'batch'
-    max_pool: True
+    max_pool: False
     omega: 10000
     output_shape: null
     output_size: 1
-    pos_enc_type: Sinusoidal # Posible options: 'Sinusoidal', 'Relative',  'Learnable''None',
-    pre_def_dot_product: True # Posible options: True, False If true it uses the dot product defined in pytorch
+    pos_enc_type: Relative # Posible options: 'Sinusoidal', 'Relative',  'Learnable''None',
+    pre_def_dot_product: False # Posible options: True, False If true it uses the dot product defined in pytorch
     pretrained: null
     projection_type: 'cnn' # Posible options: 'linear', 'cnn', 
     seq_len: &seq_len 128
@@ -34,11 +56,11 @@ transformer:
     data_path: ''
     model: null
     model_name: Attention is all you need
-    model_num: 1
-    model_path: null
+    model_num: 0
+    model_path: None
     model_type: base_encoder
   num of parameters:
-    MACs: null
+    MACs: 0
     encoder_param: 0
     final_param: 0
     input_param: 0
@@ -68,49 +90,33 @@ transformer:
     decreas_factor: 0.7
     dropout: 0
     early_stop: 100
-    learning_rate: 0.001
-    loss_function: 'hinge' # Posible options: 'BCE', 'BCEWithLogits', H
-    metric: Efficiency # Posible options: 'Accuracy', 'Efficiency', 'Precision'
+    learning_rate: &lrn_rate 0.001
+    loss_function: &loss_fn hinge_max # Options BCEWithLogitsLoss, hinge, hinge_max
+    metric: Efficiency
     num_epochs: 100
     step_size: 7
+training:
+  batch_size: *batch_size
+  cdf: 0.7
+  consecutive_deadtime: 2
+  extra_gap_per_waveform: 200
+  forward_skip_size: 199
+  learning_rate: *lrn_rate
+  loss_fn: *loss_fn
+  ns_readout_window: 800
+  permute_for_RNN_input: false
+  probabilistic_sampling_ensure_min_signal_fraction: 0.3
+  probabilistic_sampling_ensure_min_signal_num_bins: 3
+  probabilistic_sampling_ensure_signal_region: true
+  probabilistic_sampling_oversampling: 1.0
+  randomize_batchitem_start_position: -1
+  set_spurious_signal_to_zero: 100
+  shift_signal_region_away_from_boundaries: true
+  start_frac: 0.3
+  test_frac: 0.1
+  trigger_time: 200
+  upsampling: 1
+  val_frac: 0.1    
 
 input_length: *seq_len
-n_ant: *n_ant
-
-sampling:
-  band:
-    low: 0.08
-    high: 0.23
-  rate: 0.5
-  filter:
-    order_low: 5
-    order_high: 10
-    type: butter
-
-data_locations:
-  base_folder: /mnt/md0/acoleman/rno-g/signal-generation/data/npy-files
-  tag_folder_veff: CDF_0.7
-  pre_trig: 
-    prod: '3.421'
-
-training:
-  learning_rate: 0.001
-  batch_size: *batch_size
-  forward_skip_size: 200
-  cdf: 0.7
-  ns_readout_window: 800
-  consecutive_deadtime: 2
-  upsampling: 1
-  start_frac: 0.3
-  trigger_time: 200
-  test_frac: 0.1
-  val_frac: 0.1
-  randomize_batchitem_start_position: -1
-  shift_signal_region_away_from_boundaries: False
-  set_spurious_signal_to_zero: -1
-  extra_gap_per_waveform: 0
-  permute_for_RNN_input: False
-  probabilistic_sampling_ensure_signal_region: False
-  probabilistic_sampling_oversampling: 1.0
-  probabilistic_sampling_ensure_min_signal_fraction: -1.0
-  probabilistic_sampling_ensure_min_signal_num_bins: 1
+n_ant: 4

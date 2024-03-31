@@ -64,13 +64,31 @@ chunked = False
 # else:
 transformer_models = {  
                         # 302: 'best',
-                        201:'final', 
-                      230:'early_stop.pth',
-                      231:'231_5.pth',
-                      232:'232_10.pth', 
-                      233:'233_37.pth',
-                      234:'234_16.pth',
-                        235: '235_52.pth',     
+                    #     201:'final', 
+                    #   230:'early_stop.pth',
+                    #   231:'231_5.pth',
+                    #   232:'232_10.pth', 
+                    #   233:'233_37.pth',
+                    #   234:'234_16.pth',
+                    #     235: '235_52.pth',  
+                    # '231_best' : '231_5.pth',
+                    # '231_worst' : '231_1.pth',
+                    # '231_last' : '231_35.pth',
+                    # '234_best' : '234_16.pth',
+                    # '234_worst' : '234_48.pth',
+                    # '234_last' : '234_100.pth',
+                    # '235_best' : '235_52.pth',
+                    # '235_worst' : '235_20.pth',
+                    # '235_last' : '235_100.pth',
+'240_worst' : '240_55',
+'240_best' : '240_37',
+'240_last' : '240_100.pth',
+'241_worst' : '241_96',
+'241_best' : '241_36',
+'241_last' : '241_100.pth',
+'242_worst' : '242_91',
+'242_best' : '242_12',
+'242_last' : '242_100.pth',
                      }
 model_dict = {}
 for model_num in transformer_models.keys():
@@ -251,15 +269,18 @@ def LoadModel(filename, model_list):
     model_list[name]["model"].eval()
     return name
 
-def LoadTransformerModel(model_num, model_list, text):
+def LoadTransformerModel(model_name, model_list, text):
+    model_num = int(text.split('_')[0])
     config = get_model_config(model_num=model_num, type_of_file='yaml', )
-    try:
-        name = str(config['basic']["model_num"])
-    except:
-        name = str(config['transformer']["basic"]["model_num"])
 
-    #threshold, sigmoid = get_threshold(config['transformer'], text=text, verbose=False)
-    threshold, sigmoid = 3, False
+    name = model_name
+    # try:
+    #     name = str(config['basic']["model_num"])
+    # except:
+    #     name = str(config['transformer']["basic"]["model_num"])
+
+    threshold, sigmoid = get_threshold(config['transformer'], text=text, verbose=False)
+    #threshold, sigmoid = 3, False
 
     print(f"Threshold for model {name}: {threshold}, sigmoid: {sigmoid}")
     if threshold == 0:
@@ -290,8 +311,8 @@ for filename in chunked_model_filenames:
     name = LoadModel(filename, all_models)
     all_models[name]["type"] = "Chunk"
 
-for model_num, model_type in transformer_models.items():
-    name = LoadTransformerModel(model_num, all_models, text=model_type)
+for model_name, model_type in transformer_models.items():
+    name = LoadTransformerModel(model_name, all_models, text=model_type)
     all_models[name]["type"] = "Transformer"
     
 

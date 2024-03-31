@@ -188,40 +188,47 @@ def try_convert_to_int(value):
     except ValueError:
         return value, False
 
-model_nums = [235]
+model_nums = [240,241,242]
 for model_num in model_nums:
     df = pd.read_pickle(f'/home/halin/Master/Transformer/Test/data/epoch_data_model_{model_num}.pkl')
 
     epochs = df['Epoch'].values
     efficiencies = df['Efficiency'].values
+    thresholds = df['Threshold'].values
 
 
     epoch_ints = []
     epoch_strs = []
 
+
     efficiency_int = []
     efficiency_str = []
 
-    for epoch, efficiency in zip(epochs, efficiencies):
+    thresholds_int = []
+    thresholds_str = []
+
+    for epoch, efficiency, threshold in zip(epochs, efficiencies, thresholds):
 
         value, is_int = try_convert_to_int(epoch)
 
         if is_int:
             epoch_ints.append(value)
             efficiency_int.append(efficiency)
+            thresholds_int.append(threshold)
         else:
             epoch_strs.append(epoch)
             efficiency_str.append(efficiency)
+            thresholds_str.append(threshold)
 
     epoch_strs = []
     count = 0
     for value in efficiency_str:
         try:
             index = epoch_ints.index(value)
-            print(f"The value {value} is at index {index} in the list.")
+            # print(f"The value {value} is at index {index} in the list.")
             epoch_strs.append(value + 1)
         except ValueError:
-            print(f"The value {value} is not in the list.")
+            # print(f"The value {value} is not in the list.")
             epoch_strs.append(count + 1)
             count += 1
     
@@ -229,11 +236,15 @@ for model_num in model_nums:
     sorta = np.argsort(epoch_ints)
     epoch_ints = epoch_ints[sorta]
     efficiency_int = np.array(efficiency_int)[sorta]
+    thresholds_int = np.array(thresholds_int)[sorta]
+
+    for i, epoch in enumerate(epoch_ints):
+        print(f"Epoch: {epoch}, Efficiency: {efficiency_int[i]:.4f}, Threshold: {thresholds_int[i]:.4f}")
 
     int_plot = False
     if len(epoch_strs) > 0:
         plt.plot(epoch_ints, efficiency_int, label=f'Model {model_num}')
-        plt.ylim(0.8,1.0)
+        plt.ylim(0.0,1.0)
         int_plot = True
     if len(epoch_strs) > 0 and not int_plot:
         plt.scatter(epoch_strs, efficiency_str)    
@@ -246,9 +257,17 @@ for model_num in model_nums:
     plt.savefig(f'/home/halin/Master/Transformer/figures/efficiency/efficiency_model_{model_num}.png')
     plt.close()
     best_index = df['Efficiency'].idxmax()
-    print(f"Model number: {model_num}")
-    print(df.loc[best_index])
-    print('\n\n')
+    worst_index = df['Efficiency'].idxmin()
+    alt_worst_index = np.where(efficiency_int == np.min(efficiency_int))[0][0] + 1
+    last_index = epoch_ints[-1]
+    last_efficency = efficiency_int[-1].item()
+    print(f"Model number: {model_num:>10}")
+    print(f"  Best efficiency: {df['Efficiency'][best_index]:>5.4f} and threshold: {df['Threshold'][best_index]:>5.4f} at epoch {df['Epoch'][best_index]:>5}, ")
+    print(f"  Worst efficiency: {df['Efficiency'][worst_index]:>5.4f} and threshold: {df['Threshold'][worst_index]:>5.4f} at epoch {df['Epoch'][worst_index]:>5}, ")
+    print(f" Last efficiency: {last_efficency:>5.4f} and threshold: {thresholds[-1]:>5.4f} at epoch {last_index:>5}, ")
+    # print(f"'{model_num}_worst' : '{model_num}_{df['Epoch'][worst_index]}',")
+    # print(f"'{model_num}_best' : '{model_num}_{df['Epoch'][best_index]}',")
+    # print(f"'{model_num}_last' : '{model_num}_{last_index}.pth',")
 
 
 ########################################################################

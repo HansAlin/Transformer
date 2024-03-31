@@ -1,6 +1,8 @@
 import matplotlib.pyplot as plt
 import matplotlib.style as style
 import matplotlib.gridspec as gridspec
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 
 import numpy as np
 import os
@@ -25,6 +27,9 @@ def histogram(y_pred, y, config, bins=100, save_path='', text='', threshold=None
               bins (int): number of bins in the histogram
               savefig_path (str): path to save the plot, optional
     """
+    y_pred = np.array(y_pred).flatten()
+    y = np.array(y).flatten()
+
     if 'transformer' in config:
       config = config['transformer']
     if save_path == '':
@@ -33,8 +38,9 @@ def histogram(y_pred, y, config, bins=100, save_path='', text='', threshold=None
       if not isExist:
         os.makedirs(save_path)
         print("The new directory is created!")
-      save_path + f"model_{config['basic']['model_num']}_histogram{text}.png"
+      save_path =    save_path + f"model_{config['basic']['model_num']}_histogram{text}.png"
 
+    text = text.replace('_', '')
     plt.rcParams['text.usetex'] = True
     fig, ax = plt.subplots(figsize=(10, 5))
     signal_mask = y == 1
@@ -900,8 +906,7 @@ def change_format_units(df):
  
 
 
-import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
+
 
 def plot_attention_scores(model, x, y, save_path='/home/halin/Master/Transformer/figures/', extra_identifier=''):
     if y == 0:
@@ -914,56 +919,62 @@ def plot_attention_scores(model, x, y, save_path='/home/halin/Master/Transformer
 
     x = x.cpu().detach().numpy()
     item = 1
-    for name, module in model.named_modules():
-      if isinstance(module, mm.MultiHeadAttentionBlock):
-        first_att = module.attention_scores
-        first_att = first_att.cpu().detach().numpy()
 
-        fig = plt.figure(figsize=(20, 20))  # Increase the size of the figure
-        outer_grid = gridspec.GridSpec(2, 2, wspace=0.1, hspace=0.1)  # Add some space between the figures
-        fig.suptitle(f'Attention Scores {item}- {y}', fontsize=16)
-        for i in range(4):
-          inner_grid = gridspec.GridSpecFromSubplotSpec(2, 2, 
-                                                        subplot_spec=outer_grid[i], 
-                                                        width_ratios=[1, 5], 
-                                                        height_ratios=[5, 1],
-                                                        wspace=0,
-                                                        hspace=0)
+    try:
+      for name, module in model.named_modules():
+        if isinstance(module, mm.MultiHeadAttentionBlock):
+          
+          first_att = module.attention_scores
+          first_att = first_att.cpu().detach().numpy()
 
-          ax0 = plt.Subplot(fig, inner_grid[0])
-          ax1 = plt.Subplot(fig, inner_grid[1])
-          ax3 = plt.Subplot(fig, inner_grid[3])
+          fig = plt.figure(figsize=(20, 20))  # Increase the size of the figure
+          outer_grid = gridspec.GridSpec(2, 2, wspace=0.1, hspace=0.1)  # Add some space between the figures
+          fig.suptitle(f'Attention Scores {item}- {y}', fontsize=16)
+          for i in range(4):
+            inner_grid = gridspec.GridSpecFromSubplotSpec(2, 2, 
+                                                          subplot_spec=outer_grid[i], 
+                                                          width_ratios=[1, 5], 
+                                                          height_ratios=[5, 1],
+                                                          wspace=0,
+                                                          hspace=0)
 
-          fig.add_subplot(ax0)
-          fig.add_subplot(ax1)
-          fig.add_subplot(ax3)
+            ax0 = plt.Subplot(fig, inner_grid[0])
+            ax1 = plt.Subplot(fig, inner_grid[1])
+            ax3 = plt.Subplot(fig, inner_grid[3])
 
-          x_reduced = x[0,:,0]
-          ax1.set_title(f"Head {i+1}")
-          # Plot the attention scores
-          im = ax1.imshow(first_att[0,i,:,:], cmap='hot', interpolation='none')
-          # Remove the x and y ticks
-          ax1.set_xticks([])
-          ax1.set_yticks([])
-          # Plot the reduced input as a curve along the x axis
-          ax3.plot(x_reduced)
-          ax3.grid()
-          ax3.set_xlim([0, len(x_reduced)]) 
-          # Plot the reduced input as a curve along the y axis
-          ax0.plot(x_reduced, range(len(x_reduced)))
-          ax0.grid()
-          ax0.set_ylim([len(x_reduced), 0]) 
-          ax0.invert_xaxis()  # Invert the y axis to align it with the imshow plot
+            fig.add_subplot(ax0)
+            fig.add_subplot(ax1)
+            fig.add_subplot(ax3)
 
-          # Create a new Axes object for the colorbar
-          cax = fig.add_axes([0.96, 0.2, 0.01, 0.6])
+            x_reduced = x[0,:,0]
+            ax1.set_title(f"Head {i+1}")
+            # Plot the attention scores
+            im = ax1.imshow(first_att[0,i,:,:], cmap='hot', interpolation='none')
+            # Remove the x and y ticks
+            ax1.set_xticks([])
+            ax1.set_yticks([])
+            # Plot the reduced input as a curve along the x axis
+            ax3.plot(x_reduced)
+            ax3.grid()
+            ax3.set_xlim([0, len(x_reduced)]) 
+            # Plot the reduced input as a curve along the y axis
+            ax0.plot(x_reduced, range(len(x_reduced)))
+            ax0.grid()
+            ax0.set_ylim([len(x_reduced), 0]) 
+            ax0.invert_xaxis()  # Invert the y axis to align it with the imshow plot
 
-          # Create a colorbar in the new Axes object
-          cbar = fig.colorbar(im, cax=cax)
-        fig.subplots_adjust(left=0.05, right=0.95, bottom=0.05, top=0.95, wspace=0, hspace=0)
-        plt.savefig(save_path + f'{extra_identifier}_attention_scores_{item}_{y}.png')
-        plt.close()
-        item += 1
+            # Create a new Axes object for the colorbar
+            cax = fig.add_axes([0.96, 0.2, 0.01, 0.6])
+
+            # Create a colorbar in the new Axes object
+            cbar = fig.colorbar(im, cax=cax)
+          fig.subplots_adjust(left=0.05, right=0.95, bottom=0.05, top=0.95, wspace=0, hspace=0)
+          plt.savefig(save_path + f'{extra_identifier}_attention_scores_{item}_{y}.png')
+          plt.close()
+          item += 1
+    except:
+      print('No attention scores found')
+      return None
 def plot_veff(models):
 
   for model in models:
@@ -976,7 +987,7 @@ def plot_veff(models):
 
 
 
-def plot_hist(values, names, log=False, bins=100, xlim=0, ylim=10000,save_path='/home/halin/Master/Transformer/figures/noise_hist.png'):
+def plot_hist(values, names, log=False, threshold=None, bins=100, xlim=0, ylim=10000,save_path='/home/halin/Master/Transformer/figures/noise_hist.png'):
     if len(values) != len(names):
         raise ValueError("values and names must have the same length")
 
@@ -989,12 +1000,12 @@ def plot_hist(values, names, log=False, bins=100, xlim=0, ylim=10000,save_path='
     for value, name in zip(values, names):
         if value is not None:
             ax.hist(value, bins=bins, alpha=0.5, label=name)
+            ax.axvline(x=threshold, color='red', linestyle='--', label='Threshold')
             plt.legend()
 
     if log:
         ax.set_xscale('log')
-    plt.xlim([xlim,1])    
-    plt.ylim([0,ylim])
+   
     plt.savefig(save_path)
     
     plt.close() 
@@ -1024,4 +1035,72 @@ def plot_layers(state_dict, layer, extra_name='', save_folder='/home/halin/Maste
             save_folder=save_folder
         )
         item += 1
+
+def plot_threshold_efficiency(y_pred, y, save_path='/home/halin/Master/Transformer/figures/efficiency'):
+  
+  y = y
+  y_pred = y_pred
+  count = 0
+
+  accuracys = []
+  efficiencies = []
+  precisions = []
+  thresholds = []
+  noise_rejection_rates = []
+  F1s = []
+
+  for threshold in np.linspace(min(y_pred), max(y_pred), 1000):
+
+    TP = np.sum(np.logical_and(y == 1, y_pred > threshold))
+    TN = np.sum(np.logical_and(y == 0, y_pred < threshold))
+    FP = np.sum(np.logical_and(y == 0, y_pred > threshold))
+    FN = np.sum(np.logical_and(y == 1, y_pred < threshold))
+
+    if (TN + FP) != 0:
+      noise_rejection_rate = FP / (TN + FP)
+      
+      accuracy = (TP + TN) / len(y)
+      efficiency = TP / np.count_nonzero(y) if np.count_nonzero(y) != 0 else 0
+      precision = TP / (TP + FP) if TP + FP != 0 else 0 
+      recall = TP / (TP + FN) if TP + FN != 0 else 0
+      F1 = 2 * (precision * recall) / (precision + recall) if precision + recall != 0 else 0
+
+      # print(f"Noise rejection rate: {noise_rejection_rate:>5.2e} | Threshold: {threshold:>5.2f} | Accuracy: {accuracy:>5.2f} | Efficiency: {efficiency:>5.2f} | Precision: {precision:>5.2f} | Recall: {recall:>5.2f} | F1: {F1:>5.2f}") 
+      
+      accuracys.append(accuracy)
+      efficiencies.append(efficiency)
+      precisions.append(precision)
+      thresholds.append(threshold)
+      noise_rejection_rates.append(noise_rejection_rate)
+      F1s.append(F1)
+  
+  
+  fig, ax1 = plt.subplots(1, 1, figsize=(7, 7))
+
+  color = 'tab:red'
+  ax1.set_xlabel('Threshold')
+  
+  ax1.plot(thresholds, efficiencies, label='Efficiency', color='salmon')
+  plt.legend()
+  ax1.plot(thresholds, precisions, label='Precision', color='darkred')
+  plt.legend()
+  ax1.plot(thresholds, accuracys, label='Accuracy',color='red')
+  plt.legend()
+  ax1.plot(thresholds, F1s, label='F1 score', color='red')
+  plt.legend()
+  ax1.set_ylabel('Efficiency, Precision, Accuracy', color=color)
+  ax1.tick_params(axis='y', labelcolor=color)
+
+  ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
+  color = 'tab:blue'
+  ax2.set_ylabel('Noise rejection rate', color=color)  # we already handled the x-label with ax1
+  ax2.plot(thresholds, noise_rejection_rates, label='Noise rejection rate', color='blue')
+  ax2.tick_params(axis='y', labelcolor=color)
+  
+
+  fig.tight_layout()  # otherwise the right y-label is slightly clipped
+  plt.legend()
+
+  plt.savefig(save_path) 
+  plt.close() 
 

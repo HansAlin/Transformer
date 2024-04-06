@@ -10,6 +10,10 @@ import pandas as pd
 import pickle
 import torch
 
+import matplotlib.cm as cm
+import itertools
+
+
 
 
 
@@ -66,8 +70,7 @@ def histogram(y_pred, y, config, bins=100, save_path='', text='', threshold=None
     ax.axvline(x=mean_signal, color='g', linestyle='-', label=f'Mean signal {mean_signal:.2f}')
     ax.axvline(x=mean_noise, color='b', linestyle='-', label=f'Mean noise {mean_noise:.2f}')    
     ax.legend()
-    if text != '':
-      text = '_' + text
+
     plt.savefig(save_path)
     plt.clf()
     plt.close()
@@ -159,14 +162,16 @@ def plot_performance_curve(y_preds, ys, configs, bins=1000, save_path='', text =
       ax.set_ylabel('True positive rate')
       ax.set_ylim([0.8,1])
       ax.set_xscale('log')
+      ax.axvline(x=1/reject_noise, color='r', linestyle='--', label=f'Reject noise {reject_noise:.0f} Hz')
     elif curve == 'nr':
       ax.set_xlabel('True positive rate') 
       ax.set_ylabel(f'Noise reduction factor (nr. noise {nr_y_noise})')
       ax.set_yscale('log')
       ax.set_xlim(x_lim)
+      ax.axhline(y=reject_noise, color='r', linestyle='--', label=f'Reject noise {reject_noise:.0f}')
     ax.grid()
     style.use('seaborn-colorblind')
-
+    plt.legend()
     plt.savefig(save_path)
     plt.close()
 
@@ -334,23 +339,45 @@ def plot_collections(models, labels, bins=100, save_path='', models_path='Test/M
                         reject_noise=reject_noise)
 
 
-def plot_examples(data, config=None, save_path=''):
+def plot_examples(x, y, config=None, save_path=''):
+
+  signals = np.where(y == 1)[0]
+  noise = np.where(y == 0)[0]
+  x_signals = x[signals]
+  x_noise = x[noise]
+
+  seq_len = x_signals.shape[1]
+
+  x = [x_signals, x_noise]
+  title = ['Signal', 'Noise']
 
   if config != None:
     save_path = config['basic']['model_path'] + 'plot/examples.png'
   else:
     if save_path == '':
-      save_path = os.getcwd() + 'examples.png'
+      save_path = os.getcwd() + '/figures/examples/examples.png'
 
-  data = data[0]
-  fig, ax = plt.subplots(4,1, figsize=(10,10))
-  for i in range(4):
-    ax[i].plot(data[:,i])
+  fig, ax = plt.subplots(4,2, figsize=(10,10), sharex=True, sharey=True)
+  for j in range(2):
+    for i in range(4):
+      ax[i][j].plot(x[j][0,:,i])
+      tixs1 = np.arange(0, seq_len + 1, seq_len//8)
+      tix_labels = tixs1/2
+      ax[i][j].set_xticks(tixs1)  # Set x-ticks at these locations
+      ax[i][j].set_xticklabels(tix_labels)  # Label x-ticks with these values
+      if i == 3:  # If this is the lowest plot
+        ax[i][j].set_xlabel('Time (ns)')  # Set x-label
+      if i == 0:  # If this is the first row
+        ax[i][j].set_title(f'{title[j]}')  # Set title
+      ax[i][j].axhline(0, color='gray', linestyle='-')  # Highlight y=0 line  
+      ax[i][j].grid(True)   
+  fig.text(0.005, 0.5, 'V / rms', va='center', rotation='vertical')  # Add common y-label
+  plt.tight_layout()  # Make tight layout    
   plt.savefig(save_path)
   plt.clf()
   plt.close()  
 
-def plot_performance(config, device, x_batch=None, y_batch=None,lim_value=0.2, model_path='/mnt/md0/halin/Models/', save_path=''):
+def plot_performance(config, device, x_batch=None, y_batch=None,lim_value=0.2, model_path='/mnt/md0/halin/Models/', save_path='', text=''):
   """ This function plots the performance of a given model. If no data is given, the test data is used.
       Args:
         config (dict): config dict of the model
@@ -378,7 +405,7 @@ def plot_performance(config, device, x_batch=None, y_batch=None,lim_value=0.2, m
     y_test = y_batch
 
   device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  
-  model = mm.load_model(config, text='final')
+  model = mm.load_model(config, text=text)
   model.to(device)
   x_test, y_test = x_test.to(device), y_test.to(device)
   model.eval()
@@ -433,13 +460,18 @@ def plot_performance(config, device, x_batch=None, y_batch=None,lim_value=0.2, m
       x = x_test[index]
       y = y_test[index]
 
+      seq_len = x.shape[0]
 
-
-      fig, ax = plt.subplots(4,1, figsize=(10,10), sharex=True)
+      fig, ax = plt.subplots(4,1, figsize=(10,10), sharex=True, sharey=True)
       for i in range(4):
-        ax[i].plot(x[:,i], color='grey')
+        ax[i].plot(x[:,i])
         ax[i].plot(pred_y, label='Prediction')
         ax[i].plot(y, label='True signal')
+        tixs1 = np.arange(0, seq_len + 1, seq_len//8)
+        tix_labels = tixs1/2
+        ax[i].set_xticks(tixs1)  # Set x-ticks at these locations
+        ax[i].set_xticklabels(tix_labels)  # Label x-ticks with these values
+        ax[i].grid(True)
       if config["architecture"]["data_type"] == "chunked":
         plt.legend()
       
@@ -448,6 +480,7 @@ def plot_performance(config, device, x_batch=None, y_batch=None,lim_value=0.2, m
         path = config['basic']['model_path'] + f'plot/performance_{text.replace(" ", "_")}.png'
       else:
         path = save_path + f'performance_{text.replace(" ", "_")}.png'  
+      fig.text(0.005, 0.5, 'V / rms', va='center', rotation='vertical')   
       plt.tight_layout()  
       plt.savefig(path)
       count += 1
@@ -470,7 +503,7 @@ def get_roc(y_true, y_score, bins=100, log_bins=False, number_of_noise=1e4):
     if log_bins:
       binnings = np.logspace(np.log10(np.amin(y_score)), np.log10(np.amax(y_score)), num=bins)
     else:
-      binnings = np.linspace(np.amin(y_score), 0.99999, num=bins)   
+      binnings = np.linspace(np.amin(y_score), np.amax(y_score), num=bins)   
 
     tpr = []
     fpr = []
@@ -523,7 +556,7 @@ def get_noise_reduction(y, y_pred, bins=1000,  log_bins=False, number_of_noise=1
     if log_bins:
         binnings = np.logspace(np.log10(np.amin(y_pred)), np.log10(np.amax(y_pred)), num=bins)
     else:
-        binnings = np.linspace(np.amin(y_pred), 0.99999, num=bins)
+        binnings = np.linspace(np.amin(y_pred), np.amax(y_pred), num=bins)
 
     background = float(len(y[~smask]))
     signal = float(len(y[smask]))
@@ -1104,3 +1137,98 @@ def plot_threshold_efficiency(y_pred, y, save_path='/home/halin/Master/Transform
   plt.savefig(save_path) 
   plt.close() 
 
+def qualitative_colors(length, darkening_factor=0.6):
+    colors = [cm.Set3(i) for i in np.linspace(0, 1, length)]
+    darker_colors = [(r*darkening_factor, g*darkening_factor, b*darkening_factor, a) for r, g, b, a in colors]
+    return darker_colors
+
+def plot_veff(datafiles, plot_path='/home/halin/Master/Transformer/figures/veff.png'):
+
+  colors = itertools.cycle(qualitative_colors(7))
+  markers = itertools.cycle(("s", "P", "o", "^", ">", "X"))
+  linestyles = itertools.cycle(("-", "--", ":", "dashdot", (0, (3, 5, 1, 5))))
+
+  nrows = 1
+  ncols = 1
+  fig, ax = plt.subplots(
+      ncols=ncols, nrows=nrows, figsize=(ncols * 15 * 0.7, nrows * 10 * 0.7), gridspec_kw={"wspace": 0.2, "hspace": 0.2}
+  )
+
+  standard_trig_not_plotted = True
+
+  for dta_file in datafiles:
+    data = np.load(dta_file)
+    lgEs = data['lgEs']
+    trig_1Hz = data['trig_1Hz']
+    trig_10kHz = data['trig_10kHz']
+    if standard_trig_not_plotted:
+      ax.plot(lgEs, trig_1Hz, label='1 Hz', color=next(colors), marker=next(markers), linestyle=next(linestyles))
+      ax.plot(lgEs, trig_10kHz, label='10 kHz', color=next(colors), marker=next(markers), linestyle=next(linestyles))
+      standard_trig_not_plotted = False
+    i = 0
+    for key, value in data.items():
+      # if (key == 'lgEs') or (key == 'trig_1Hz') or (key == 'trig_10kHz'):
+      #   continue
+      if 'best' in key:
+        ax.plot(lgEs, value, label=key, color=next(colors), marker=next(markers), linestyle=next(linestyles))
+      i += 1
+  style.use('seaborn-colorblind')
+  ymin, ymax = ax.get_ylim()
+  ax.set_ylim(0.9, ymax)
+  ax.legend(prop={"size": 6})
+  ax.set_xlabel(r"lg(E$_{\nu}$ / eV)")
+  ax.set_ylabel(r"V$_{\rm eff}$ / (" + 'trig 1 Hz' + ")")
+  ax.tick_params(axis="both", which="both", direction="in")
+  ax.yaxis.set_ticks_position("both")
+  ax.xaxis.set_ticks_position("both")
+  fig.savefig(plot_path)
+
+def plot_chunked_veff(datafiles, plot_path='/home/halin/Master/Transformer/figures/chunked_veff.png'):
+
+  colors = itertools.cycle(qualitative_colors(7))
+  markers = itertools.cycle(("s", "P", "o", "^", ">", "X"))
+  linestyles = itertools.cycle(("-", "--", ":", "dashdot", (0, (3, 5, 1, 5))))
+
+  nrows = 1
+  ncols = 1
+  fig, ax = plt.subplots(
+      ncols=ncols, nrows=nrows, figsize=(ncols * 15 * 0.7, nrows * 10 * 0.7), gridspec_kw={"wspace": 0.2, "hspace": 0.2}
+  )
+
+  standard_trig_1Hz_not_plotted = True
+  standard_trig_10kHz_not_plotted = True
+  trig_1Hz = 0
+  for dta_file in datafiles:
+    data = np.load(dta_file, allow_pickle=True)
+    sort = np.argsort(data['lges'])
+    lges= data['lges'][sort]
+    
+    veff_dict = data['veff'].item()  # Get the dictionary from the numpy array
+    for key, value in veff_dict.items():
+        value = np.array(value)
+        print(key)
+        if standard_trig_1Hz_not_plotted and key == 'trig_1Hz':
+            trig_1Hz = value[sort]
+            print(trig_1Hz)
+            ax.plot(lges, trig_1Hz/trig_1Hz, label='1 Hz', color=next(colors), marker=next(markers), linestyle=next(linestyles))
+            standard_trig_1Hz_not_plotted = False
+        elif standard_trig_10kHz_not_plotted and key == 'trig_10kHz':
+            
+            ax.plot(lges, value[sort]/trig_1Hz, label='10 kHz', color=next(colors), marker=next(markers), linestyle=next(linestyles))
+            standard_trig_10kHz_not_plotted = False
+        elif 'average' in key:
+            label_string = key.split('_')[1] + ' ' + key.split('_')[3] + ' ' + key.split('_')[4] + ' ' + 'average'
+
+       
+            ax.plot(lges, value[sort]/trig_1Hz, label=label_string, color=next(colors), marker=next(markers), linestyle=next(linestyles))    
+
+  style.use('seaborn-colorblind')
+  ymin, ymax = ax.get_ylim()
+  ax.set_ylim(0.9, ymax)
+  ax.legend(prop={"size": 6})
+  ax.set_xlabel(r"lg(E$_{\nu}$ / eV)")
+  ax.set_ylabel(r"V$_{\rm eff}$ / (" + 'trig 1 Hz' + ")")
+  ax.tick_params(axis="both", which="both", direction="in")
+  ax.yaxis.set_ticks_position("both")
+  ax.xaxis.set_ticks_position("both")
+  fig.savefig(plot_path)

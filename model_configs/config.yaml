@@ -2,10 +2,21 @@ arch: Transformer
 data_locations:
   # base_folder: /mnt/md0/data/trigger-development/rno-g
   #tag_folder_veff: CDF_0.7
-  high_low_noise:   # For pre trigger data
-    prod: prod_2023.03.24
-  pre_trig_signal:  # For pre trigger data
-    prod: prod_2023.05.16 
+
+  # Noise for phased array
+  phased_array_noise: 
+    prod: prod_2023.06.07 # For phased data
+
+  # Noise for trigger data
+  # high_low_noise:   
+  #   prod: prod_2023.03.24 # For pre trigger data
+
+  # Signal for trigger and phased data
+  pre_trig_signal:  
+    #prod: prod_2023.05.16 # For pre trigger data
+    prod: prod_2023.06.12 # Fore Phased data
+    
+
   # noiseless_signal:  # For chunked data
   #   prod: prod_2023.05.30
   # unbiased_noise: # For chunked data
@@ -14,8 +25,8 @@ data_locations:
 
 sampling:
   band:
-    high: 0.23
-    low: 0.08
+    high: 0.22 # 0.23 LPDA, 0.22 Phased
+    low: 0.096 # 0.08 LPDA, 0.096 Phased
   filter:
     order_high: 10
     order_low: 5
@@ -24,34 +35,35 @@ sampling:
 
 transformer:
   architecture:
+    GSA: False
     N: 2
     activation: 'relu' # Posible options: 'relu', 'gelu'
     by_pass: false
     d_ff: 128
-    d_model: 32 # Have to be dividable by h
-    data_type: trigger # Possible options: 'trigger', 'chunked'
-    embed_type: linear # Posible options: 'lin_relu_drop', 'lin_gelu_drop', 'linear', 'cnn', 'ViT'
-    encoder_type: normal # Posible options: 'normal', 'none', 'bypass', 'vanilla'
+    d_model: 64 # Have to be dividable by h
+    data_type: phased # Possible options: 'trigger', 'chunked' 'phased'
+    embed_type: cnn # Posible options: 'lin_relu_drop', 'lin_gelu_drop', 'linear', 'cnn', 'ViT'
+    encoder_type: vanilla # Posible options: 'normal', 'none', 'bypass', 'vanilla'
     final_type: d_model_average_linear # Posible options: 'double_linear', 'single_linear', 'seq_average_linear', 'd_model_average_linear' for unknown seq_len chose 'd_model_average_linear'
-    GSA: False
     h: 4
     inherit_model: null
-    max_relative_position: 32
-    residual_type: 'pre_ln' # Posible options: 'pre_ln', 'post_ln'
-    n_ant: &n_ant 4
-    normalization: layer # Posible options: 'layer', 'batch'
-    max_pool: False
-    omega: 10000
-    output_shape: null
-    output_size: 1
-    pos_enc_type: Relative # Posible options: 'Sinusoidal', 'Relative',  'Learnable''None',
-    pre_def_dot_product: False # Posible options: True, False If true it uses the dot product defined in pytorch
-    pretrained: null
-    projection_type: 'cnn' # Posible options: 'linear', 'cnn', 
-    seq_len: &seq_len 128
     input_embeddings:
       kernel_size: 3 # options for cnn: 5, 3, 1, options for ViT: 1, 2, 4
       stride: 1 # options for cnn: 2, 1, options for ViT: 1, 2, 4 Note: for ViT stride has to be equal to kernel_size
+    max_pool: True
+    max_relative_position: Null
+    n_ant: &n_ant 4
+    normalization: layer # Posible options: 'layer', 'batch'
+    omega: 10000
+    output_shape: null
+    output_size: 1
+    pos_enc_type: Sinusoidal # Posible options: 'Sinusoidal', 'Relative',  'Learnable''None',
+    pre_def_dot_product: False # Posible options: True, False If true it uses the dot product defined in pytorch
+    pretrained: null
+    projection_type: 'linear' # Posible options: 'linear', 'cnn', 
+    residual_type: 'pre_ln' # Posible options: 'pre_ln', 'post_ln'
+    seq_len: &seq_len 128
+
   basic:
     data_path: ''
     model: null
@@ -91,7 +103,7 @@ transformer:
     dropout: 0
     early_stop: 100
     learning_rate: &lrn_rate 0.001
-    loss_function: &loss_fn hinge_max # Options BCEWithLogitsLoss, hinge, hinge_max
+    loss_function: &loss_fn BCEWithLogits # Options BCEWithLogits, hinge, hinge_max
     metric: Efficiency
     num_epochs: 100
     step_size: 7

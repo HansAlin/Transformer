@@ -1064,7 +1064,7 @@ def build_encoder_transformer(config):
                                         normalization=config['architecture'].get('normalization', 'layer')  ,
                                         activation=config['architecture']['activation'],
                                         residual_type=config['architecture'].get('residual_type', 'post_ln'))
-    encoders = nn.TransformerEncoder(vanilla_layer, num_layers=config['architecture']['N'] )
+    encoders = nn.TransformerEncoder(vanilla_layer, num_layers=config['architecture']['N'], enable_nested_tensor=False )
   else:
     raise ValueError(f"Unsupported encoding type: {config['architecture'].get('encoder_type', 'normal')  }")        
     
@@ -1182,12 +1182,15 @@ def load_model(config, text='early_stop', verbose=False):
   state = torch.load(model_path)
 
   if '/mnt/md0/halin/Models/' not in config['basic']['model_path']  :
-    state = torch.load(model_path, map_location=torch.device("cpu"))
-    model.load_state_dict(state)
-    # TODO added to make possible to use in cluster
-    model.adds = get_FLOPs(model, original_config, verbose=verbose)
-    model.multiplys = 0
-    return model
+    try:
+      state = torch.load(model_path, map_location=torch.device("cpu"))
+      model.load_state_dict(state)
+      # TODO added to make possible to use in cluster
+      model.multiplys = get_FLOPs(model, original_config, verbose=verbose)
+      model.adds =  0
+      return model
+    except:
+      pass
   try:
     state_dict = state['model_state_dict']
   except:
@@ -1274,6 +1277,7 @@ def load_model(config, text='early_stop', verbose=False):
       new_state_dict[k1] = best_v2
 
   # Now load the new state dict
+      
   model.load_state_dict(new_state_dict, strict=False)
 
  
@@ -1473,44 +1477,79 @@ def get_FLOPs(model, config, verbose=False):
   print(f"FLOPs: {flops}") if verbose else None
   return flops
 
-def get_MMac(model, config, verbose=False):
-  """
-    This code was provided by Copilot AI
-    This function calculates the number of multiply-accumulate operations (MACs)
-    and the number of parameters in a model. The model must take (batch_size, seq_len, channels) as input 
-    and not the more common (1, batch_size, channels, seq_len) format.
-    Args:
-      model: The model to calculate the MACs and parameters for.
-      batch_size: The batch size to use for the model.
-      seq_len: The sequence length to use for the model.
-      channels: The number of channels to use for the model.
+def count_parameters(model, verbose=False):
+  """ Originaly from Copilot AI
+  Counts the number of parameters in a model and prints the result.
+  Args:
+    model: The model to count the parameters of.
+    verbose: Whether to print the number of parameters or not.
+    
+    Returns:
+        dict: A dictionary containing the following keys:
+            - 'total_param': The total number of parameters in the model.
+            - 'total_trainable_param': The total number of trainable parameters in the model.
+            - 'encoder_param': The number of parameters in the encoder.
+            - 'src_embed_param': The number of parameters in the source embedding.
+            - 'final_param': The number of parameters in the final layer.
+            - 'buf_param': The number of parameters in the buffer.
 
-    Returns: macs, params
-      macs: The number of MACs in the model.
-      params: The number of parameters in the model.
+    Example:
+      results = count_parameters(model)\n
+      param_1 = results['total_param']\n
+      param_2 = results['total_trainable_param']\n
+      param_3 = results['encoder_param']\n
+      param_4 = results['src_embed_param']\n
+      param_5 = results['final_param']\n
+      param_6 = results['buf_param']\n
 
-  """
-  if 'transformer' not in config:
-     config = {'transformer': config}
-
-  seq_len = config['transformer']['architecture']['seq_len']
-  channels = config['transformer']['architecture']['n_ant']
-  batch_size = 1
-
-  wrapped_model = ModelWrapper(model, batch_size=batch_size,  seq_len=seq_len, channels=channels)
-
-  # Specify the input size of your model
-  # This should match the input size your model expects
-  if config['transformer']['architecture']['data_type'] == 'trigger':
-    input_size = (batch_size,seq_len, channels)  
-  elif config['transformer']['architecture']['data_type'] == 'chunked':
-    input_size = (batch_size, channels, seq_len)  
-  # Calculate FLOPs
-  macs, params = get_model_complexity_info(wrapped_model, input_size, as_strings=False,
-                                          print_per_layer_stat=False, verbose=False)
-  if verbose:
-    print('{:<30}  {:<8}'.format('Computational complexity: ', macs))
-    print('{:<30}  {:<8}'.format('Number of parameters: ', params))
+    """
   
-  return macs, params   
+  total_param = 0
+  total_trainable_param = 0  
+  encoder_param = 0
+  src_embed_param = 0
+  final_param = 0
+  buf_param = 0 
+  for name, param in model.named_parameters():
+    if param.requires_grad:
+      if verbose:
+        print(f"Trainable layer: {name} | Size: {param.size()} | Number of Parameters: {param.numel()}")
+      total_trainable_param += param.numel()
+           
+    else:
+      if verbose:
+        print(f"Non-trainable layer: {name} | Size: {param.size()} | Number of Parameters: {param.numel()}")
+
+    total_param += param.numel() 
+    split_names = name.split('.') 
+    if 'encoder' in name or (split_names[1] == '0' and split_names[2] in ['2', '3']):
+      encoder_param += param.numel()
+    elif 'src_embed' in name  or (split_names[1] == '0' and split_names[2] in ['0', '1']):
+       src_embed_param += param.numel()
+    elif 'final' in name or split_names[1] == '1':
+      final_param += param.numel() 
+
+
+  for name, buf in model.named_buffers():
+    if verbose:
+      print(f"Buffer: {name} | Size: {buf.size()} | Number of Parameters: {buf.numel()}")
+    total_param += buf.numel()
+    buf_param += buf.numel()
+  if verbose:
+    print(f'\nTotal Encoder Parameters: {encoder_param}')
+    print(f'\nTotal src_embed Parameters: {src_embed_param}')
+    print(f'\nTotal final Parameters: {final_param}')
+    print(f'\nTotal Buffer Parameters: {buf_param}')  
+    print(f'\nTotal Trainable Number of Parameters: {total_trainable_param}')
+    print(f'\nTotal Number of Parameters: {total_param}')
+
+  return {
+        'total_param': total_param,
+        'total_trainable_param': total_trainable_param,
+        'encoder_param': encoder_param,
+        'src_embed_param': src_embed_param,
+        'final_param': final_param,
+        'buf_param': buf_param
+    }
+
      

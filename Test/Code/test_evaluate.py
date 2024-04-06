@@ -12,7 +12,7 @@ CODE_DIR_4 = '/home/halin/Master/nuradio-analysis/'
 sys.path.append(CODE_DIR_4)
 
 
-from evaluate.evaluate import test_model, get_results, count_parameters, get_MMac,  get_quick_veff_ratio, test_threshold, noise_rejection
+from evaluate.evaluate import test_model, get_results, get_quick_veff_ratio, test_threshold, noise_rejection
 import models.models as mm
 from model_configs.config import get_config
 import dataHandler.datahandler as dd
@@ -136,9 +136,7 @@ from analysis_tools.config import GetConfig
 # config = get_model_config(model_num=model_num, type_of_file='yaml')
 # model = load_model(config, text='final', verbose=verbose)
 # flops = get_FLOPs(model=model, config=config, verbose=verbose)
-# MACs = get_MMac(model=model, config=config['transformer'])
-# print(f'FLOPs: {flops}')
-# print(f'MACs: {MACs}')
+
 
 #################################################################################
 # Test attention scores
@@ -152,12 +150,12 @@ test = False
 chunked = False
 plot = False
 data = True
-to_data_frame = False
-save_thresholds = False
-models = [241]
+to_data_frame = True
+save_thresholds = True
+models = [246]
 seq_len = 128
 device = 1
-text2 = 'test_of_noise_content_2'
+text2 = ''
 text1 = ''
 
 if data:
@@ -264,7 +262,7 @@ for model_num in models:
         data_dict['Threshold'].append(threshold)
     if to_data_frame:
         df = pd.DataFrame(data_dict)
-        df.to_pickle(f'/home/halin/Master/Transformer/Test/data/epoch_data_model_{model_num}.pkl')
+        df.to_pickle(f'/home/halin/Master/Transformer/Test/data/epoch_data_model_{model_num}{text2}.pkl')
         
 
 # #

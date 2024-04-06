@@ -128,60 +128,51 @@ def get_trigger_data(config, random_seed=123, subset=False, save_test_set=False)
   """
   # if 'transformer' in config:
   #   config = config['transformer']
-  if 'input_length' not in config:
-     new_config= get_data_config('data_config.yaml')
-     new_config['input_length'] = config['architecture']['seq_len']
-     new_config['training']['batch_size'] = config['training']['batch_size']
+    
+  if 'input_length' not in config or 'sampling' not in config or 'training' not in config:
+     new_config = get_data_config()
+     new_config['training']['batch_size'] = get_value(config, 'batch_size')
+     new_config['training']['learning_rate'] = get_value(config, 'learning_rate')
+     new_config['input_length'] = get_value(config, 'seq_len')
+     new_config['n_ant'] = get_value(config, 'n_ant')
+     new_config['transformer']['architecture']['data_type'] = get_value(config, 'data_type')
      config = new_config
 
-  seq_len = config["input_length"]
-  batch_size = config["training"]["batch_size"]
-    
+
+
+ 
+  wvf_length = config["input_length"]
+  sampling_rate = config["sampling"]["rate"]
   band_flow = config["sampling"]["band"]["low"]
   band_fhigh = config["sampling"]["band"]["high"]
-  sampling_rate = config["sampling"]["rate"]
-  if seq_len == None:
-    wvf_length = config["input_length"]
-  else:
-    wvf_length = seq_len  
+  batch_size = config["training"]["batch_size"]
+  seq_len = config["input_length"]
 
   
   np_rng = np.random.default_rng(random_seed)
   use_beam = False
-  if subset:
-    nFiles = 1
-    nu = "e"
-    inter = "cc"
-    lgE = "17.50"
-  else:
-    nFiles = None 
-    nu = "*"
-    inter = "?c"
-    lgE = "1?.??"
+  nFiles = None 
+  nu = "*"
+  inter = "?c"
+  lgE = "1?.??"
+
 
   waveform_filenames = data_locations.PreTrigSignalFiles(config=config, nu=nu, inter=inter, lgE=lgE, beam=use_beam) 
-  background_filenames = data_locations.HighLowNoiseFiles("3.421", config=config, nFiles=nFiles)
-  print(background_filenames)
+  if get_value(config, 'data_type') == 'trigger':
+    background_filenames = data_locations.HighLowNoiseFiles("3.421", config=config, nFiles=nFiles)
+  elif get_value(config, 'data_type') == 'phased':  
+     background_filenames = data_locations.PhasedArrayNoiseFiles(config, beam=use_beam)
+     
+  if subset:
+    waveform_filenames = [waveform_filenames[0]]
+    background_filenames = [background_filenames[0]]
+     
+
   for background in background_filenames:
     print(background)
 
   for waveform in waveform_filenames:
     print(waveform)
-
-  for i in range(10):
-    control_path = f'/mnt/md0/data/trigger-development/rno-g/noise/high-low/fLow_0.08-fhigh_0.23-rate_0.5/prod_2023.03.24/SNR_3.421-Vrms_5.52-mult_2-fLow_0.08-fhigh_0.23-rate_0.5-File_000{i}.npy'
-    if control_path not in background_filenames:
-      assert False, f"File {control_path} not found in background_filenames"
-  control_folder = '/mnt/md0/data/trigger-development/rno-g/signal/batched/fLow_0.08-fhigh_0.23-rate_0.5/prod_2023.05.16'
-  for control_file in os.listdir(control_folder):
-    print(control_file)
-    not_in = True
-    for waveform_file in waveform_filenames:   
-      if control_file in waveform_file:
-        not_in = False
-  
-    if not_in:
-        assert False, f"File {control_file} not found in waveform_filenames"  
 
 
   if not len(background_filenames):
@@ -233,6 +224,12 @@ def get_trigger_data(config, random_seed=123, subset=False, save_test_set=False)
   print(f"\t\tFYI: the RMS noise of waveforms is {std / (1e-6 * units.volt):0.4f} uV")
   waveforms /= rms_noise
 
+  try:
+    n_ant = get_value(config, 'n_ant')
+  except:
+    n_ant = 4
+  waveforms = waveforms[:, :n_ant,:]
+  
   print(
       f"\t\tLoaded signal data of shape {waveforms.shape} --> {waveforms.shape[0] * waveforms.shape[-1] / sampling_rate / units.s:0.3f} s of data"
   )
@@ -269,6 +266,8 @@ def get_trigger_data(config, random_seed=123, subset=False, save_test_set=False)
       background[total_len : total_len + len(this_dat)] = this_dat[:, :, cut_low_bin:cut_high_bin]
       total_len += len(this_dat)
       del this_dat
+
+  background = background[:, :n_ant,:]
 
   assert total_len == len(background)
   assert background.shape[1] == waveforms.shape[1]
@@ -803,7 +802,7 @@ def prepare_data(x_train, x_val, x_test, y_train, y_val, y_test, batch_size, mul
   else:
     return train_loader, val_loader, test_loader
 
-def get_data_config(data_config_path = '/home/halin/Master/Transformer/data_config.yaml'):
+def get_data_config(data_config_path = '/home/halin/Master/Transformer/trigger_data_config.yaml'):
   """ This function reads the data config file and returns the data config dictionary
       Arg:
         data_config_path: path to data config file (yaml)
@@ -927,22 +926,15 @@ def save_data(config, df=None, y_pred_data=None, text=''):
   if text != '':
     text = '_' + text
 
-  if 'transformer' in config:
-    if '/home/halin/Master/nuradio-analysis/data/models/fLow_0.08-fhigh_0.23-rate_0.5/' in config['transformer']['basic']['model_path']:
-      path = f"/home/halin/Master/nuradio-analysis/configs/chunked/config_{config['transformer']['basic']['model_num']}.yaml"
-      with open(path, 'w') as data:
-        yaml.dump(config, data, default_flow_style=False) 
-    else:
-      path = config['transformer']['basic']['model_path']
-      with open(path + f'config{text}.yaml', 'w') as data:
-        yaml.dump(config, data, default_flow_style=False)  
 
+  if '/home/halin/Master/nuradio-analysis/data/models/fLow_0.08-fhigh_0.23-rate_0.5/' in config['transformer']['basic']['model_path']:
+    path = f"/home/halin/Master/nuradio-analysis/configs/chunked/config_{config['transformer']['basic']['model_num']}.yaml"
+    with open(path, 'w') as data:
+      yaml.dump(config, data, default_flow_style=False) 
   else:
-    path = config['basic']['model_path']
+    path = config['transformer']['basic']['model_path']
     with open(path + f'config{text}.yaml', 'w') as data:
-        yaml.dump(config, data, default_flow_style=False) 
-
-  
+      yaml.dump(config, data, default_flow_style=False)  
 
 
   if df is not None:  
@@ -1019,7 +1011,7 @@ def save_example_data(save_path='/home/halin/Master/Transformer/Test/data/'):
       break
     count += 1
 
-def get_model_config(model_num, path='/mnt/md0/halin/Models/', type_of_file='txt', sufix=''):
+def get_model_config(model_num, path='/mnt/md0/halin/Models/', type_of_file='yaml', sufix=''):
     
     """
     This function loads the model configuration from a file. The file can be either a .txt or a .yaml file.
@@ -1162,3 +1154,28 @@ def get_value(dictionary, key):
           if result is not None:
               return result
   return None
+
+def update_value(dictionary, key, value):
+  """
+  This function updates the value of a key in a dictionary. If the key is not found, the function returns the original dictionary.
+
+  Args:
+    dictionary: dictionary, the dictionary to update
+    key: string, the key to update
+    value: the new value of the key
+
+  Returns:
+    dictionary: dictionary, the updated dictionary
+  """
+  if key in dictionary:
+      dictionary[key] = value
+      return dictionary
+  for k, v in dictionary.items():
+      if isinstance(v, dict):
+          result = update_value(v, key, value)
+          if result is not None:
+              dictionary[k] = result
+              return dictionary
+  return None
+  
+   

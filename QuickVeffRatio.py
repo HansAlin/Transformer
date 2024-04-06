@@ -34,62 +34,83 @@ from analysis_tools.model_loaders import LoadModelFromConfig
 
 from models.models import build_encoder_transformer, load_model
 from model_configs.config import get_config
-from dataHandler.datahandler import get_model_config, get_model_path
+from dataHandler.datahandler import get_model_config, get_model_path, get_value
 from evaluate.evaluate import get_transformer_triggers, get_threshold
 
 ABS_PATH_HERE = '/home/halin/Master/Transformer/'
 plt.rcParams["font.family"] = "serif"
 plt.rcParams["mathtext.fontset"] = "dejavuserif"
 
-parser = argparse.ArgumentParser()
 
-# parser.add_argument("--models", type=int, nargs='+', default=[0], help="List of models to run")
-# args = parser.parse_args()
-# h [108, 116, 117, 118, 119], [14, 16, 17, ]
-# N [120,121,122,123,124], [111, 108, 112, 113, 114,]
-# d_model [ 99, 100, 101, 102, 103, 104]
-# d_ff [19, 20, 21,] [105, 101, 106, 107, 108, 109, 110]
-# final_type [105, 121,] [126, 128]
-# normalization [125,127]
-# pos_enc_type [116, 128, 129]
+def parse_args():
+    parser = argparse.ArgumentParser()
 
+    parser.add_argument("--models", type=int, nargs='+', required=True, help="List of models to run")
+    parser.add_argument("--save_path", default='', help="Path to save the plot")
+    parser.add_argument("--cuda_device", type=int, default=0, help="Which cuda device to use")
+    args = parser.parse_args()
 
 test =  False
 chunked = False
+try:
+    args = parse_args()
+    models = args.models
+    save_path = args.save_path
+    device = args.cuda_device
 
-# if chunked:
-# transformer_models = {301: 'best',
-#                     #   302: 'best'
-#                       }
-# else:
-transformer_models = {  
-                        # 302: 'best',
-                    #     201:'final', 
-                    #   230:'early_stop.pth',
-                    #   231:'231_5.pth',
-                    #   232:'232_10.pth', 
-                    #   233:'233_37.pth',
-                    #   234:'234_16.pth',
-                    #     235: '235_52.pth',  
-                    # '231_best' : '231_5.pth',
-                    # '231_worst' : '231_1.pth',
-                    # '231_last' : '231_35.pth',
-                    # '234_best' : '234_16.pth',
-                    # '234_worst' : '234_48.pth',
-                    # '234_last' : '234_100.pth',
-                    # '235_best' : '235_52.pth',
-                    # '235_worst' : '235_20.pth',
-                    # '235_last' : '235_100.pth',
-'240_worst' : '240_55',
-'240_best' : '240_37',
-'240_last' : '240_100.pth',
-'241_worst' : '241_96',
-'241_best' : '241_36',
-'241_last' : '241_100.pth',
-'242_worst' : '242_91',
-'242_best' : '242_12',
-'242_last' : '242_100.pth',
-                     }
+    transformer_models = {}
+
+    for model_num in models:
+        config = get_model_config(model_num=model_num)
+        best_epoch = get_value(config, 'best_epoch')
+        transformer_models[f'{model_num}_best'] = f'{model_num}_{best_epoch}.pth'
+except:
+    save_path = '/home/halin/Master/Transformer/figures/QuickVeffRatio_efficiency_test.png'
+    device = 2
+    transformer_models = {
+                    '246_1': '246_1.pth',
+                    '246_4': '246_4.pth',
+                    '246_7': '246_7.pth',
+                    '246_10': '246_10.pth',
+                    '246_13': '246_13.pth',
+                    '246_16': '246_16.pth',
+                    '246_19': '246_19.pth',
+                    '246_22': '246_22.pth',
+                    '246_25': '246_25.pth',
+                    '246_28': '246_28.pth',
+                    '246_31': '246_31.pth',
+                    '246_34': '246_34.pth',
+                    '246_37': '246_37.pth',
+                    '246_40': '246_40.pth',
+                    '246_43': '246_43.pth',
+                    '246_46': '246_46.pth',
+                    '246_49': '246_49.pth',
+                    '246_52': '246_52.pth',
+                    '246_55': '246_55.pth',
+                    '246_58': '246_58.pth',
+                    '246_61': '246_61.pth',
+                    '246_64': '246_64.pth',
+                    '246_67': '246_67.pth',
+                    '246_70': '246_70.pth',
+                    '246_73': '246_73.pth',
+                    '246_76': '246_76.pth',
+                    '246_79': '246_79.pth',
+                    '246_82': '246_82.pth',
+                    '246_85': '246_85.pth',
+                    '246_88': '246_88.pth',
+                    '246_91': '246_91.pth',
+                    '246_94': '246_94.pth',
+                    '246_97': '246_97.pth',
+                    '246_100': '246_100.pth',
+}
+
+
+
+
+
+
+extra_identifier = ''
+
 model_dict = {}
 for model_num in transformer_models.keys():
     model_dict[str(model_num)] = { 
@@ -106,7 +127,7 @@ def qualitative_colors(length, darkening_factor=0.6):
     return darker_colors
 
 
-device = 2
+
 torch.cuda.set_device(device)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}, name of GPU: {torch.cuda.get_device_name(device=device)}")
@@ -116,19 +137,22 @@ if chunked:
     data_path = '/mnt/md0/acoleman/rno-g/signal-generation/data/npy-files/veff/fLow_0.08-fhigh_0.23-rate_0.5/CDF_0.7/'
     file_list=glob.glob(os.path.join(data_path, "*.npz"))
 else:    
-    data_path = '/home/acoleman/data/rno-g/signal-generation/data/npy-files/veff/fLow_0.08-fhigh_0.23-rate_0.5/CDF_0.7/'
+    #data_path = '/home/acoleman/data/rno-g/signal-generation/data/npy-files/veff/fLow_0.08-fhigh_0.23-rate_0.5/CDF_0.7/'
+    data_path = '/mnt/md0/data/trigger-development/rno-g/veff/fLow_0.08-fhigh_0.23-rate_0.5/prod_2023.10.22/CDF_0.7/'
     file_list = glob.glob(data_path+'VeffData_nu_*.npz')
 
-print(file_list)
-# answer  =input("Continue? y/n: ")
-# if answer == 'n':
-#     sys.exit()
+for file in file_list:
+    print(file)
 
 
 if test:
     file_list = file_list[:3]
 
-sampling_string = data_path.split("/")[-3]
+for file in file_list:
+    print(file)
+
+
+sampling_string = data_path.split("/")[-4]
 band_flow = float(sampling_string.split("-")[0].split("_")[1])
 band_fhigh = float(sampling_string.split("-")[1].split("_")[1])
 sampling_rate = float(sampling_string.split("-")[2].split("_")[1])
@@ -224,36 +248,8 @@ all_dat = dict()
 reference_trigger = "trig_1Hz"
 pre_trigger = "trig_10kHz"
 standard_triggers = [reference_trigger, pre_trigger]
-rnn_model_filenames = [
-    # "../trigger-dev/data/configs/fLow_0.08-fhigh_0.23-rate_0.5/hid5_lay1.yaml",
-    #"../trigger-dev/data/configs/fLow_0.08-fhigh_0.23-rate_0.5/hid5_lay3.yaml",
-    # "../trigger-dev/data/configs/fLow_0.08-fhigh_0.23-rate_0.5/hid10_lay5.yaml",
-]
-cnn_model_filenames = [
-
-    #"../trigger-dev/data/configs/fLow_0.096-fhigh_0.22-rate_0.5/len64_filt5_kern_5_str3_mpkern2.yaml",
-    #"../trigger-dev/data/configs/fLow_0.096-fhigh_0.22-rate_0.5/len80_filt5_kern_3_str1_mpkern2.yaml",
-    #"../trigger-dev/data/configs/fLow_0.096-fhigh_0.22-rate_0.5/len128_filt9_9_9_9_kern3_3_3_3_str1_1_1_1_mpkern2.yaml",
-    # "../trigger-dev/data/configs/fLow_0.096-fhigh_0.22-rate_0.5/len80_filt5_kern_5_str3_mpkern2.yaml",
-    # "../trigger-dev/data/configs/fLow_0.096-fhigh_0.22-rate_0.5/len100_filt5_kern_5_str3_mpkern2.yaml",
-    # "../trigger-dev/data/configs/fLow_0.096-fhigh_0.22-rate_0.5/len128_filt5_kern_5_str3_mpkern2.yaml",
-    # "../trigger-dev/data/configs/fLow_0.096-fhigh_0.22-rate_0.5/len200_filt5_kern_5_str3_mpkern2.yaml",
-    # "../trigger-dev/data/configs/fLow_0.096-fhigh_0.22-rate_0.5/len256_filt5_kern_5_str3_mpkern2.yaml",
-    # "../trigger-dev/data/configs/fLow_0.096-fhigh_0.22-rate_0.5/len300_filt5_kern_5_str3_mpkern2.yaml",
-    # "../trigger-dev/data/configs/fLow_0.096-fhigh_0.22-rate_0.5/len400_filt5_kern_5_str3_mpkern2.yaml",
-    # "../trigger-dev/data/configs/fLow_0.096-fhigh_0.22-rate_0.5/len128_filt5_kern_5_str3_mpkern2.yaml",
-
-    # "../trigger-dev/data/configs/fLow_0.096-fhigh_0.22-rate_0.5/len64_filt5_kern_5_str3_mpkern2.yaml",
-    # "../trigger-dev/data/configs/fLow_0.096-fhigh_0.22-rate_0.5/len80_filt5_kern_3_str1_mpkern2.yaml",
-    # "../trigger-dev/data/configs/fLow_0.096-fhigh_0.22-rate_0.5/len128_filt9_9_9_9_kern3_3_3_3_str1_1_1_1_mpkern2.yaml",
-    # "../trigger-dev/data/configs/fLow_0.096-fhigh_0.22-rate_0.5/len65_filt5_kern_5_str3_mpkern2.yaml",
-    # "../trigger-dev/data/configs/fLow_0.096-fhigh_0.22-rate_0.5/len81_filt5_kern_3_str1_mpkern2.yaml",
-    # "../trigger-dev/data/configs/fLow_0.096-fhigh_0.22-rate_0.5/len129_filt9_9_9_9_kern3_3_3_3_str1_1_1_1_mpkern2.yaml",
-
-    # "../trigger-dev/data/configs/fLow_0.096-fhigh_0.22-rate_0.5/len400_filt5_kern_5_str3_mpkern2.yaml",
-    # "../trigger-dev/data/configs/fLow_0.08-fhigh_0.23-rate_0.5/len128_filt5_kern_5_str3_mpkern2.yaml",
-    # "../trigger-dev/data/configs/fLow_0.08-fhigh_0.23-rate_0.5/len128_filt5_4_kern_5_3_str2_1_mpkern2.yaml",
-]
+rnn_model_filenames = []
+cnn_model_filenames = []
 chunked_model_filenames = []
 
 all_models = dict()
@@ -287,7 +283,11 @@ def LoadTransformerModel(model_name, model_list, text):
         assert False, "Model not trained"
     model_list[name] = dict()
     model_list[name]["config"] = config
-    model_list[name]['data_config'] = GetConfig('/home/halin/Master/Transformer/data_config.yaml')
+    data_type = get_value(config, 'data_type' )
+    model_list[name]['data_config'] = GetConfig(f'/home/halin/Master/Transformer/{data_type}_data_config.yaml')
+    model_list[name]['data_config']['input_length'] = get_value(config, 'seq_len')
+    model_list[name]['data_config']['n_ant'] = get_value(config, 'n_ant')
+    model_list[name]['data_config']['training']['batch_size'] = get_value(config, 'batch_size')
     model_list[name]['threshold'] = threshold
     model_list[name]['sigmoid'] = sigmoid
     
@@ -525,7 +525,7 @@ linestyles = itertools.cycle(("-", "--", ":", "dashdot", (0, (3, 5, 1, 5))))
 nrows = 1
 ncols = 1
 fig, ax = plt.subplots(
-    ncols=ncols, nrows=nrows, figsize=(ncols * 12 * 0.7, nrows * 8 * 0.7), gridspec_kw={"wspace": 0.2, "hspace": 0.2}
+    ncols=ncols, nrows=nrows, figsize=(ncols * 15 * 0.7, nrows * 10 * 0.7), gridspec_kw={"wspace": 0.2, "hspace": 0.2}
 )
 
 avg_snr_vals = dict()
@@ -559,7 +559,12 @@ ax.legend(prop={"size": "x-small"})
 plot_name = ''
 for model_num in transformer_models:
     plot_name += f'_{model_num}'
-filename = os.path.join(ABS_PATH_HERE, "figures/", f"EfficiencyVsSNR{plot_name}.png")
+
+plot_name += f"{extra_identifier}"  
+if save_path == '':  
+    filename = os.path.join(ABS_PATH_HERE, "figures/", f"EfficiencyVsSNR{plot_name}.png")
+else:
+    filename = save_path + f"EfficiencyVsSNR{plot_name}.png"
 print("Saving", filename)
 fig.savefig(filename, bbox_inches="tight")
 plt.close()
@@ -572,11 +577,13 @@ linestyles = itertools.cycle(("-", "--", ":", "dashdot", (0, (3, 5, 1, 5))))
 nrows = 1
 ncols = 1
 fig, ax = plt.subplots(
-    ncols=ncols, nrows=nrows, figsize=(ncols * 12 * 0.7, nrows * 8 * 0.7), gridspec_kw={"wspace": 0.2, "hspace": 0.2}
+    ncols=ncols, nrows=nrows, figsize=(ncols * 15 * 0.7, nrows * 10 * 0.7), gridspec_kw={"wspace": 0.2, "hspace": 0.2}
 )
 
 sorting_index = np.argsort(lgEs)
 lgEs = np.array(lgEs)[sorting_index]
+npz_file = {}
+npz_file['lgEs'] = lgEs
 
 for i, name in enumerate(standard_triggers + list(all_models.keys())):
     marker = next(markers)
@@ -586,6 +593,7 @@ for i, name in enumerate(standard_triggers + list(all_models.keys())):
 
 
     avg = np.array(avg)[sorting_index]
+    npz_file[name] = avg
 
     print(lgEs)
     print(avg)
@@ -608,8 +616,11 @@ ax.tick_params(axis="both", which="both", direction="in")
 ax.yaxis.set_ticks_position("both")
 ax.xaxis.set_ticks_position("both")
 
-
-filename = os.path.join(ABS_PATH_HERE, "figures/", f"QuickVeffRatio{plot_name}.png")
+if save_path == '':
+    filename = os.path.join(ABS_PATH_HERE, "figures/", f"QuickVeffRatio{plot_name}.png")
+else:
+    filename = save_path + f"QuickVeffRatio{plot_name}.png"
 print("Saving", filename)
+np.savez(filename.replace('.png', '.npz'), **npz_file)
 fig.savefig(filename, bbox_inches="tight")
 plt.close()

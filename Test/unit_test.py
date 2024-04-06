@@ -18,10 +18,11 @@ def count_parameters(layer):
     return sum(p.numel() for p in layer.parameters() if p.requires_grad)
 
 class BaseTest(unittest.TestCase):
-    def __init__(self, methodName='runTest', inputs=None, device=None):
+    def __init__(self, methodName='runTest', inputs=None, device=None, test_string=None):
         super().__init__(methodName)
         self.config = inputs
         self.device = device
+        self.test_string = test_string
     
 
 
@@ -318,15 +319,9 @@ class TestModel(BaseTest):
         model = build_encoder_transformer(config['transformer'])
         flops = get_FLOPs(model, config)
     
-        print(f"\nFLOP: {flops/(1e6):<6.1f}M, "
-        f"Number of parameters: {count_parameters(model)/1000:<6.1f}k, "
-        f"Input embeddings: {get_value(config, 'embed_type'):<10}, "
-        f"Kernel size: {get_value(config, 'kernel_size'):<6}, "
-        f"Stride: {get_value(config, 'stride'):<6}"
-        f"Positional encoding: {get_value(config, 'pos_enc_type'):<11}, "
-        f"Projection type: {get_value(config, 'projection_type'):<10}, "
-        f"Max pool: {get_value(config, 'max_pool'):<5}, "
-        f"Model size: {get_value(config, 'd_model'):<6}, "  
+        print(f"\nFLOP: {flops/(1e6):>6.1f} M, "
+        f"Number of parameters: {count_parameters(model)/1000:>6.1f} k, "
+        f"Test: {self.test_string}"
         )
         
 
@@ -355,9 +350,6 @@ class TestModel(BaseTest):
             #print(f"True output shape: {true_out_put_shape}")
             self.assertEqual(output.shape, true_out_put_shape)
            
-
-        print(f"Output shape: {output.shape}", end=' ')    
-
         self.assertIsNotNone(model)
         self.assertTrue(hasattr(model, 'network_blocks'))
         self.assertTrue(len(model.network_blocks) > 1)
@@ -443,12 +435,12 @@ if __name__ == '__main__':
                 # 'projection_type': ['linear', 'cnn'], 
                 # 'activation': ['relu', 'gelu'],
                 # 'normalization': ['layer', 'batch'],
-                'embed_type': ['linear', 'cnn'],# 'ViT', ''cnn', 'linear'],
+                'embed_type': ['cnn', 'linear'],# 'ViT', ''cnn', 'linear'],
                 # 'pos_enc_type':['Relative', 'Sinusoidal', 'Learnable'],
                 #   'pre_def_dot_product': [True, False],
                 #  'data_type': ['trigger'],
                 # 'encoder_type':['vanilla', 'normal'],
-                # 'max_pool': [True, False],
+                'max_pool': [True, False],
 
     }
     combinations = list(itertools.product(*test_dict.values()))
@@ -486,9 +478,18 @@ if __name__ == '__main__':
             configs.append(new_config)
 
     for config in configs:
+
+        test_string = ''
+        for key, value in test_dict.items():
+            test_string += f"{key}: {get_value(config, key)}, "
+        if len(cnn_configs) > 1:
+            test_string += f"kernel size: {get_value(config, 'kernel_size')} stride: {get_value(config, 'stride')}"
+        if len(vit_configs) > 1:
+            test_string += f"kernel size: {get_value(config, 'kernel_size')} stride: {get_value(config, 'stride')}"   
+
         # suite.addTest(TestInputEmbeddings('test_input_embeddings', inputs=config))
         # suite.addTest(TestMultiHeadAttentionBlock('test_MultiHeadAttentionBlock', inputs=config))
-        suite.addTest(TestModel('testModel', inputs=config, device=device))
+        suite.addTest(TestModel('testModel', inputs=config, device=device, test_string=test_string))
         # suite.addTest(TestEncoder('test_encoder_block', inputs=config, device=device))
         # suite.addTest(TestLossFunctions('test_hinge_loss', inputs=config, device=device))
 

@@ -113,9 +113,8 @@ def test_model(model, test_loader, device, config, plot_attention=False, extra_i
       #   outputs = torch.sigmoid(outputs)
       y_pred.append(outputs.cpu().detach().numpy())
       y.append(y_test.cpu().detach().numpy()) 
-      pred_round.append(outputs.cpu().detach().numpy())
 
-    threshold, accuracy, efficiency, precision, recall, F1 = validate(np.concatenate(y), np.concatenate(pred_round), noise_rejection=noise_rejection_rate)
+    threshold, accuracy, efficiency, precision, recall, F1 = validate(np.concatenate(y), np.concatenate(y_pred), noise_rejection=noise_rejection_rate)
   y_pred = np.concatenate(y_pred)
   y = np.concatenate(y)
   if data_type == 'chunked':
@@ -124,6 +123,47 @@ def test_model(model, test_loader, device, config, plot_attention=False, extra_i
 
   return y_pred_data, accuracy, efficiency, precision, threshold
 
+def test_efficieny(model, test_loader, config, identifyer, device):
+    if 'transformer' in config:
+      config = config['transformer']
+    data_type = config['architecture']['data_type']
+    threshold, _ = get_threshold(config=config, text=identifyer)
+
+    y = []
+    y_pred = []
+
+    model.to(device)
+
+    with torch.no_grad():
+      
+      for istep in tqdm(range(len(test_loader)), disable=True):
+
+        x_test, y_test = test_loader.__getitem__(istep)
+
+        if data_type == 'chunked':
+          y_test = y_test.max(dim=1)[0]
+        x_test, y_test = x_test.to(device), y_test.to(device)
+        y_test = y_test.squeeze() 
+        outputs = model(x_test)
+
+        y_pred.append(outputs.cpu().detach().numpy())
+        y.append(y_test.cpu().detach().numpy()) 
+
+      y = np.concatenate(y)
+      y_pred = np.concatenate(y_pred)
+
+      if threshold is None:
+        return 0
+      
+      TP = np.sum(np.logical_and(y == 1, y_pred > threshold))
+
+
+      efficiency = TP / np.count_nonzero(y) if np.count_nonzero(y) != 0 else 0
+
+    return efficiency
+
+      
+     
 
 def validate(y, y_pred, noise_rejection=1e4):
   """
@@ -169,7 +209,7 @@ def validate(y, y_pred, noise_rejection=1e4):
         print(f"Noise events: {total_number_of_noise}, False signals: {FP}, Noise rejection rate: {noise_rejection_rate}")
         return threshold, accuracy, efficiency, precision, recall, F1
     count += 1
-  return 0, 0, 0, 0, 0, 0
+  return None, 0, 0, 0, 0, 0
  
 
 def get_gpu_info():
@@ -204,122 +244,9 @@ def get_energy(device_number):
         print(f"Error: {e}")
         return 0
     
-def get_MMac(model, config, verbose=False):
-  """
-    This code was provided by Copilot AI
-    This function calculates the number of multiply-accumulate operations (MACs)
-    and the number of parameters in a model. The model must take (batch_size, seq_len, channels) as input 
-    and not the more common (1, batch_size, channels, seq_len) format.
-    Args:
-      model: The model to calculate the MACs and parameters for.
-      batch_size: The batch size to use for the model.
-      seq_len: The sequence length to use for the model.
-      channels: The number of channels to use for the model.
-
-    Returns: macs, params
-      macs: The number of MACs in the model.
-      params: The number of parameters in the model.
-
-  """
-  if 'transformer' not in config:
-     config = {'transformer': config}
-
-  seq_len = config['transformer']['architecture']['seq_len']
-  channels = config['transformer']['architecture']['n_ant']
-  batch_size = 1
-
-  wrapped_model = ModelWrapper(model, batch_size=batch_size,  seq_len=seq_len, channels=channels)
-
-  # Specify the input size of your model
-  # This should match the input size your model expects
-  if config['transformer']['architecture']['data_type'] == 'trigger':
-    input_size = (batch_size,seq_len, channels)  
-  elif config['transformer']['architecture']['data_type'] == 'chunked':
-    input_size = (batch_size, channels, seq_len)  
-  # Calculate FLOPs
-  macs, params = get_model_complexity_info(wrapped_model, input_size, as_strings=False,
-                                          print_per_layer_stat=False, verbose=False)
-  if verbose:
-    print('{:<30}  {:<8}'.format('Computational complexity: ', macs))
-    print('{:<30}  {:<8}'.format('Number of parameters: ', params))
-  
-  return macs, params    
 
 
-def count_parameters(model, verbose=False):
-  """ Originaly from Copilot AI
-  Counts the number of parameters in a model and prints the result.
-  Args:
-    model: The model to count the parameters of.
-    verbose: Whether to print the number of parameters or not.
-    
-    Returns:
-        dict: A dictionary containing the following keys:
-            - 'total_param': The total number of parameters in the model.
-            - 'total_trainable_param': The total number of trainable parameters in the model.
-            - 'encoder_param': The number of parameters in the encoder.
-            - 'src_embed_param': The number of parameters in the source embedding.
-            - 'final_param': The number of parameters in the final layer.
-            - 'buf_param': The number of parameters in the buffer.
 
-    Example:
-      results = count_parameters(model)\n
-      param_1 = results['total_param']\n
-      param_2 = results['total_trainable_param']\n
-      param_3 = results['encoder_param']\n
-      param_4 = results['src_embed_param']\n
-      param_5 = results['final_param']\n
-      param_6 = results['buf_param']\n
-
-    """
-  
-  total_param = 0
-  total_trainable_param = 0  
-  encoder_param = 0
-  src_embed_param = 0
-  final_param = 0
-  buf_param = 0 
-  for name, param in model.named_parameters():
-    if param.requires_grad:
-      if verbose:
-        print(f"Trainable layer: {name} | Size: {param.size()} | Number of Parameters: {param.numel()}")
-      total_trainable_param += param.numel()
-           
-    else:
-      if verbose:
-        print(f"Non-trainable layer: {name} | Size: {param.size()} | Number of Parameters: {param.numel()}")
-
-    total_param += param.numel() 
-    split_names = name.split('.') 
-    if 'encoder' in name or (split_names[1] == '0' and split_names[2] in ['2', '3']):
-      encoder_param += param.numel()
-    elif 'src_embed' in name  or (split_names[1] == '0' and split_names[2] in ['0', '1']):
-       src_embed_param += param.numel()
-    elif 'final' in name or split_names[1] == '1':
-      final_param += param.numel() 
-
-
-  for name, buf in model.named_buffers():
-    if verbose:
-      print(f"Buffer: {name} | Size: {buf.size()} | Number of Parameters: {buf.numel()}")
-    total_param += buf.numel()
-    buf_param += buf.numel()
-  if verbose:
-    print(f'\nTotal Encoder Parameters: {encoder_param}')
-    print(f'\nTotal src_embed Parameters: {src_embed_param}')
-    print(f'\nTotal final Parameters: {final_param}')
-    print(f'\nTotal Buffer Parameters: {buf_param}')  
-    print(f'\nTotal Trainable Number of Parameters: {total_trainable_param}')
-    print(f'\nTotal Number of Parameters: {total_param}')
-
-  return {
-        'total_param': total_param,
-        'total_trainable_param': total_trainable_param,
-        'encoder_param': encoder_param,
-        'src_embed_param': src_embed_param,
-        'final_param': final_param,
-        'buf_param': buf_param
-    }
 
 def get_results(model_num, device=0):
 

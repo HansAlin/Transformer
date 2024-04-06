@@ -4,6 +4,7 @@ import torch.nn as nn
 import os
 import matplotlib.pyplot as plt
 from itertools import zip_longest
+import subprocess
 
 from plots.plots import histogram, plot_performance_curve, plot_results, plot_examples, plot_performance
 import tqdm as tqdm
@@ -16,9 +17,9 @@ from tqdm import tqdm
 import subprocess
 
 import tensorboard
-from models.models import build_encoder_transformer
-from dataHandler.datahandler import save_data, save_model, create_model_folder, get_model_path, get_chunked_data, get_trigger_data
-from evaluate.evaluate import test_model, validate, get_energy, get_MMac, count_parameters
+from models.models import build_encoder_transformer, get_FLOPs, count_parameters, load_model
+from dataHandler.datahandler import save_data, save_model, create_model_folder, get_model_path, get_chunked_data, get_trigger_data, get_value
+from evaluate.evaluate import test_model, validate, get_energy
 import lossFunctions.lossFunctions as ll
 
 
@@ -84,7 +85,7 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
           return None
       
       
-      config['transformer']['num of parameters']['MACs'], config['transformer']['num of parameters']['num_param'] = get_MMac(model, config) # 
+      config['transformer']['num of parameters']['FLOPs'] = get_FLOPs(model, config) #
       config['transformer']['basic']['model_path'] = create_model_folder(config['transformer']['basic']['model_num'], path=model_folder) # 
       results = count_parameters(model, verbose=False)
       config['transformer']['num of parameters']['encoder_param'] = results['encoder_param'] # 
@@ -112,7 +113,7 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
 
       
     
-    writer = SummaryWriter(config['transformer']['basic']['model_path'] + '/trainingdata')
+    writer = SummaryWriter(config['transformer']['basic']['model_path'] + 'trainingdata')
     print(f"Follow on tensorboard: python3 -m tensorboard.main --logdir={config['transformer']['basic']['model_path']}trainingdata")
     #  python3 -m tensorboard.main --logdir=/mnt/md0/halin/Models/model_1/trainingdata
     
@@ -121,8 +122,8 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
 
     model = model.to(device).to(precision)
 
- 
-    
+    n_ant = config['transformer']['architecture']['n_ant']
+   
     
     loss_type = config['transformer']['training'].get('loss_function', 'BCE')
     if loss_type == 'BCE':
@@ -168,7 +169,8 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
         if data_type == 'chunked':
            y_batch = y_batch.max(dim=1)[0]
         x_batch, y_batch = x_batch.to(device).to(precision), y_batch.to(device).to(precision)
-        
+        if data_type == 'phased':
+          x_batch = x_batch[:, :, :n_ant]
         outputs = model(x_batch)
 
         if data_type == 'chunked':
@@ -293,23 +295,61 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
     else:
       device = torch.device("cpu")
 
-    y_pred_data, accuracy , efficiency, precision, threshold = test_model(model=model, 
-                                                                test_loader=test_loader,
-                                                                device=device, 
-                                                                config=config['transformer'], 
-                                                                extra_identifier='final',
-                                                                plot_attention=True)    
-    config['transformer']['results']['Accuracy'] = float(accuracy)
-    config['transformer']['results']['Efficiency'] = float(efficiency)
-    config['transformer']['results']['Precission'] = float(precision)
 
-    print(f"Test efficiency: {config['transformer']['results']['Efficiency']:.4f}")
+    best_efficiency = 0
+    best_accuracy = 0
+    best_precision = 0
+    best_model_epoch = None
+    best_threshold = None
+    best_model = None
+    best_y_pred_data = None
 
-    histogram(y_pred_data['y_pred'], y_pred_data['y'], config['transformer'])
-    nr_area, nse, threshold = plot_performance_curve([y_pred_data['y_pred']], [y_pred_data['y']], [config], curve='nr', x_lim=[0,1], bins=10000)
+    df = pd.DataFrame([], columns= ['Epoch', 'Accuracy', 'Precission', 'Efficiency', 'Threshold'])
+
+    for model_epoch in range(1, config['transformer']['training']['num_epochs'] + 1):  
+      model_path = get_model_path(config, f'{model_epoch}')
+      model = load_model(config=config, text=f'{model_epoch}')
+
+      y_pred_data, accuracy , efficiency, precision, threshold = test_model(model=model, 
+                                                                  test_loader=test_loader,
+                                                                  device=device, 
+                                                                  config=config, 
+                                                                  extra_identifier=f'_{model_epoch}',
+                                                                  plot_attention=True)  
+      temp_df = pd.DataFrame([[model_epoch, accuracy, precision, efficiency, threshold]],
+                            columns= ['Epoch', 'Accuracy', 'Precission', 'Efficiency', 'Threshold'])
+      df = pd.concat([df, temp_df], ignore_index=True)
+      state_dict = torch.load(model_path)
+
+      try:
+          state_dict['model_state_dict']['threshold'] = threshold
+      except:
+          state_dict['threshold'] = threshold
+      torch.save(state_dict, model_path)
+
+      if efficiency >= best_efficiency:
+        best_efficiency = efficiency
+        best_accuracy = accuracy
+        best_precision = precision
+        best_model_epoch = model_epoch
+        best_threshold = threshold
+        best_model = model  
+        best_y_pred_data = y_pred_data
+
+
+    config['transformer']['results']['Accuracy'] = float(best_accuracy)
+    config['transformer']['results']['Efficiency'] = float(best_efficiency)
+    config['transformer']['results']['Precission'] = float(best_precision)
+    config['transformer']['results']['best_epoch'] = int(best_model_epoch)
+    config['transformer']['results']['best_threshold'] = float(best_threshold)
+
+    print(f"Test efficiency for best model: {config['transformer']['results']['Efficiency']:.4f}")
+
+    histogram(y_pred_data['y_pred'], y_pred_data['y'], config, text='_best', threshold=best_threshold)
+    nr_area, nse, threshold = plot_performance_curve([y_pred_data['y_pred']], [y_pred_data['y']], [config], curve='nr', x_lim=[0,1], bins=1000, text='best')
     config['transformer']['results']['nr_area'] = float(nr_area)
     config['transformer']['results']['NSE_AT_10KNRF'] = float(nse)
-    roc_area, nse, threshold = plot_performance_curve([y_pred_data['y_pred']], [y_pred_data['y']], [config], curve='roc', bins=10000)
+    roc_area, nse, threshold = plot_performance_curve([y_pred_data['y_pred']], [y_pred_data['y']], [config], curve='roc', bins=1000, text='best')
     config['transformer']['results']['roc_area'] = float(roc_area)
     config['transformer']['results']['NSE_AT_10KROC'] = float(nse)
     config['transformer']['results']['TRESH_AT_10KNRF'] = float(threshold)
@@ -317,9 +357,14 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
 
 
     x_batch, y_batch = train_loader.__getitem__(0)
-    data = x_batch.cpu().detach().numpy()
+    x = x_batch.cpu().detach().numpy()
+    y = y_batch.cpu().detach().numpy()
       
-    plot_examples(data, config=config['transformer'])
-    plot_performance(config['transformer'], device, x_batch=x_batch, y_batch=y_batch, lim_value=0.5, )
-    save_data(config['transformer'], df, y_pred_data)
-    save_model(model, optimizer, scheduler, config, epoch, text='test_final', threshold=threshold, )
+    plot_examples(x, y, config=config['transformer'])
+    plot_performance(config['transformer'], device, x_batch=x_batch, y_batch=y_batch, lim_value=best_threshold, )
+    save_data(config, df, y_pred_data)
+    save_data(config, df, y_pred_data, text='best')
+    save_model(best_model, optimizer, scheduler, config, epoch, text='best', threshold=threshold, )
+    # model_num = [str(get_value(config, 'model_num'))]
+    # model_path = get_value(config, 'model_path') + '/plot/'
+    # subprocess.call(['python3', '/home/halin/Master/Transformer/QuickVeffRatio.py', '--models'] + model_num + ['--save_path', model_path])

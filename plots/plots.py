@@ -352,7 +352,12 @@ def plot_examples(x, y, config=None, save_path=''):
   title = ['Signal', 'Noise']
 
   if config != None:
-    save_path = config['basic']['model_path'] + 'plot/examples.png'
+    save_path = config['basic']['model_path'] + 'plot/'
+    isExist = os.path.exists(save_path)
+    if not isExist:
+        os.makedirs(save_path)
+        print("The new directory is created!")
+    save_path = save_path + 'examples.png'
   else:
     if save_path == '':
       save_path = os.getcwd() + '/figures/examples/examples.png'

@@ -49,60 +49,38 @@ def parse_args():
     parser.add_argument("--save_path", default='', help="Path to save the plot")
     parser.add_argument("--cuda_device", type=int, default=0, help="Which cuda device to use")
     args = parser.parse_args()
+    return args
 
-test =  False
-chunked = False
+
+ 
 try:
+    
     args = parse_args()
     models = args.models
     save_path = args.save_path
     device = args.cuda_device
-
+    test = False
     transformer_models = {}
 
     for model_num in models:
         config = get_model_config(model_num=model_num)
+        data_type = get_value(config, 'data_type')
         best_epoch = get_value(config, 'best_epoch')
+
         transformer_models[f'{model_num}_best'] = f'{model_num}_{best_epoch}.pth'
-except:
+    print(f"Models: {transformer_models}")
+
+except Exception as e:
+    print(f"Caught an exception: {e}")
+    test =  True
     save_path = '/home/halin/Master/Transformer/figures/QuickVeffRatio_efficiency_test.png'
     device = 2
+    data_path = 'phased'
     transformer_models = {
-                    '246_1': '246_1.pth',
-                    '246_4': '246_4.pth',
-                    '246_7': '246_7.pth',
-                    '246_10': '246_10.pth',
-                    '246_13': '246_13.pth',
-                    '246_16': '246_16.pth',
-                    '246_19': '246_19.pth',
-                    '246_22': '246_22.pth',
-                    '246_25': '246_25.pth',
-                    '246_28': '246_28.pth',
-                    '246_31': '246_31.pth',
-                    '246_34': '246_34.pth',
-                    '246_37': '246_37.pth',
-                    '246_40': '246_40.pth',
-                    '246_43': '246_43.pth',
-                    '246_46': '246_46.pth',
-                    '246_49': '246_49.pth',
-                    '246_52': '246_52.pth',
-                    '246_55': '246_55.pth',
-                    '246_58': '246_58.pth',
-                    '246_61': '246_61.pth',
-                    '246_64': '246_64.pth',
-                    '246_67': '246_67.pth',
-                    '246_70': '246_70.pth',
-                    '246_73': '246_73.pth',
-                    '246_76': '246_76.pth',
-                    '246_79': '246_79.pth',
-                    '246_82': '246_82.pth',
-                    '246_85': '246_85.pth',
-                    '246_88': '246_88.pth',
-                    '246_91': '246_91.pth',
-                    '246_94': '246_94.pth',
-                    '246_97': '246_97.pth',
-                    '246_100': '246_100.pth',
-}
+        '400_best': '400_10.pth',
+        '401_best': '401_10.pth',
+    }
+    print(f"Models: {transformer_models}")
 
 
 
@@ -133,13 +111,17 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}, name of GPU: {torch.cuda.get_device_name(device=device)}")
   
 
-if chunked:
+if data_type == 'chunked':
     data_path = '/mnt/md0/acoleman/rno-g/signal-generation/data/npy-files/veff/fLow_0.08-fhigh_0.23-rate_0.5/CDF_0.7/'
     file_list=glob.glob(os.path.join(data_path, "*.npz"))
-else:    
+elif data_type == 'trigger':    
     #data_path = '/home/acoleman/data/rno-g/signal-generation/data/npy-files/veff/fLow_0.08-fhigh_0.23-rate_0.5/CDF_0.7/'
     data_path = '/mnt/md0/data/trigger-development/rno-g/veff/fLow_0.08-fhigh_0.23-rate_0.5/prod_2023.10.22/CDF_0.7/'
     file_list = glob.glob(data_path+'VeffData_nu_*.npz')
+elif data_type == 'phased':
+    data_path = '/mnt/md0/data/trigger-development/rno-g/veff/fLow_0.096-fhigh_0.22-rate_0.5/prod_2023.06.08/CDF_1.0/'
+    file_list = glob.glob(data_path+'VeffData_nu_*.npz')
+
 
 for file in file_list:
     print(file)
@@ -564,7 +546,7 @@ plot_name += f"{extra_identifier}"
 if save_path == '':  
     filename = os.path.join(ABS_PATH_HERE, "figures/", f"EfficiencyVsSNR{plot_name}.png")
 else:
-    filename = save_path + f"EfficiencyVsSNR{plot_name}.png"
+    filename = save_path
 print("Saving", filename)
 fig.savefig(filename, bbox_inches="tight")
 plt.close()
@@ -619,7 +601,7 @@ ax.xaxis.set_ticks_position("both")
 if save_path == '':
     filename = os.path.join(ABS_PATH_HERE, "figures/", f"QuickVeffRatio{plot_name}.png")
 else:
-    filename = save_path + f"QuickVeffRatio{plot_name}.png"
+    filename = save_path 
 print("Saving", filename)
 np.savez(filename.replace('.png', '.npz'), **npz_file)
 fig.savefig(filename, bbox_inches="tight")

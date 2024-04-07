@@ -1,7 +1,7 @@
 arch: Transformer
 data_locations:
-  # base_folder: /mnt/md0/data/trigger-development/rno-g
-  #tag_folder_veff: CDF_0.7
+  base_folder: /mnt/md0/data/trigger-development/rno-g
+  tag_folder_veff: CDF_0.7
 
   # Noise for phased array
   phased_array_noise: 

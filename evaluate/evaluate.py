@@ -277,6 +277,7 @@ def get_transformer_triggers(waveforms, trigger_times, model_name, pre_trig):
   triggers = np.zeros((len(waveforms)))
   
   target_length = find_key_in_dict(config, 'seq_len')
+  n_ant = find_key_in_dict(config, 'n_ant')
   data_config = model_name['data_config']
   sampling_rate = data_config['sampling']['rate'] 
   upsampling = data_config['training']['upsampling']
@@ -315,6 +316,9 @@ def get_transformer_triggers(waveforms, trigger_times, model_name, pre_trig):
                 x = x.transpose(1, 2)
               elif find_key_in_dict(config, 'data_type') == 'chunked':
                  x = x  
+              elif find_key_in_dict(config, 'data_type') == 'phased':
+                 x = x.transpose(1, 2)
+                 x = x[:, :, :n_ant]   
               yhat = model(x)
               if sigmoid:
                 yhat = torch.sigmoid(yhat)

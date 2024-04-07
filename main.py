@@ -71,8 +71,8 @@ def main():
     print(e)  
     args = argparse.Namespace()
     args.start_model_num = None
-    args.epochs = 100
-    args.test = False
+    args.epochs = 3
+    args.test = True
     args.cuda_device = 2
     args.config_number = 0
     args.inherit_model = None

@@ -8,6 +8,9 @@ data_locations:
   pre_trig_signal:  
     prod: prod_2023.06.12 # Fore Phased data
 
+transformer:
+  architecture:
+    data_type: phased
 
 sampling:
   band:

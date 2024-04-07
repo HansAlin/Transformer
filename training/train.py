@@ -88,6 +88,7 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
       config['transformer']['num of parameters']['FLOPs'] = get_FLOPs(model, config) #
       config['transformer']['basic']['model_path'] = create_model_folder(config['transformer']['basic']['model_num'], path=model_folder) # 
       results = count_parameters(model, verbose=False)
+      config['transformer']['num of parameters']['num_param'] = results['total_param'] #
       config['transformer']['num of parameters']['encoder_param'] = results['encoder_param'] # 
       config['transformer']['num of parameters']['input_param'] = results['src_embed_param'] # 
       config['transformer']['num of parameters']['final_param'] = results['final_param'] # 
@@ -142,6 +143,12 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
     min_val_loss = float('inf')
     total_time = time.time()
 
+    x_batch, y_batch = test_loader.__getitem__(0)
+    x = x_batch.cpu().detach().numpy()
+    y = y_batch.cpu().detach().numpy()
+      
+    plot_examples(x, y, config=config['transformer'])
+
     for epoch in range(initial_epoch, config['transformer']['training']['num_epochs'] + 1):
 
       epoch_time = time.time()
@@ -169,8 +176,7 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
         if data_type == 'chunked':
            y_batch = y_batch.max(dim=1)[0]
         x_batch, y_batch = x_batch.to(device).to(precision), y_batch.to(device).to(precision)
-        if data_type == 'phased':
-          x_batch = x_batch[:, :, :n_ant]
+
         outputs = model(x_batch)
 
         if data_type == 'chunked':

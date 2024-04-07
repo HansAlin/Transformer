@@ -8,6 +8,10 @@ data_locations:
     prod: prod_2023.05.16 
 
 
+transformer:
+  architecture:
+    data_type: trigger
+
 sampling:
   band:
     high: 0.23

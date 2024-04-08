@@ -8,7 +8,7 @@ import dataHandler.datahandler as dd
 
 
 
-config = dd.get_model_config(model_num=246)
+config = dd.get_model_config(model_num=400)
 batch_size = dd.get_value(config, 'batch_size')
 seq_len = dd.get_value(config, 'seq_len')
 n_ant = dd.get_value(config, 'n_ant')
@@ -21,8 +21,12 @@ flops = mm.get_FLOPs(model, config)
 parameters = mm.get_n_params(model)
 print(f"FLOPs: {flops}")
 print(f"Parameters: {parameters}")
+if dd.get_value(config, 'data_type') == 'chunked':
+    in_put = (n_ant, seq_len)
+else:
+    in_put = (seq_len, n_ant)
 
-out = get_model_complexity_info(model, (seq_len, n_ant), as_strings=True, print_per_layer_stat=True, verbose=False)
+out = get_model_complexity_info(model, in_put, as_strings=True, print_per_layer_stat=False, verbose=False)
 print(out)
 config['transformer']['num of parameters']['num_param'] = parameters
 config['transformer']['num of parameters']['FLOPs'] = flops

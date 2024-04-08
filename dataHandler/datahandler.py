@@ -185,7 +185,6 @@ def get_trigger_data(config, random_seed=123, subset=False, save_test_set=False)
   waveforms = None
   background = None
 
-  # TODO I don't know what this does
   frac_into_waveform = config["training"]["start_frac"]  # Trigger location will be put this far into the cut waveform
   trig_bin = config['training']['trigger_time'] * sampling_rate * config["training"]["upsampling"]
   cut_low_bin = max(0, int(trig_bin - wvf_length * frac_into_waveform))
@@ -238,7 +237,7 @@ def get_trigger_data(config, random_seed=123, subset=False, save_test_set=False)
   if np.any(nan_check):
       print("Found NAN WVF")
       index = np.argwhere(nan_check)
-      print(np.unique(index[:, 0])) #TODO original print(numpy.unique(index[:, 0]))
+      print(np.unique(index[:, 0])) 
       print(index)
       exit()
 
@@ -582,24 +581,13 @@ def get_chunked_data(batch_size, config, subset=True):
   #######################################################
   ############## Renormalizing the data into units of SNR
   #######################################################
-  #TODO This is comment out!!!! in radio-analysis
+
   """
   rms_noise = GetRMSNoise(float(band_flow), float(band_fhigh), sampling_rate, 300 * units.kelvin)
   print(f"Scaling all values by 1 / {rms_noise / (1e-6 * units.volt):0.4f} uV to normalize to SNR")
   waveforms /= rms_noise
   """
 
-  #####################################################
-  ############## Permuting everything
-  #####################################################
-  # TODO this is not in the original code
-  # print("Performing initial scramble")
-  # p_data = np_rng.permutation(len(waveforms))
-  # waveforms = waveforms[p_data]
-  # signal_labels = signal_labels[p_data]
-
-  # Make a plot of a waveform with the labels
-  #PlotWaveformExample(waveforms[0], signal_labels[0], f"{output_plot_dir}/{base_output}_Labels.pdf")
 
   #####################################################
   ############## Join the labels across channels
@@ -948,7 +936,7 @@ def create_model_folder(model_number, path=''):
   """
   This function create a folder to save all model related stuf in.
   """
-  # TODO uncomment after testing
+
   if path == '':
     path = os.getcwd() 
     path += f'/Test/ModelsResults/model_{model_number}/' 

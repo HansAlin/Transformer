@@ -29,19 +29,7 @@ from training.train import training
 from plots.plots import plot_collections
 from model_configs.config import get_config
 
-# TODO implement loading and saving of model
-# TODO Implement train, val, test set use pytorch randomsplit()
-# TODO implement unity test?
-# TODO read Visualiz... and  Checklist....
-# TODO use Pathlib?
-# TODO save the optimaizer also
-# TODO FLOP's from fvcore.nn import FlopCountAnalysis
-# TODO Check final bloch down sizing if it is correct
-# TODO Do I have to concern about float 32 and float 64
 
-# TODO Add som ekind of timer
-# TODO Scheck if scheduler works!
-# TODO secure no model gets overwritten when running a new model
 
 def parse_args():
   parser = argparse.ArgumentParser()
@@ -71,8 +59,8 @@ def main():
     print(e)  
     args = argparse.Namespace()
     args.start_model_num = None
-    args.epochs = 3
-    args.test = True
+    args.epochs = 100
+    args.test = False
     args.cuda_device = 2
     args.config_number = 0
     args.inherit_model = None
@@ -96,12 +84,16 @@ def main():
     hyper_param = {
                 # 'N':[2]
                 # 'pos_enc_type':['Relative'],
-                'max_relative_position': [None],
+                # 'max_relative_position': [None],
                 # 'h': [4],
                 # 'd_model': [64],
                 # 'h': [16],
                 # 'd_model': [512],
                 # 'd_ff': [256],
+                'd_model': [32, 128],
+                'd_ff': [32, 128],
+                'h': [4, 8],
+                'N': [2, 3],
                   }
 
     # Get all combinations

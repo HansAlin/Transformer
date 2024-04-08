@@ -27,19 +27,7 @@ from training.train import training
 from plots.plots import plot_collections
 from model_configs.config import get_config
 
-# TODO implement loading and saving of model
-# TODO Implement train, val, test set use pytorch randomsplit()
-# TODO implement unity test?
-# TODO read Visualiz... and  Checklist....
-# TODO use Pathlib?
-# TODO save the optimaizer also
-# TODO FLOP's from fvcore.nn import FlopCountAnalysis
-# TODO Check final bloch down sizing if it is correct
-# TODO Do I have to concern about float 32 and float 64
 
-# TODO Add som ekind of timer
-# TODO Scheck if scheduler works!
-# TODO secure no model gets overwritten when running a new model
 
 def main(start_model_num, batch_size, epochs, test, cuda_device, config_number, inherit_model): 
   models_path = '/mnt/md0/halin/Models/'

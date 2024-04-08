@@ -10,7 +10,7 @@ import itertools
 CODE_DIR_1  ='/home/halin/Master/Transformer/'
 sys.path.append(CODE_DIR_1)
 from models.models import LayerNormalization, BatchNormalization, ResidualConnection, MultiHeadAttentionBlock, FeedForwardBlock, EncoderBlock, Encoder, InputEmbeddings, PositionalEncoding, FinalBlock, EncoderTransformer, build_encoder_transformer, get_FLOPs
-from dataHandler.datahandler import prepare_data, get_chunked_data, get_trigger_data
+from dataHandler.datahandler import prepare_data, get_chunked_data, get_trigger_data, get_model_config
 from model_configs.config import get_config
 import lossFunctions.lossFunctions as ll
 
@@ -421,6 +421,7 @@ if __name__ == '__main__':
 
     suite = unittest.TestSuite()
     config = get_config(0)
+    #config = get_model_config(246)
     cnn_configs = [
             {'kernel_size': 3, 'stride': 1},
            # {'kernel_size': 3, 'stride': 2},
@@ -435,12 +436,16 @@ if __name__ == '__main__':
                 # 'projection_type': ['linear', 'cnn'], 
                 # 'activation': ['relu', 'gelu'],
                 # 'normalization': ['layer', 'batch'],
-                'embed_type': ['cnn', 'linear'],# 'ViT', ''cnn', 'linear'],
+                # 'embed_type': ['cnn', 'linear'],# 'ViT', ''cnn', 'linear'],
                 # 'pos_enc_type':['Relative', 'Sinusoidal', 'Learnable'],
                 #   'pre_def_dot_product': [True, False],
                 #  'data_type': ['trigger'],
                 # 'encoder_type':['vanilla', 'normal'],
-                'max_pool': [True, False],
+                # 'max_pool': [True, False],
+                'd_model': [32, 128],
+                'd_ff': [32, 128],
+                'h': [4, 8],
+                'N': [2, 3],
 
     }
     combinations = list(itertools.product(*test_dict.values()))

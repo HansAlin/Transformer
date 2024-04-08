@@ -37,7 +37,7 @@ class LayerNormalization(nn.Module):
     return x
   
 class BatchNormalization(nn.Module): 
-  #TODO Check whether this is correct implemented 
+
   """Instead of normalizing the features over the layers as in "Attention is all you need"
   this class normalizes the features over the batch dimension.
   
@@ -53,7 +53,6 @@ class BatchNormalization(nn.Module):
 
   def forward(self, x):
     # (batch_size, seq_len, d_model)
-    # TODO check whether this is correct implemented reshape? 
     x = x.permute(1,2,0) # (batch_size, d_model, seq_len)
     x = self.batch_norm(x)
     x = x.permute(2,0,1)
@@ -376,7 +375,7 @@ class MultiHeadAttentionBlock(nn.Module):
     self.d_h = d_model // h
 
     if self.projection_type == 'linear':
-      # TODO its an option to have biases or not in the linear layers
+      # Note! No biases
       self.W_q = nn.Linear(d_model, d_model, bias=False) # W_q 
       self.W_k = nn.Linear(d_model, d_model, bias=False) # W_k 
       self.W_v = nn.Linear(d_model, d_model, bias=False) # W_v 
@@ -457,8 +456,7 @@ class MultiHeadAttentionBlock(nn.Module):
     q = query.view(query.shape[0], query.shape[1], h, d_h).transpose(1,2) # (batch_size, n_head, seq_len, d_h)
     k = key.view(key.shape[0], key.shape[1], h, d_h).transpose(1,2) # (batch_size, n_head, seq_len, d_h)
     normal_attention_scores = (q @ k.transpose(-2, -1)) # (batch_size, n_head, seq_len, seq_len)
-    # TODO I might have to divide by math.sqrt(d_h) here as well
-    # and use a softmax function here as well
+    # Note! No scaling here
     
     relative_q = query.permute(1, 0, 2).contiguous().view(len_q, batch_size*h, -1) # (seq_len, batch_size*n_head, d_h)
     relative_k = relative_position_k(len_q, len_k) # (seq_len, seq_len, d_h)
@@ -517,7 +515,7 @@ class MultiHeadAttentionBlock(nn.Module):
     # transpose(1,2) swaps the seq_len and h dimensions dimeinstion 1 and 2
 
 
-    if self.positional_encoding == 'Relative': # TODO previous it was 'Realtive
+    if self.positional_encoding == 'Relative': 
       x, self.attention_scores = MultiHeadAttentionBlock.attention_with_relative_position(query, 
                                                                                           key, 
                                                                                           value, 
@@ -612,13 +610,6 @@ class EncoderBlock(nn.Module):
   
 
   def forward(self, x, src_mask):
-    # x = self.residual_1(x, lambda x: self.self_attention_block(x, x, x, src_mask))
-    # Is this the same as:
-    # y = self.attention_block(x, x, x, src_mask)
-    # x = self.residual_1(x, y) ?
-    # x = self.residual_2(x, self.feed_forward_block)
-
-    #  TODO I don't understand the differnece between the two residual connections
     x = self.residual_connection_1(x, lambda y: self.self_attention_block(y, y, y, src_mask))
     x = self.residual_connection_2(x, self.feed_forward_block)
     return x  
@@ -698,7 +689,7 @@ class FinalBlock(nn.Module):
       self.forward_type = self.single_linear_forward
 
     elif forward_type == 'seq_average_linear':  
-      self.linear = nn.Linear(seq_len, out_put_size) #TODO check whether this is correct seq_len
+      self.linear = nn.Linear(seq_len, out_put_size) 
       self.forward_type = self.average_forward
       self.dim = 2
 
@@ -732,7 +723,7 @@ class FinalBlock(nn.Module):
   
   def average_forward(self, x):
     # (batch_size, seq_len, d_model)
-    x =  x.mean(dim=self.dim) # --> (batch_size, seq_len)#TODO check whether this is correct 1 or 2
+    x =  x.mean(dim=self.dim) # --> (batch_size, seq_len)
     x = self.linear(x) # --> (batch_size, 1)
 
     x = x.squeeze()
@@ -818,8 +809,6 @@ class Encoder(nn.Module):
 
     return x
 
-
-# TODO this is a test
 class EncoderTransformer(nn.Module):
     def __init__(self, 
                  features:int,
@@ -859,7 +848,6 @@ class EncoderTransformer(nn.Module):
             self.network_blocks.extend([nn.Sequential(src_embed[i], src_pos[i], encoders[i]) for i in range(len(encoders))])
             self.network_blocks.append(final_block)
 
-        # TODO test this
         elif encoding_type == 'none':
             self.src_embed = src_embed[0]
             self.src_pos = src_pos[0]
@@ -884,7 +872,6 @@ class EncoderTransformer(nn.Module):
             src = module(src)
         return src
     
-     # TODO test this
     def bypass_encode(self, src, src_mask=None):
         src_slices = src.split(1, dim=-1)
         src_embeds = [self.src_embed[i](src_slice) for i, src_slice in enumerate(src_slices)]
@@ -939,7 +926,7 @@ class EncoderTransformer(nn.Module):
 
 def build_encoder_transformer(config): 
   
-  max_seq_len =    1024 #config['architecture']['seq_len'] # TODO make some other implementation
+  max_seq_len =    1024 # For the positional encoding
 
   if config['architecture'].get('old_residual', False):
     features = 1
@@ -1185,7 +1172,6 @@ def load_model(config, text='early_stop', verbose=False):
     try:
       state = torch.load(model_path, map_location=torch.device("cpu"))
       model.load_state_dict(state)
-      # TODO added to make possible to use in cluster
       model.multiplys = get_FLOPs(model, original_config, verbose=verbose)
       model.adds =  0
       return model

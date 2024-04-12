@@ -151,11 +151,12 @@ chunked = False
 plot = False
 data = True
 to_data_frame = True
-save_thresholds = True
+save_thresholds = False
 models = [246]
 seq_len = 128
-device = 1
-text2 = ''
+noise_rejection_rate = 1e4
+device = 0
+text2 = '_validation_1'
 text1 = ''
 
 if data:
@@ -194,6 +195,9 @@ for model_num in models:
 
     best_efficiency = 0
 
+    if test:
+        model_epoch_path = model_epoch_path[:1]
+
     for model_path in model_epoch_path:
         # if '_52.pth' not in model_path:
         #     continue
@@ -215,7 +219,9 @@ for model_num in models:
                                                         device=device,
                                                         config=config,
                                                         plot_attention=False,
-                                                        extra_identifier=model_num,)
+                                                        extra_identifier=model_num,
+                                                        noise_rejection_rate=noise_rejection_rate,
+                                                        )
         if plot:
             AOC, nse, threshold2 =  pp.plot_performance_curve([y_pred_data['y_pred']], 
                                                          [y_pred_data['y']], 

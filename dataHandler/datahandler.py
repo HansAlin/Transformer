@@ -223,12 +223,7 @@ def get_trigger_data(config, random_seed=123, subset=False, save_test_set=False)
   print(f"\t\tFYI: the RMS noise of waveforms is {std / (1e-6 * units.volt):0.4f} uV")
   waveforms /= rms_noise
 
-  try:
-    n_ant = get_value(config, 'n_ant')
-  except:
-    n_ant = 4
-  waveforms = waveforms[:, :n_ant,:]
-  
+
   print(
       f"\t\tLoaded signal data of shape {waveforms.shape} --> {waveforms.shape[0] * waveforms.shape[-1] / sampling_rate / units.s:0.3f} s of data"
   )
@@ -266,7 +261,6 @@ def get_trigger_data(config, random_seed=123, subset=False, save_test_set=False)
       total_len += len(this_dat)
       del this_dat
 
-  background = background[:, :n_ant,:]
 
   assert total_len == len(background)
   assert background.shape[1] == waveforms.shape[1]

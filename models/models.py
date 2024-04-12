@@ -926,6 +926,9 @@ class EncoderTransformer(nn.Module):
 
 def build_encoder_transformer(config): 
   
+  if 'transformer' in config:
+    config = config['transformer']
+
   max_seq_len =    1024 # For the positional encoding
 
   if config['architecture'].get('old_residual', False):

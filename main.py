@@ -61,7 +61,7 @@ def main():
     args.start_model_num = None
     args.epochs = 100
     args.test = False
-    args.cuda_device = 2
+    args.cuda_device = 1
     args.config_number = 0
     args.inherit_model = None
     args.retrain = False
@@ -84,16 +84,16 @@ def main():
     hyper_param = {
                 # 'N':[2]
                 # 'pos_enc_type':['Relative'],
-                # 'max_relative_position': [None],
+                'max_relative_position': [None],
                 # 'h': [4],
                 # 'd_model': [64],
                 # 'h': [16],
                 # 'd_model': [512],
                 # 'd_ff': [256],
-                'd_model': [32, 128],
-                'd_ff': [32, 128],
-                'h': [4, 8],
-                'N': [2, 3],
+                # 'd_model': [32, 128],
+                # 'd_ff': [32, 128],
+                # 'h': [4, 8],
+                # 'N': [2, 3],
                   }
 
     # Get all combinations

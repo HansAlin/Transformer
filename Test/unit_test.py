@@ -5,6 +5,8 @@ import torch.nn as nn
 import sys
 import copy
 import itertools
+import numpy as np
+import time
 
 
 CODE_DIR_1  ='/home/halin/Master/Transformer/'
@@ -13,6 +15,7 @@ from models.models import LayerNormalization, BatchNormalization, ResidualConnec
 from dataHandler.datahandler import prepare_data, get_chunked_data, get_trigger_data, get_model_config
 from model_configs.config import get_config
 import lossFunctions.lossFunctions as ll
+import evaluate.evaluate as ev
 
 def count_parameters(layer):
     return sum(p.numel() for p in layer.parameters() if p.requires_grad)
@@ -389,6 +392,52 @@ class TestLossFunctions(BaseTest):
         loss = loss = self.hinge_loss.forward(y_pred_3, y_true_3)
         self.assertTrue(torch.equal(loss, expected_loss))
 
+class TestValidation(BaseTest):
+
+    def test_validation(self):
+        
+        number_events = 1000000
+        y_pred_noise = np.random.normal(-1, 1, number_events)
+        y_pred_signal = np.random.normal(1, 1, number_events)
+        y_pred = np.concatenate((y_pred_noise, y_pred_signal))
+        y_signal = np.ones(number_events)
+        y_noise = np.zeros(number_events)
+        y = np.concatenate((y_noise, y_signal))
+        
+        perm = np.random.permutation(len(y))
+        y = y[perm]
+        y_pred = y_pred[perm]
+
+        start_time = time.time()
+        threshold, accuracy, efficiency, precision, recall, F1 = ev.validate(y,y_pred,noise_rejection=10000)
+        print(f"Validation 1 | Time: {time.time() - start_time}")
+        print(f"Threshold: {threshold:>7.3f}, Accuracy: {accuracy:>7.3f}, Efficiency: {efficiency:>7.3f}, Precision: {precision:>7.3f}, Recall: {recall:>7.3f}, F1: {F1:>7.3f}")
+
+        start_time = time.time()
+        threshold2, accuracy2, efficiency2, precision2, recall2, F12 = ev.validate_2(y,y_pred, noise_rejection=10000)
+        print(f"Validation 2 | Time: {time.time() - start_time}")
+        print(f"Threshold: {threshold2:>7.3f}, Accuracy: {accuracy2:>7.3f}, Efficiency: {efficiency2:>7.3f}, Precision: {precision2:>7.3f}, Recall: {recall2:>7.3f}, F1: {F12:>7.3f}")
+
+        threshold_error = np.abs(threshold - threshold2)/threshold
+        accuracy_error = np.abs(accuracy - accuracy2)/accuracy
+        efficiency_error = np.abs(efficiency - efficiency2)/efficiency
+        precision_error = np.abs(precision - precision2)/precision
+        recall_error = np.abs(recall - recall2)/recall
+        F1_error = np.abs(F1 - F12)/F1
+
+        lim = 0.07
+        self.assertTrue(threshold_error < lim)
+        self.assertTrue(accuracy_error < lim)
+        self.assertTrue(efficiency_error < lim)
+        self.assertTrue(precision_error < lim)
+        self.assertTrue(recall_error < lim)
+        self.assertTrue(F1_error < lim)
+
+
+
+
+
+
 
 
 
@@ -432,7 +481,7 @@ if __name__ == '__main__':
         ]
   
     test_dict = {
-                # 'GSA': [True, False],
+                'GSA': [False],
                 # 'projection_type': ['linear', 'cnn'], 
                 # 'activation': ['relu', 'gelu'],
                 # 'normalization': ['layer', 'batch'],
@@ -442,10 +491,11 @@ if __name__ == '__main__':
                 #  'data_type': ['trigger'],
                 # 'encoder_type':['vanilla', 'normal'],
                 # 'max_pool': [True, False],
-                'd_model': [32, 128],
-                'd_ff': [32, 128],
-                'h': [4, 8],
-                'N': [2, 3],
+                # 'd_model': [32, 128],
+                # 'd_ff': [32, 128],
+                # 'h': [4, 8],
+                # 'N': [2, 3],
+                
 
     }
     combinations = list(itertools.product(*test_dict.values()))
@@ -497,6 +547,7 @@ if __name__ == '__main__':
         suite.addTest(TestModel('testModel', inputs=config, device=device, test_string=test_string))
         # suite.addTest(TestEncoder('test_encoder_block', inputs=config, device=device))
         # suite.addTest(TestLossFunctions('test_hinge_loss', inputs=config, device=device))
+        # suite.addTest(TestValidation('test_validation', inputs=config, device=device))
 
     
     # suite.addTest(TestLayers('test_LayerNormalization'))

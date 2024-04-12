@@ -52,6 +52,7 @@ def histogram(y_pred, y, config, bins=100, save_path='', text='', threshold=None
     y_pred_noise = y_pred[~signal_mask]
     median_signal = np.median(y_pred_signal)
     median_noise = np.median(y_pred_noise)
+    quantile_signal = np.quantile(y_pred_signal, 0.1)
     mean_signal = np.mean(y_pred_signal)
     mean_noise = np.mean(y_pred_noise)
     # signal_wights = np.ones_like(y_pred_signal) / len(y_pred_signal)
@@ -68,7 +69,8 @@ def histogram(y_pred, y, config, bins=100, save_path='', text='', threshold=None
     ax.axvline(x=median_signal, color='g', linestyle='--', label=f'Median signal {median_signal:.2f}')
     ax.axvline(x=median_noise, color='b', linestyle='--', label=f'Median noise {median_noise:.2f}')
     ax.axvline(x=mean_signal, color='g', linestyle='-', label=f'Mean signal {mean_signal:.2f}')
-    ax.axvline(x=mean_noise, color='b', linestyle='-', label=f'Mean noise {mean_noise:.2f}')    
+    ax.axvline(x=mean_noise, color='b', linestyle='-', label=f'Mean noise {mean_noise:.2f}')  
+    ax.axvline(x=quantile_signal, color='g', linestyle='-.', label=f'Quantile signal {(1 - quantile_signal):.2f}')  
     ax.legend()
 
     plt.savefig(save_path)

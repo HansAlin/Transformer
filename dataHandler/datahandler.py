@@ -431,7 +431,7 @@ def plot_examples(background,waveforms,sampling_rate, config, output_plot_dir='/
   fig.savefig(example_plot_name, bbox_inches="tight")
   plt.close()
 
-def get_chunked_data(batch_size, config, subset=True):
+def get_chunked_data(config, subset=True):
   """
   This function loads data from XXXX and returns train, test and validation data
   as DatasetContinuousStreamStitchless objects. It needs a data_config_path to
@@ -439,55 +439,17 @@ def get_chunked_data(batch_size, config, subset=True):
   Arg:
     batch_size: batch size
     seq_len: sequence length
-    subset: if True, only one file is loaded
+    subset: if True, only one file is loaded 
 
   Ret:
     train_loader, val_loader, test_loader  
   """
-  CODE_DIR_1  ='/home/acoleman/software/NuRadioMC/'
-  sys.path.append(CODE_DIR_1)
-  CODE_DIR_2 = '/home/acoleman/work/rno-g/'
-  sys.path.append(CODE_DIR_2)
-  type(sys.path)
-  # for path in sys.path:
-  #   print(path)
 
 
-  from NuRadioReco.utilities import units
-
-  from analysis_tools import data_locations
-  from analysis_tools.config import GetConfig
-  from analysis_tools.data_loaders import DatasetContinuousStreamStitchless
-  from analysis_tools.Filters import GetRMSNoise
-  from analysis_tools.model_loaders import ConstructModelFromConfig, LoadModelFromConfig
-
-  # from networks.Chunked import CountModelParameters, ChunkedTrainingLoop
-  # from networks.Cnn import CnnTrainingLoop
-
-  # plt.rcParams["font.family"] = "serif"
-  # plt.rcParams["mathtext.fontset"] = "dejavuserif"
-  ABS_PATH_HERE = str(os.path.dirname(os.path.realpath(__file__)))
-
-  # parser = argparse.ArgumentParser()
-  # parser.add_argument("--config", required=True, help="Yaml file with the configuration")
-  # parser.add_argument("--seed", type=int, default=123, help="Numpy files to train on")
-  # parser.add_argument("--test_frac", type=float, default=0.15, help="Fraction of waveforms to use for testing")
-  # parser.add_argument("--n_epochs", type=int, default=50, help="Number of epoch to train on")
-  # parser.add_argument("--cuda_core", type=str, default="", help="Which core to run on")
-  # args = parser.parse_args()
-
-  # Read the configuration for this training/network
- 
-  
-  #model_string = config["name"]
-  
-  band_flow = config["sampling"]["band"]["low"]
-  band_fhigh = config["sampling"]["band"]["high"]
+  batch_size = config["training"]["batch_size"] 
   sampling_rate = config["sampling"]["rate"]
-  wvf_length = config["input_length"]
+ 
 
-  # config['training']['batch_size'] = batch_size
-  # config['input_length'] = seq_len
 
   random_seed = 123
   np_rng = np.random.default_rng(random_seed)
@@ -664,8 +626,8 @@ def get_chunked_data(batch_size, config, subset=True):
       extra_gap_per_waveform=config["training"]["extra_gap_per_waveform"],
       probabilistic_sampling_ensure_signal_region=config["training"]["probabilistic_sampling_ensure_signal_region"],
       probabilistic_sampling_oversampling=config["training"]["probabilistic_sampling_oversampling"],
-      # probabilistic_sampling_ensure_min_signal_fraction=config["training"]["probabilistic_sampling_ensure_min_signal_fraction"],
-      # probabilistic_sampling_ensure_min_signal_num_bins=config["training"]["probabilistic_sampling_ensure_min_signal_num_bins"]
+      probabilistic_sampling_ensure_min_signal_fraction=config["training"]["probabilistic_sampling_ensure_min_signal_fraction"],
+      probabilistic_sampling_ensure_min_signal_num_bins=config["training"]["probabilistic_sampling_ensure_min_signal_num_bins"]
       )
   
   del x_train
@@ -690,8 +652,8 @@ def get_chunked_data(batch_size, config, subset=True):
       extra_gap_per_waveform=config["training"]["extra_gap_per_waveform"],
       probabilistic_sampling_ensure_signal_region=config["training"]["probabilistic_sampling_ensure_signal_region"],
       probabilistic_sampling_oversampling=config["training"]["probabilistic_sampling_oversampling"],
-      # probabilistic_sampling_ensure_min_signal_fraction=config["training"]["probabilistic_sampling_ensure_min_signal_fraction"],
-      # probabilistic_sampling_ensure_min_signal_num_bins=config["training"]["probabilistic_sampling_ensure_min_signal_num_bins"]
+      probabilistic_sampling_ensure_min_signal_fraction=config["training"]["probabilistic_sampling_ensure_min_signal_fraction"],
+      probabilistic_sampling_ensure_min_signal_num_bins=config["training"]["probabilistic_sampling_ensure_min_signal_num_bins"]
       )
   
   del x_val
@@ -716,8 +678,8 @@ def get_chunked_data(batch_size, config, subset=True):
         extra_gap_per_waveform=config["training"]["extra_gap_per_waveform"],
         probabilistic_sampling_ensure_signal_region=config["training"]["probabilistic_sampling_ensure_signal_region"],
         probabilistic_sampling_oversampling=config["training"]["probabilistic_sampling_oversampling"],
-        # probabilistic_sampling_ensure_min_signal_fraction=config["training"]["probabilistic_sampling_ensure_min_signal_fraction"],
-        # probabilistic_sampling_ensure_min_signal_num_bins=config["training"]["probabilistic_sampling_ensure_min_signal_num_bins"]
+        probabilistic_sampling_ensure_min_signal_fraction=config["training"]["probabilistic_sampling_ensure_min_signal_fraction"],
+        probabilistic_sampling_ensure_min_signal_num_bins=config["training"]["probabilistic_sampling_ensure_min_signal_num_bins"]
         )
   
   del x_test

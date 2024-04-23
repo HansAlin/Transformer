@@ -285,18 +285,18 @@ def condense_sequence(match):
 ########################################################################
 # Plot veff
 ########################################################################
-veff_files = [
-    '/home/halin/Master/nuradio-analysis/plots/fLow_0.08-fhigh_0.23-rate_0.5/config_310/veff_n_lges_040_0_average_rolls_0.npz',
-     '/home/halin/Master/nuradio-analysis/plots/fLow_0.08-fhigh_0.23-rate_0.5/config_311/veff_n_lges_085_0_average_rolls_0.npz',
-    '/home/halin/Master/nuradio-analysis/plots/fLow_0.08-fhigh_0.23-rate_0.5/config_312/veff_n_lges_017_0_average_rolls_0.npz'
+# veff_files = [
+#     '/home/halin/Master/nuradio-analysis/plots/fLow_0.08-fhigh_0.23-rate_0.5/config_310/veff_n_lges_040_0_average_rolls_0.npz',
+#      '/home/halin/Master/nuradio-analysis/plots/fLow_0.08-fhigh_0.23-rate_0.5/config_311/veff_n_lges_085_0_average_rolls_0.npz',
+#     '/home/halin/Master/nuradio-analysis/plots/fLow_0.08-fhigh_0.23-rate_0.5/config_312/veff_n_lges_017_0_average_rolls_0.npz'
 
-]
+# ]
 models = [241,245,246]
 veff_files = []
 for model in models:
     veff_files.append(f'/home/halin/Master/Transformer/figures/QuickVeffRatio_{model}_best.npz')
-
-pp.plot_veff(veff_files)
+models_string = '_'.join(map(str, models))
+pp.plot_veff(veff_files, plot_path='/home/halin/Master/Transformer/figures/veff/veff_' + models_string + '.png')
 
 ########################################################################
 # Test roc nr curve

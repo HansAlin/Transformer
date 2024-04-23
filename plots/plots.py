@@ -343,6 +343,9 @@ def plot_collections(models, labels, bins=100, save_path='', models_path='Test/M
 
 def plot_examples(x, y, config=None, save_path=''):
 
+  plt.rcParams.update({'font.size': 15})  # Change the font size here
+  
+
   signals = np.where(y == 1)[0]
   noise = np.where(y == 0)[0]
   x_signals = x[signals]
@@ -350,7 +353,17 @@ def plot_examples(x, y, config=None, save_path=''):
 
   seq_len = x_signals.shape[1]
 
-  x = [x_signals, x_noise]
+ # Find highest signal value
+  max_index_flat = np.argmax(np.abs(x_signals))
+  batch_size_index, seq_len_index, n_ant_index = np.unravel_index(max_index_flat, x_signals.shape)
+  max_signal_event = x_signals[batch_size_index, :, n_ant_index]
+
+  # Find highest noise value
+  max_index_flat = np.argmax(x_noise)
+  batch_size_index, seq_len_index, n_ant_index = np.unravel_index(max_index_flat, x_noise.shape)
+  max_noise_event = x_noise[batch_size_index, :, n_ant_index]
+
+  x = [max_signal_event, max_noise_event]
   title = ['Signal', 'Noise']
 
   if config != None:
@@ -364,21 +377,24 @@ def plot_examples(x, y, config=None, save_path=''):
     if save_path == '':
       save_path = os.getcwd() + '/figures/examples/examples.png'
 
-  fig, ax = plt.subplots(4,2, figsize=(10,10), sharex=True, sharey=True)
+  
+
+  fig, ax = plt.subplots(1,2, figsize=(20,7), sharex=True, sharey=True)
   for j in range(2):
-    for i in range(4):
-      ax[i][j].plot(x[j][0,:,i])
-      tixs1 = np.arange(0, seq_len + 1, seq_len//8)
-      tix_labels = tixs1/2
-      ax[i][j].set_xticks(tixs1)  # Set x-ticks at these locations
-      ax[i][j].set_xticklabels(tix_labels)  # Label x-ticks with these values
-      if i == 3:  # If this is the lowest plot
-        ax[i][j].set_xlabel('Time (ns)')  # Set x-label
-      if i == 0:  # If this is the first row
-        ax[i][j].set_title(f'{title[j]}')  # Set title
-      ax[i][j].axhline(0, color='gray', linestyle='-')  # Highlight y=0 line  
-      ax[i][j].grid(True)   
+
+    ax[j].plot(x[j])
+    tixs1 = np.arange(0, seq_len + 1, seq_len//8)
+    tix_labels = tixs1/2
+    ax[j].set_xticks(tixs1)  # Set x-ticks at these locations
+    ax[j].set_xticklabels(tix_labels)  # Label x-ticks with these values
+    
+    ax[j].set_xlabel('Time (ns)')  # Set x-label
+    
+    ax[j].set_title(f'{title[j]}')  # Set title
+    ax[j].axhline(0, color='gray', linestyle='-')  # Highlight y=0 line  
+    ax[j].grid(True)   
   fig.text(0.005, 0.5, 'V / rms', va='center', rotation='vertical')  # Add common y-label
+  plt.grid()
   plt.tight_layout()  # Make tight layout    
   plt.savefig(save_path)
   plt.clf()
@@ -1015,16 +1031,6 @@ def plot_attention_scores(model, x, y, save_path='/home/halin/Master/Transformer
     except:
       print('No attention scores found')
       return None
-def plot_veff(models):
-
-  for model in models:
-    config = get_model_config(model_num=model, type_of_file='yaml') 
-    lgEs = []
-    avg = []
-    for key, value in config['transformer']['results']['veff'].items():
-      lgEs.append(key)
-      avg.append(value['avg'])
-
 
 
 def plot_hist(values, names, log=False, threshold=None, bins=100, xlim=0, ylim=10000,save_path='/home/halin/Master/Transformer/figures/noise_hist.png'):
@@ -1155,6 +1161,10 @@ def plot_veff(datafiles, plot_path='/home/halin/Master/Transformer/figures/veff.
   markers = itertools.cycle(("s", "P", "o", "^", ">", "X"))
   linestyles = itertools.cycle(("-", "--", ":", "dashdot", (0, (3, 5, 1, 5))))
 
+  plt.rcParams.update({'font.size': 15})  # Change the font size here
+  
+
+
   nrows = 1
   ncols = 1
   fig, ax = plt.subplots(
@@ -1182,12 +1192,13 @@ def plot_veff(datafiles, plot_path='/home/halin/Master/Transformer/figures/veff.
   style.use('seaborn-colorblind')
   ymin, ymax = ax.get_ylim()
   ax.set_ylim(0.9, ymax)
-  ax.legend(prop={"size": 6})
+  ax.legend(prop={"size": 10})
   ax.set_xlabel(r"lg(E$_{\nu}$ / eV)")
   ax.set_ylabel(r"V$_{\rm eff}$ / (" + 'trig 1 Hz' + ")")
   ax.tick_params(axis="both", which="both", direction="in")
   ax.yaxis.set_ticks_position("both")
   ax.xaxis.set_ticks_position("both")
+  ax.grid()
   fig.savefig(plot_path)
 
 def plot_chunked_veff(datafiles, plot_path='/home/halin/Master/Transformer/figures/chunked_veff.png'):

@@ -201,14 +201,15 @@ def validate(y, y_pred, noise_rejection=1e4):
     if (TN + FP) != 0:
       noise_rejection_rate = FP / (TN + FP)
       
-      accuracy = (TP + TN) / len(y)
-      efficiency = TP / np.count_nonzero(y) if np.count_nonzero(y) != 0 else 0
-      precision = TP / (TP + FP) if TP + FP != 0 else 0 
-      recall = TP / (TP + FN) if TP + FN != 0 else 0
-      F1 = 2 * (precision * recall) / (precision + recall) if precision + recall != 0 else 0
-
+  
       
       if noise_rejection_rate < 1/noise_rejection:
+        accuracy = (TP + TN) / len(y)
+        efficiency = TP / np.count_nonzero(y) if np.count_nonzero(y) != 0 else 0
+        precision = TP / (TP + FP) if TP + FP != 0 else 0 
+        recall = TP / (TP + FN) if TP + FN != 0 else 0
+        F1 = 2 * (precision * recall) / (precision + recall) if precision + recall != 0 else 0
+
         print(f"Noise events: {total_number_of_noise:>10}, False signals: {FP:>5}, Noise rejection rate: {noise_rejection_rate:>5.4f}, TP: {TP:>5}, TN: {TN:>5}, FP: {FP:>5}, FN: {FN:>5}")
         return threshold, accuracy, efficiency, precision, recall, F1
     count += 1
@@ -220,13 +221,14 @@ def validate_2(y, y_pred, noise_rejection=1e4):
   totalt_number_of_signals = np.count_nonzero(y)
   total_number_of_noise = len(y) - totalt_number_of_signals
 
-  pred_signal = y_pred[y == 1]
   pred_noise = y_pred[y == 0]
 
   line = np.linspace(0,1,len(pred_noise))
   y_pred_sorted = np.sort(pred_noise)
   threshold_index = np.where(line > (1 - 1/noise_rejection))[0][0]
   threshold = y_pred_sorted[threshold_index]
+
+  
   TP = np.sum(np.logical_and(y == 1, y_pred > threshold))
   TN = np.sum(np.logical_and(y == 0, y_pred < threshold))
   FP = np.sum(np.logical_and(y == 0, y_pred > threshold))

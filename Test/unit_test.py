@@ -481,7 +481,7 @@ if __name__ == '__main__':
         ]
   
     test_dict = {
-                'GSA': [False],
+                #'GSA': [False],
                 # 'projection_type': ['linear', 'cnn'], 
                 # 'activation': ['relu', 'gelu'],
                 # 'normalization': ['layer', 'batch'],
@@ -491,10 +491,10 @@ if __name__ == '__main__':
                 #  'data_type': ['trigger'],
                 # 'encoder_type':['vanilla', 'normal'],
                 # 'max_pool': [True, False],
-                # 'd_model': [32, 128],
-                # 'd_ff': [32, 128],
-                # 'h': [4, 8],
-                # 'N': [2, 3],
+                'd_model': [16, 256],
+                'd_ff': [16, 256],
+                'h': [4],
+                'N': [2, 4],
                 
 
     }

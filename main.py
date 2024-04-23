@@ -38,8 +38,9 @@ def parse_args():
   parser.add_argument('--test', type=bool, help='True or False for test mode. ')
   parser.add_argument('--cuda_device', type=int,help='Which cuda device to use. ')
   parser.add_argument('--config_number', type=int,help='Which config file type to use. Recomend 0')
-  parser.add_argument('--inherit_model', type=int,help='Default 213')
-  parser.add_argument('--retrain', type=bool,help='Default False')
+  parser.add_argument('--resume_training_for_model', default=None, type=int, help='Resume training for model')
+  parser.add_argument('--inherit_model', default=None, type=int, help='Inherit model')
+  
   
   args = parser.parse_args()
 
@@ -59,12 +60,12 @@ def main():
     print(e)  
     args = argparse.Namespace()
     args.start_model_num = None
-    args.epochs = 100
-    args.test = False
-    args.cuda_device = 1
+    args.epochs = 6
+    args.test = True
+    args.cuda_device = 2
     args.config_number = 0
+    args.resume_training_for_model = None
     args.inherit_model = None
-    args.retrain = False
 
 
 
@@ -72,14 +73,16 @@ def main():
   models_path = '/mnt/md0/halin/Models/'
   # 'double_linear', 'single_linear', 'seq_average_linear'
 
-  if args.inherit_model != None and args.retrain == True:
-    old_config = dh.get_model_config(args.inherit_model, type_of_file='yaml' )
+  if args.resume_training_for_model != None:
+    old_config = dh.get_model_config(args.resume_training_for_model, type_of_file='yaml' )
 
     config = old_config.copy()
+    config['transformer']['training']['num_epochs'] = args.epochs
     configs = [config]
+    retraining = True
   else:
     config = get_config(args.config_number)
-
+    retraining = False
     #config = old_config.copy()
     hyper_param = {
                 # 'N':[2]
@@ -90,10 +93,10 @@ def main():
                 # 'h': [16],
                 # 'd_model': [512],
                 # 'd_ff': [256],
-                # 'd_model': [32, 128],
-                # 'd_ff': [32, 128],
-                # 'h': [4, 8],
-                # 'N': [2, 3],
+                # 'd_model': [16, 256],
+                # 'd_ff': [16, 256],
+                # 'h': [4],
+                # 'N': [2, 4],
                   }
 
     # Get all combinations
@@ -184,7 +187,7 @@ def main():
           channels=configs[0]['transformer']['architecture']['n_ant'],
           model_folder=models_path,
           test=args.test,
-          retrained=args.retrain)
+          retraining=retraining,)
   
 def check_directory_exists(file_path):
     return os.path.isdir(file_path)  

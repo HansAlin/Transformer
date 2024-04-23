@@ -17,7 +17,7 @@ from tqdm import tqdm
 import subprocess
 
 import tensorboard
-from models.models import build_encoder_transformer, get_FLOPs, count_parameters, load_model
+from models.models import build_encoder_transformer, get_FLOPs, count_parameters, load_model, get_state
 from dataHandler.datahandler import save_data, save_model, create_model_folder, get_model_path, get_chunked_data, get_trigger_data, get_value
 from evaluate.evaluate import test_model, validate, get_energy
 import lossFunctions.lossFunctions as ll
@@ -31,7 +31,9 @@ def get_least_utilized_gpu():
 
     return gpu_utilization
 
-def training(configs, cuda_device, second_device=None, batch_size=32, channels=4, model_folder='', test=False, retrained=False):
+
+
+def training(configs, cuda_device, second_device=None, batch_size=32, channels=4, model_folder='', test=False, retraining=False):
 
   data_type = configs[0]['transformer']['architecture'].get('data_type', 'chunked')
   if data_type == 'chunked':
@@ -67,7 +69,7 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
         device = torch.device("cpu")
  
     df = pd.DataFrame([], columns= ['Train_loss', 'Val_loss', 'metric', 'Epochs', 'lr'])
-    if not retrained:
+    if not retraining:
       
       config['transformer']['results']['power'  ] = 0 # get_energy(cuda_device) # 
       # config['transformer']['architecture']['output_size'] = output_size #
@@ -79,12 +81,26 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
         optimizer = torch.optim.Adam(model.parameters(), lr=config['transformer']['training']['learning_rate']) #
       
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=config['transformer']['training']['step_size'], gamma=config['transformer']['training']['decreas_factor']) #
+        
+
 
       else:
           print("No model found")
           return None
       
-      
+      warmup = config['transformer']['training'].get('warm_up', False)
+
+      if warmup:
+        lr = config['transformer']['training']['learning_rate']
+        warmup_epochs = 10
+        def lr_lambda(epoch):
+          if epoch < warmup_epochs:
+              return epoch / warmup_epochs 
+          else:
+              return 1
+           
+        warmup_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
+
       config['transformer']['num of parameters']['FLOPs'] = get_FLOPs(model, config) #
       config['transformer']['basic']['model_path'] = create_model_folder(config['transformer']['basic']['model_num'], path=model_folder) # 
       results = count_parameters(model, verbose=False)
@@ -96,15 +112,27 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
       print(f"Number of paramters: {config['transformer']['num of parameters']['num_param']} input: {config['transformer']['num of parameters']['input_param']} encoder: {config['transformer']['num of parameters']['encoder_param']} final: {config['transformer']['num of parameters']['final_param']} pos: {config['transformer']['num of parameters']['pos_param']}")
       initial_epoch = 1
     else:
-      model = build_encoder_transformer(config['transformer']) 
+      model = load_model(config=config, text='last')
+      state = get_state(config=config, text='last')
       optimizer = torch.optim.Adam(model.parameters(), lr=config['transformer']['training']['learning_rate']) #
       scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=config['transformer']['training']['step_size'], gamma=config['transformer']['training']['decreas_factor']) #
 
-      state = torch.load(model_folder + f"model_{config['transformer']['basic']['model_num']}/saved_model/model_{config['transformer']['basic']['model_num']}early_stop.pth") # config['transformer'][architecture]['inherit_model']
-      model.load_state_dict(state['model_state_dict'])
+      warmup = config['transformer']['training'].get('warm_up', False)
+
+      if warmup:
+        lr = config['transformer']['training']['learning_rate']
+        warmup_epochs = 10
+        def lr_lambda(epoch):
+          if epoch < warmup_epochs:
+              return epoch / warmup_epochs 
+          else:
+              return 1
+           
+        warmup_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
+
 
       scheduler.load_state_dict(state['scheduler_state_dict'])
-      initial_epoch = config['transformer']['results']['current_epoch']
+      initial_epoch = config['transformer']['results']['current_epoch'] + 1
       optimizer.load_state_dict(state['optimizer_state_dict'])
       # Move optimizer state to the same device
       for state in optimizer.state.values():
@@ -235,7 +263,14 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
 
       current_lr = optimizer.state_dict()['param_groups'][0]['lr']
       print(f"Learning rate: {current_lr}", end=" ")
-      scheduler.step()
+
+      if warmup:
+        if epoch < warmup_epochs:
+          warmup_scheduler.step()
+        else:
+          scheduler.step()  
+      else:
+        scheduler.step()
 
       #############################################
       # Data saving
@@ -280,6 +315,7 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
     ###########################################
     # Training done                           #
     ###########################################  
+  
     save_model(model, optimizer, scheduler, config, epoch, text='final', threshold=threshold, )  
     writer.close()   
     total_training_time = time.time() - total_time   

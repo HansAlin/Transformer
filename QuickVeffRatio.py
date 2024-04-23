@@ -52,192 +52,13 @@ def parse_args():
     return args
 
 
- 
-try:
-    
-    args = parse_args()
-    models = args.models
-    save_path = args.save_path
-    device = args.cuda_device
-    test = False
-    transformer_models = {}
-
-    for model_num in models:
-        config = get_model_config(model_num=model_num)
-        data_type = get_value(config, 'data_type')
-        best_epoch = get_value(config, 'best_epoch')
-
-        transformer_models[f'{model_num}_best'] = f'{model_num}_{best_epoch}.pth'
-    print(f"Models: {transformer_models}")
-
-except Exception as e:
-    print(f"Caught an exception: {e}")
-    test =  True
-    save_path = '/home/halin/Master/Transformer/figures/QuickVeffRatio_efficiency_test.png'
-    device = 2
-    data_path = 'phased'
-    transformer_models = {
-        '400_best': '400_10.pth',
-        '401_best': '401_10.pth',
-    }
-    print(f"Models: {transformer_models}")
-
-
-
-
-
-
-extra_identifier = ''
-
-model_dict = {}
-for model_num in transformer_models.keys():
-    model_dict[str(model_num)] = { 
-                       'count': 0, 
-                       'time': 0,
-                       'total_signals': 0,
-                       'predicted_signals': 0}
-
-best_model_dict = dict()
-
 def qualitative_colors(length, darkening_factor=0.6):
     colors = [cm.Set3(i) for i in np.linspace(0, 1, length)]
     darker_colors = [(r*darkening_factor, g*darkening_factor, b*darkening_factor, a) for r, g, b, a in colors]
     return darker_colors
 
 
-
-torch.cuda.set_device(device)
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"Using device: {device}, name of GPU: {torch.cuda.get_device_name(device=device)}")
-  
-
-if data_type == 'chunked':
-    data_path = '/mnt/md0/acoleman/rno-g/signal-generation/data/npy-files/veff/fLow_0.08-fhigh_0.23-rate_0.5/CDF_0.7/'
-    file_list=glob.glob(os.path.join(data_path, "*.npz"))
-elif data_type == 'trigger':    
-    #data_path = '/home/acoleman/data/rno-g/signal-generation/data/npy-files/veff/fLow_0.08-fhigh_0.23-rate_0.5/CDF_0.7/'
-    data_path = '/mnt/md0/data/trigger-development/rno-g/veff/fLow_0.08-fhigh_0.23-rate_0.5/prod_2023.10.22/CDF_0.7/'
-    file_list = glob.glob(data_path+'VeffData_nu_*.npz')
-elif data_type == 'phased':
-    data_path = '/mnt/md0/data/trigger-development/rno-g/veff/fLow_0.096-fhigh_0.22-rate_0.5/prod_2023.06.08/CDF_1.0/'
-    file_list = glob.glob(data_path+'VeffData_nu_*.npz')
-
-
-for file in file_list:
-    print(file)
-
-
-if test:
-    file_list = file_list[:3]
-
-for file in file_list:
-    print(file)
-
-
-sampling_string = data_path.split("/")[-4]
-band_flow = float(sampling_string.split("-")[0].split("_")[1])
-band_fhigh = float(sampling_string.split("-")[1].split("_")[1])
-sampling_rate = float(sampling_string.split("-")[2].split("_")[1])
-rms_noise = GetRMSNoise(band_flow, band_fhigh, sampling_rate, 300 * units.kelvin)
-print(f"Scaling all values by 1 / {rms_noise / (1e-6 * units.volt):0.4f} uV to normalize to SNR")
-
-
-def GetRnnTriggers(waveforms, labels, model):
-    """
-    waveforms: (N x 4 x time) should already be on "device"
-    labels: (N x time) should already be on "device"
-    model: dict with the model info and the config
-    """
-    predictions = torch.empty((labels.shape[0], labels.shape[1]))
-    triggers = np.zeros((len(predictions)))
-
-    with torch.no_grad():
-        h = model["model"].init_hidden(1).to(device)
-        for i in range(len(waveforms)):
-            yhat, h = model["model"](waveforms[i].unsqueeze(0), h.detach())
-            predictions[i] = yhat.cpu().squeeze()
-
-    threshold = model["config"]["trigger"]["tot_thresh"]
-    tot_bins = model["config"]["trigger"]["tot_bins"]
-
-    for i in range(len(predictions)):
-        n_sig, tp, n_noise, fp = tot.CalculateTriggerTorch(threshold, tot_bins, predictions[i], labels[i], 50, 50, 50)
-        triggers[i] = tp > 0
-
-    return triggers
-
-
-def GetCnnTriggers(waveforms, trigger_times, model, pre_trig):
-    """
-    waveforms: (N x 4 x time) should already be on "device"
-    trigger_times: (N) time in ns of each trigger to know where to cut
-    model: dict with the model info and the config
-    pre_trig: list of indexes where the pre-triggers are
-    """
-    triggers = np.zeros((len(waveforms)))
-
-    target_length = model["config"]["input_length"]
-    sampling_rate = model["config"]["sampling"]["rate"]
-    upsampling = model["config"]["training"]["upsampling"]
-    frac_into_waveform = model["config"]["training"]["start_frac"]
-
-    current_length = waveforms.shape[1]
-    assert current_length >= target_length
-
-    pct_pass = 0
-
-    with torch.no_grad():
-        for i in pre_trig:
-            this_wvf = waveforms[i]
-
-            t0 = trigger_times[i]
-            trig_bin = int(t0 * sampling_rate * upsampling)
-            cut_low_bin = int(trig_bin - target_length * frac_into_waveform)
-
-            if cut_low_bin < 0:
-                this_wvf.roll(cut_low_bin, dims=-1)
-                cut_low_bin = 0
-            cut_high_bin = cut_low_bin + target_length
-
-            if cut_high_bin >= current_length:
-                backup = cut_high_bin - current_length
-                cut_high_bin -= backup
-                cut_low_bin -= backup
-
-            try:
-                yhat = model["model"](this_wvf[cut_low_bin:cut_high_bin].swapaxes(0, 1).unsqueeze(0))
-                triggers[i] = yhat.cpu().squeeze() > model["config"]["trigger"]["threshold"] * 0.95
-                pct_pass += 1 * triggers[i]
-            except Exception as e:
-                print("Yhat failed for ", this_wvf[cut_low_bin:cut_high_bin].swapaxes(0, 1).unsqueeze(0).shape)
-                print(trig_bin, cut_low_bin, cut_high_bin, current_length)
-                continue
-
-    pct_pass /= len(pre_trig)
-    return triggers, pct_pass
-
-
-
-n_snr_bins = 20
-snr_edges = np.linspace(1.0, 9, n_snr_bins + 1)
-snr_centers = 0.5 * (snr_edges[1:] + snr_edges[:-1])
-
-all_dat = dict()
-
-####################################
-######### Load up all the models
-####################################
-reference_trigger = "trig_1Hz"
-pre_trigger = "trig_10kHz"
-standard_triggers = [reference_trigger, pre_trigger]
-rnn_model_filenames = []
-cnn_model_filenames = []
-chunked_model_filenames = []
-
-all_models = dict()
-
-
-def LoadModel(filename, model_list):
+def LoadModel(filename, model_list, device):
     config = GetConfig(filename)
     name = config["name"]
     model_list[name] = dict()
@@ -247,7 +68,7 @@ def LoadModel(filename, model_list):
     model_list[name]["model"].eval()
     return name
 
-def LoadTransformerModel(model_name, model_list, text):
+def LoadTransformerModel(model_name, model_list, text, device):
     model_num = int(text.split('_')[0])
     config = get_model_config(model_num=model_num, type_of_file='yaml', )
 
@@ -280,329 +101,406 @@ def LoadTransformerModel(model_name, model_list, text):
     model_list[name]["model"].eval()
     return name
 
+def veff(models, device, save_path=None, test=False): 
+    
+    if type(models) == list or type(models) == int:
 
-for filename in cnn_model_filenames:
-    name = LoadModel(filename, all_models)
-    all_models[name]["type"] = "CNN"
+        if type(models) == int:
+            config = get_model_config(model_num=models)
 
-for filename in rnn_model_filenames:
-    name = LoadModel(filename, all_models)
-    all_models[name]["type"] = "RNN"
+            if save_path is None:
+                save_path = get_value(config, 'model_path') + 'plot/'
+            
+            models = [models]
+        else:
+            if save_path is None:
+                save_path = '/home/halin/Master/Transformer/figures/veff/'
 
-for filename in chunked_model_filenames:
-    name = LoadModel(filename, all_models)
-    all_models[name]["type"] = "Chunk"
 
-for model_name, model_type in transformer_models.items():
-    name = LoadTransformerModel(model_name, all_models, text=model_type)
-    all_models[name]["type"] = "Transformer"
+        transformer_models = {}
+
+        for model_num in models:
+            config = get_model_config(model_num=model_num)
+            data_type = get_value(config, 'data_type')
+            best_epoch = get_value(config, 'best_epoch')
+
+            transformer_models[f'{model_num}_best'] = f'{model_num}_{best_epoch}.pth'
+        print(f"Models: {transformer_models}")
+
+    elif type(models) == dict:
+
+        transformer_models = models
+        print(f"Models: {transformer_models}")
+
+
+    extra_identifier = ''
+
+    model_dict = {}
+    for model_num in transformer_models.keys():
+        model_dict[str(model_num)] = { 
+                        'count': 0, 
+                        'time': 0,
+                        'total_signals': 0,
+                        'predicted_signals': 0}
+
+    best_model_dict = dict()
+
+
+
+
+    torch.cuda.set_device(device)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}, name of GPU: {torch.cuda.get_device_name(device=device)}")
     
 
+    if data_type == 'chunked':
+        data_path = '/mnt/md0/acoleman/rno-g/signal-generation/data/npy-files/veff/fLow_0.08-fhigh_0.23-rate_0.5/CDF_0.7/'
+        file_list=glob.glob(os.path.join(data_path, "*.npz"))
+    elif data_type == 'trigger':    
+        #data_path = '/home/acoleman/data/rno-g/signal-generation/data/npy-files/veff/fLow_0.08-fhigh_0.23-rate_0.5/CDF_0.7/'
+        data_path = '/mnt/md0/data/trigger-development/rno-g/veff/fLow_0.08-fhigh_0.23-rate_0.5/prod_2023.11.27/CDF_0.7/'
+        file_list = glob.glob(data_path+'VeffData_nu_*.npz')
+    elif data_type == 'phased':
+        data_path = '/mnt/md0/data/trigger-development/rno-g/veff/fLow_0.096-fhigh_0.22-rate_0.5/prod_2024.04.12/CDF_1.0/'
+        file_list = glob.glob(data_path+'VeffData_nu_*.npz')
 
-####################################
-####################################
 
-for filename in file_list:
-    print(filename)
+    if test:
+        file_list = file_list[:2]
 
-    best_pred = 0
+    for file in file_list:
+        print(file)
 
-    basename = os.path.basename(filename)
-    flavor = basename.split("_")[2]
-    current = basename.split("_")[3]
-    lgE = float(basename.split("_")[4][:-6])
 
-    #############
-    ## Init dicts
-    #############
-    if not lgE in all_dat.keys():
-        all_dat[lgE] = dict()
+    sampling_string = data_path.split("/")[-4]
+    band_flow = float(sampling_string.split("-")[0].split("_")[1])
+    band_fhigh = float(sampling_string.split("-")[1].split("_")[1])
+    sampling_rate = float(sampling_string.split("-")[2].split("_")[1])
+    rms_noise = GetRMSNoise(band_flow, band_fhigh, sampling_rate, 300 * units.kelvin)
+    print(f"Scaling all values by 1 / {rms_noise / (1e-6 * units.volt):0.4f} uV to normalize to SNR")
 
-    if not flavor in all_dat[lgE].keys():
-        all_dat[lgE][flavor] = dict()
 
-    if not current in all_dat[lgE][flavor].keys():
-        all_dat[lgE][flavor][current] = dict()
+    n_snr_bins = 20
+    snr_edges = np.linspace(1.0, 9, n_snr_bins + 1)
+    snr_centers = 0.5 * (snr_edges[1:] + snr_edges[:-1])
 
-        all_dat[lgE][flavor][current]["volume"] = 0
-        all_dat[lgE][flavor][current]["n_tot"] = 0
-        all_dat[lgE][flavor][current]["weight_total"] = 0
+    all_dat = dict()
 
-        for trig_name in standard_triggers + list(all_models.keys()):
-            all_dat[lgE][flavor][current][trig_name] = dict()
-            all_dat[lgE][flavor][current][trig_name]["weight"] = 0
-            all_dat[lgE][flavor][current][trig_name]["snr_trig"] = np.zeros((2, n_snr_bins))
+    ####################################
+    ######### Load up all the models
+    ####################################
+    reference_trigger = "trig_1Hz"
+    pre_trigger = "trig_10kHz"
+    standard_triggers = [reference_trigger, pre_trigger, 'trig_2sigma', 'trig_3sigma']
+    rnn_model_filenames = []
+    cnn_model_filenames = []
+    chunked_model_filenames = []
 
-    ## Read in data
-    file_dat = np.load(filename)
-    print("\tLoaded!", file_dat["wvf"].shape)
+    all_models = dict()
 
-    all_dat[lgE][flavor][current]["volume"] = file_dat["volume"]
-    all_dat[lgE][flavor][current]["n_tot"] += file_dat["n_tot"]
-    all_dat[lgE][flavor][current]["weight_total"] += np.sum(file_dat["weight"])
 
-    # Take the largest value of all antennas
-    snr_values = np.max(file_dat["snr"], axis=-1)
 
-    ## Calculate the normal triggers
-    for std_trig_name in standard_triggers:
-        trig_mask = file_dat[std_trig_name].astype(bool)
-        all_dat[lgE][flavor][current][std_trig_name]["weight"] += np.sum(file_dat["weight"][trig_mask])
 
-        passing_snrs = snr_values[trig_mask]
-        for snr in passing_snrs:
-            if snr > snr_edges[-1] or snr < snr_edges[0]:
-                continue
-            i_pass = np.argmin(np.abs(snr - snr_centers))
-            all_dat[lgE][flavor][current][std_trig_name]["snr_trig"][0, i_pass] += np.sum(file_dat["weight"][trig_mask])
 
-        for snr in snr_values[trig_mask]:
-            if snr > snr_edges[-1] or snr < snr_edges[0]:
-                continue
-            i_all = np.argmin(np.abs(snr - snr_centers))
-            all_dat[lgE][flavor][current][std_trig_name]["snr_trig"][1, i_all] += np.sum(file_dat["weight"])
+    for filename in cnn_model_filenames:
+        name = LoadModel(filename, all_models, device)
+        all_models[name]["type"] = "CNN"
 
-    print("\tConverting to tensor")
-    waveforms = torch.Tensor(file_dat["wvf"].swapaxes(1, 2) / rms_noise).to(device)
+    for filename in rnn_model_filenames:
+        name = LoadModel(filename, all_models, device)
+        all_models[name]["type"] = "RNN"
 
-    ## Join the labels across channels
-    signal_labels = file_dat["label"]
-    signal_labels = np.max(signal_labels, axis=1)
-    for i in range(len(signal_labels)):
-        ones = np.where(signal_labels[i] > 0)[0]
-        if len(ones):
-            signal_labels[i, min(ones) : max(ones)] = 1
-    signal_labels = torch.Tensor(signal_labels).to(device)
+    for filename in chunked_model_filenames:
+        name = LoadModel(filename, all_models, device)
+        all_models[name]["type"] = "Chunk"
 
-    trigger_times = file_dat["trig_time"]
-    best_model = None
-    for ml_trig_name in all_models.keys():
-        print(f"\t{ml_trig_name}")
-        if all_models[ml_trig_name]["type"] == "RNN":
-            triggers = GetRnnTriggers(waveforms, signal_labels, all_models[ml_trig_name])
-            n_rnn_trig = int(sum(triggers))
-            n_ref_trig = int(sum(file_dat[standard_triggers[0]].astype(bool)))
-            n_or_trig = int(sum(np.bitwise_or(triggers.astype(bool), file_dat[standard_triggers[0]].astype(bool))))
-            print(f"\t  N_rnn: {n_rnn_trig}, N_ref: {n_ref_trig}, N_or: {n_or_trig}, % improve {n_or_trig / n_ref_trig:0.2f}")
-
-        elif all_models[ml_trig_name]["type"] == "CNN":
-
-            # Calculate "good" pre-trig events
-            pre_trig = file_dat[pre_trigger].astype(bool)
-
-            triggers, pct_pass = GetCnnTriggers(
-                waveforms, trigger_times, all_models[ml_trig_name], pre_trig=np.argwhere(pre_trig).squeeze()
-            )
-
-            n_pre_trig = int(sum(pre_trig))
-            n_cnn_trig = int(sum(triggers))
-            n_ref_trig = int(sum(file_dat[standard_triggers[0]].astype(bool)))
-            n_or_trig = int(sum(np.bitwise_or(triggers.astype(bool), file_dat[standard_triggers[0]].astype(bool))))
-            print(
-                f"\t  N_pre: {n_pre_trig}, N_cnn: {n_cnn_trig}, N_ref: {n_ref_trig}, N_or: {n_or_trig}, %det {n_cnn_trig / n_pre_trig:0.2f}, % improve {n_or_trig / n_ref_trig:0.2f}"
-            )
-
-            triggers = np.bitwise_and(triggers.astype(bool), pre_trig)
-
-        elif all_models[ml_trig_name]["type"] == "Transformer":
-                        # Calculate "good" pre-trig events
-            test_variable = file_dat[pre_trigger]
-            pre_trig = file_dat[pre_trigger].astype(bool)
-            start_time = time.time()
-            triggers, pct_pass = get_transformer_triggers(
-                waveforms, trigger_times, all_models[ml_trig_name], pre_trig=np.argwhere(pre_trig).squeeze()
-            )
-            elapsed_time = time.time() - start_time
-            
-            n_pre_trig = int(sum(pre_trig)) # Number of true positive events from pre-trigger 'trig_10kHz'
-            n_transform_trig = int(sum(triggers)) # Number of true positive events from transformer
-            n_ref_trig = int(sum(file_dat[standard_triggers[0]].astype(bool))) # Number of true positive events from pre-trigger 'trig_1Hz'
-            n_or_trig = int(sum(np.bitwise_or(triggers.astype(bool), file_dat[standard_triggers[0]].astype(bool))))
-            print(
-                f"\t  N_pre: {n_pre_trig}, N_trans: {n_transform_trig}, N_ref: {n_ref_trig}, N_or: {n_or_trig}, %det {n_transform_trig / n_pre_trig:0.2f}, % improve {n_or_trig / n_ref_trig:0.2f}, time: {elapsed_time:0.2f}"
-            )
-            model_dict[ml_trig_name]['predicted_signals'] += n_transform_trig
-            model_dict[ml_trig_name]['total_signals'] += n_pre_trig
-            model_dict[ml_trig_name]['time'] += elapsed_time
-            if n_transform_trig > best_pred:
-                best_pred = n_transform_trig
-                best_model = ml_trig_name
-                
-
-            triggers = np.bitwise_and(triggers.astype(bool), pre_trig)
-
-        elif all_models[ml_trig_name]["type"] == "Chunk":
-            triggers = GetChunkTriggers(waveforms, signal_labels, all_models[ml_trig_name])
-
-        else:
-            print("Type", all_models[ml_trig_name]["type"], "is unknown")
-            assert False
-
-        ## Perform an OR with the reference trigger
-        # print(f"filedat: {file_dat.files}") 
-        # for file in file_dat.files:
-        #     print(f"{file}: {file_dat[file].shape}")
-        # true_true = np.sum(np.logical_and(triggers,                                    file_dat[standard_triggers[1]]))
-        # true_false = np.sum(np.logical_and(triggers,                    np.logical_not(file_dat[standard_triggers[1]])))
-        # false_true = np.sum(np.logical_and(np.logical_not(triggers),                   file_dat[standard_triggers[1]])) 
-        # false_false = np.sum(np.logical_and(np.logical_not(triggers),   np.logical_not(file_dat[standard_triggers[1]])))
-
-        # print(f"True True: {true_true}, True False: {true_false}, False True: {false_true}, False False: {false_false}")
-        # labels = np.any(file_dat['label'], axis=(1,2))
-        # signals = np.sum(labels)  
-
-        trig_mask = np.bitwise_or(triggers.astype(bool), file_dat[standard_triggers[0]].astype(bool)).astype(bool)
-        all_dat[lgE][flavor][current][ml_trig_name]["weight"] += np.sum(file_dat["weight"][trig_mask])
-
-        passing_snrs = snr_values[trig_mask]
-        for snr in passing_snrs:
-            if snr > snr_edges[-1] or snr < snr_edges[0]:
-                continue
-            i_pass = np.argmin(np.abs(snr - snr_centers))
-            all_dat[lgE][flavor][current][ml_trig_name]["snr_trig"][0, i_pass] += np.sum(file_dat["weight"][trig_mask])
-
-        for snr in snr_values[trig_mask]:
-            if snr > snr_edges[-1] or snr < snr_edges[0]:
-                continue
-            i_all = np.argmin(np.abs(snr - snr_centers))
-            all_dat[lgE][flavor][current][ml_trig_name]["snr_trig"][1, i_all] += np.sum(file_dat["weight"])
-    model_dict[best_model]['count'] += 1
-
+    for model_name, model_type in transformer_models.items():
+        name = LoadTransformerModel(model_name, all_models, text=model_type, device=device)
+        all_models[name]["type"] = "Transformer"
         
 
-avg_veff = dict()
-for trig_name in standard_triggers + list(all_models.keys()):
-    avg_veff[trig_name] = []
 
-lgEs = []
+    ####################################
+    ####################################
 
-for lgE in all_dat.keys():
-    lgEs.append(lgE)
+    for filename in file_list:
+        print(filename)
 
-    for trig_name in standard_triggers + list(all_models.keys()):
-        avg_veff[trig_name].append(0.0)
+        best_pred = 0
 
-    for flavor in all_dat[lgE].keys():
-        for current in all_dat[lgE][flavor].keys():
+        basename = os.path.basename(filename)
+        flavor = basename.split("_")[2]
+        current = basename.split("_")[3]
+        lgE = float(basename.split("_")[4][:-6])
+
+        #############
+        ## Init dicts
+        #############
+        if not lgE in all_dat.keys():
+            all_dat[lgE] = dict()
+
+        if not flavor in all_dat[lgE].keys():
+            all_dat[lgE][flavor] = dict()
+
+        if not current in all_dat[lgE][flavor].keys():
+            all_dat[lgE][flavor][current] = dict()
+
+            all_dat[lgE][flavor][current]["volume"] = 0
+            all_dat[lgE][flavor][current]["n_tot"] = 0
+            all_dat[lgE][flavor][current]["weight_total"] = 0
 
             for trig_name in standard_triggers + list(all_models.keys()):
-                avg_veff[trig_name][-1] += (
-                    all_dat[lgE][flavor][current][trig_name]["weight"] / all_dat[lgE][flavor][current]["n_tot"]
+                all_dat[lgE][flavor][current][trig_name] = dict()
+                all_dat[lgE][flavor][current][trig_name]["weight"] = 0
+                all_dat[lgE][flavor][current][trig_name]["snr_trig"] = np.zeros((2, n_snr_bins))
+
+        ## Read in data
+        file_dat = np.load(filename)
+        print("\tLoaded!", file_dat["wvf"].shape)
+
+        all_dat[lgE][flavor][current]["volume"] = file_dat["volume"]
+        all_dat[lgE][flavor][current]["n_tot"] += file_dat["n_tot"]
+        all_dat[lgE][flavor][current]["weight_total"] += np.sum(file_dat["weight"])
+
+        # Take the largest value of all antennas
+        snr_values = np.max(file_dat["snr"], axis=-1)
+
+        updated_standard_triggers = []
+        for standard_trigger in standard_triggers:
+            for key in file_dat.keys():
+                if standard_trigger in key:
+                    updated_standard_triggers.append(standard_trigger)
+
+        standard_triggers = updated_standard_triggers        
+
+        ## Calculate the normal triggers
+        for std_trig_name in standard_triggers:
+            trig_mask = file_dat[std_trig_name].astype(bool)
+            detected_pre_trig_events = np.sum(file_dat["weight"][trig_mask])
+            print(f"\t{std_trig_name}: {detected_pre_trig_events} events")  
+            all_dat[lgE][flavor][current][std_trig_name]["weight"] += detected_pre_trig_events
+
+            passing_snrs = snr_values[trig_mask]
+            for snr in passing_snrs:
+                if snr > snr_edges[-1] or snr < snr_edges[0]:
+                    continue
+                i_pass = np.argmin(np.abs(snr - snr_centers))
+                all_dat[lgE][flavor][current][std_trig_name]["snr_trig"][0, i_pass] += np.sum(file_dat["weight"][trig_mask])
+
+            for snr in snr_values[trig_mask]:
+                if snr > snr_edges[-1] or snr < snr_edges[0]:
+                    continue
+                i_all = np.argmin(np.abs(snr - snr_centers))
+                all_dat[lgE][flavor][current][std_trig_name]["snr_trig"][1, i_all] += np.sum(file_dat["weight"])
+
+        print("\tConverting to tensor")
+        waveforms = torch.Tensor(file_dat["wvf"].swapaxes(1, 2) / rms_noise).to(device)
+
+        ## Join the labels across channels
+        signal_labels = file_dat["label"]
+        signal_labels = np.max(signal_labels, axis=1)
+        for i in range(len(signal_labels)):
+            ones = np.where(signal_labels[i] > 0)[0]
+            if len(ones):
+                signal_labels[i, min(ones) : max(ones)] = 1
+        signal_labels = torch.Tensor(signal_labels).to(device)
+
+        trigger_times = file_dat["trig_time"]
+        best_model = None
+        for ml_trig_name in all_models.keys():
+            print(f"\t{ml_trig_name}")
+            if all_models[ml_trig_name]["type"] == "Transformer":
+                            # Calculate "good" pre-trig events
+                test_variable = file_dat[pre_trigger]
+                pre_trig = file_dat[pre_trigger].astype(bool)
+                start_time = time.time()
+                triggers, pct_pass = get_transformer_triggers(
+                    waveforms, trigger_times, all_models[ml_trig_name], pre_trig=np.argwhere(pre_trig).squeeze()
                 )
-print("Results:")
-model_num_str = ''
-for model_num in model_dict.keys():
-    model_num_str += f'{model_num}_'
-    print(f"Model number: {model_num}, count: {model_dict[model_num]['count']:>5}, time: {model_dict[model_num]['time']:>7.0f}, total signals: {model_dict[model_num]['total_signals']:>7}, predicted signals: {model_dict[model_num]['predicted_signals']:>7}, Fraction: {model_dict[model_num]['predicted_signals']/model_dict[model_num]['total_signals']:>0.3f}")                
-pd.DataFrame(model_dict).to_pickle(f'/home/halin/Master/Transformer/Test/data/veff_model_{model_num_str}dict.pkl')
-if test:
-    plot = input("Plot? y/n: ")
-    if plot == 'n':
-        sys.exit()
+                elapsed_time = time.time() - start_time
+                
+                n_pre_trig = int(sum(pre_trig)) # Number of true positive events from pre-trigger 'trig_10kHz'
+                n_transform_trig = int(sum(triggers)) # Number of true positive events from transformer
+                n_ref_trig = int(sum(file_dat[standard_triggers[0]].astype(bool))) # Number of true positive events from pre-trigger 'trig_1Hz'
+                n_or_trig = int(sum(np.bitwise_or(triggers.astype(bool), file_dat[standard_triggers[0]].astype(bool))))
+                print(
+                    f"\t  N_pre: {n_pre_trig}, N_trans: {n_transform_trig}, N_ref: {n_ref_trig}, N_or: {n_or_trig}, %det {n_transform_trig / n_pre_trig:0.2f}, % improve {n_or_trig / n_ref_trig:0.2f}, time: {elapsed_time:0.2f}"
+                )
+                model_dict[ml_trig_name]['predicted_signals'] += n_transform_trig
+                model_dict[ml_trig_name]['total_signals'] += n_pre_trig
+                model_dict[ml_trig_name]['time'] += elapsed_time
+                if n_transform_trig > best_pred:
+                    best_pred = n_transform_trig
+                    best_model = ml_trig_name
+                    
 
-colors = qualitative_colors(len(standard_triggers) + len(list(all_models.keys())))
-markers = itertools.cycle(("s", "P", "o", "^", ">", "X"))
-linestyles = itertools.cycle(("-", "--", ":", "dashdot", (0, (3, 5, 1, 5))))
+                triggers = np.bitwise_and(triggers.astype(bool), pre_trig)
 
-nrows = 1
-ncols = 1
-fig, ax = plt.subplots(
-    ncols=ncols, nrows=nrows, figsize=(ncols * 15 * 0.7, nrows * 10 * 0.7), gridspec_kw={"wspace": 0.2, "hspace": 0.2}
-)
+            elif all_models[ml_trig_name]["type"] == "Chunk":
+                triggers = GetChunkTriggers(waveforms, signal_labels, all_models[ml_trig_name])
 
-avg_snr_vals = dict()
-for trig_name in standard_triggers + list(all_models.keys()):
-    avg_snr_vals[trig_name] = np.zeros_like(snr_centers)
+            else:
+                print("Type", all_models[ml_trig_name]["type"], "is unknown")
+                assert False
 
-for lgE in all_dat.keys():
-    for flavor in all_dat[lgE].keys():
-        for current in all_dat[lgE][flavor].keys():
+    
 
-            for trig_name in standard_triggers + list(all_models.keys()):
-                avg_snr_vals[trig_name] += all_dat[lgE][flavor][current][trig_name]["snr_trig"][0]
+            trig_mask = np.bitwise_or(triggers.astype(bool), file_dat[standard_triggers[0]].astype(bool)).astype(bool)
+            all_dat[lgE][flavor][current][ml_trig_name]["weight"] += np.sum(file_dat["weight"][trig_mask])
 
+            passing_snrs = snr_values[trig_mask]
+            for snr in passing_snrs:
+                if snr > snr_edges[-1] or snr < snr_edges[0]:
+                    continue
+                i_pass = np.argmin(np.abs(snr - snr_centers))
+                all_dat[lgE][flavor][current][ml_trig_name]["snr_trig"][0, i_pass] += np.sum(file_dat["weight"][trig_mask])
 
-for i, trig_name in enumerate(standard_triggers + list(all_models.keys())):
-    linestyle = next(linestyles)
-    ax.step(
-        snr_centers,
-        avg_snr_vals[trig_name],
-        where="mid",
-        label=trig_name.replace("_", " ").replace("trig", "Standard trig"),
-        c=colors[i],
-        linestyle=linestyle,
+            for snr in snr_values[trig_mask]:
+                if snr > snr_edges[-1] or snr < snr_edges[0]:
+                    continue
+                i_all = np.argmin(np.abs(snr - snr_centers))
+                all_dat[lgE][flavor][current][ml_trig_name]["snr_trig"][1, i_all] += np.sum(file_dat["weight"])
+        if best_model is not None:        
+            model_dict[best_model]['count'] += 1
+
+            
+
+    avg_veff = dict()
+    for trig_name in standard_triggers + list(all_models.keys()):
+        avg_veff[trig_name] = []
+
+    lgEs = []
+
+    for lgE in all_dat.keys():
+        lgEs.append(lgE)
+
+        for trig_name in standard_triggers + list(all_models.keys()):
+            avg_veff[trig_name].append(0.0)
+
+        for flavor in all_dat[lgE].keys():
+            for current in all_dat[lgE][flavor].keys():
+
+                for trig_name in standard_triggers + list(all_models.keys()):
+                    avg_veff[trig_name][-1] += (
+                        all_dat[lgE][flavor][current][trig_name]["weight"] / all_dat[lgE][flavor][current]["n_tot"]
+                    )
+    print("Results:")
+    model_num_str = ''
+    for model_num in model_dict.keys():
+        model_num_str += f'{model_num}_'
+        print(f"Model number: {model_num}, count: {model_dict[model_num]['count']:>5}, time: {model_dict[model_num]['time']:>7.0f}, total signals: {model_dict[model_num]['total_signals']:>7}, predicted signals: {model_dict[model_num]['predicted_signals']:>7}, Fraction: {model_dict[model_num]['predicted_signals']/model_dict[model_num]['total_signals']:>0.3f}")      
+
+    pd.DataFrame(model_dict).to_pickle(save_path + f'veff_model_{model_num_str}dict.pkl')
+
+    # if test:
+    #     plot = input("Plot? y/n: ")
+    #     if plot == 'n':
+    #         sys.exit()
+
+    colors = qualitative_colors(len(standard_triggers) + len(list(all_models.keys())))
+    markers = itertools.cycle(("s", "P", "o", "^", ">", "X"))
+    linestyles = itertools.cycle(("-", "--", ":", "dashdot", (0, (3, 5, 1, 5))))
+
+    nrows = 1
+    ncols = 1
+    fig, ax = plt.subplots(
+        ncols=ncols, nrows=nrows, figsize=(ncols * 15 * 0.7, nrows * 10 * 0.7), gridspec_kw={"wspace": 0.2, "hspace": 0.2}
     )
 
-ax.set_xlabel("SNR")
-ax.set_ylabel("Weighted Counts (arb)")
-ax.set_yscale("log")
-ax.set_xlim(0, max(snr_edges))
-ax.legend(prop={"size": "x-small"})
-plot_name = ''
-for model_num in transformer_models:
-    plot_name += f'_{model_num}'
+    avg_snr_vals = dict()
+    for trig_name in standard_triggers + list(all_models.keys()):
+        avg_snr_vals[trig_name] = np.zeros_like(snr_centers)
 
-plot_name += f"{extra_identifier}"  
-if save_path == '':  
-    filename = os.path.join(ABS_PATH_HERE, "figures/", f"EfficiencyVsSNR{plot_name}.png")
-else:
-    filename = save_path
-print("Saving", filename)
-fig.savefig(filename, bbox_inches="tight")
-plt.close()
+    for lgE in all_dat.keys():
+        for flavor in all_dat[lgE].keys():
+            for current in all_dat[lgE][flavor].keys():
+
+                for trig_name in standard_triggers + list(all_models.keys()):
+                    avg_snr_vals[trig_name] += all_dat[lgE][flavor][current][trig_name]["snr_trig"][0]
 
 
-colors = qualitative_colors(len(standard_triggers) + len(list(all_models.keys())))
-markers = itertools.cycle(("s", "P", "o", "^", ">", "X"))
-linestyles = itertools.cycle(("-", "--", ":", "dashdot", (0, (3, 5, 1, 5))))
+    for i, trig_name in enumerate(standard_triggers + list(all_models.keys())):
+        linestyle = next(linestyles)
+        ax.step(
+            snr_centers,
+            avg_snr_vals[trig_name],
+            where="mid",
+            label=trig_name.replace("_", " ").replace("trig", "Standard trig"),
+            c=colors[i],
+            linestyle=linestyle,
+        )
 
-nrows = 1
-ncols = 1
-fig, ax = plt.subplots(
-    ncols=ncols, nrows=nrows, figsize=(ncols * 15 * 0.7, nrows * 10 * 0.7), gridspec_kw={"wspace": 0.2, "hspace": 0.2}
-)
+    ax.set_xlabel("SNR")
+    ax.set_ylabel("Weighted Counts (arb)")
+    ax.set_yscale("log")
+    ax.set_xlim(0, max(snr_edges))
+    ax.legend(prop={"size": "x-small"})
+    plot_name = ''
+    for model_num in transformer_models:
+        plot_name += f'_{model_num}'
 
-sorting_index = np.argsort(lgEs)
-lgEs = np.array(lgEs)[sorting_index]
-npz_file = {}
-npz_file['lgEs'] = lgEs
-
-for i, name in enumerate(standard_triggers + list(all_models.keys())):
-    marker = next(markers)
-    linestyle = next(linestyles)
-
-    avg = np.array(avg_veff[name]) / np.array(avg_veff[reference_trigger])
+    plot_name += f"{extra_identifier}"  
+   
+    filename = os.path.join(save_path, f"EfficiencyVsSNR{plot_name}.png")
+    
+    print("Saving", filename)
+    fig.savefig(filename, bbox_inches="tight")
+    plt.close()
 
 
-    avg = np.array(avg)[sorting_index]
-    npz_file[name] = avg
+    colors = qualitative_colors(len(standard_triggers) + len(list(all_models.keys())))
+    markers = itertools.cycle(("s", "P", "o", "^", ">", "X"))
+    linestyles = itertools.cycle(("-", "--", ":", "dashdot", (0, (3, 5, 1, 5))))
 
-    print(lgEs)
-    print(avg)
-
-    ax.plot(
-        lgEs,
-        avg,
-        label=name.replace("_", " "),
-        color=colors[i],
-        marker=marker,
-        #linestyle=linestyle,
+    nrows = 1
+    ncols = 1
+    fig, ax = plt.subplots(
+        ncols=ncols, nrows=nrows, figsize=(ncols * 15 * 0.7, nrows * 10 * 0.7), gridspec_kw={"wspace": 0.2, "hspace": 0.2}
     )
-style.use('seaborn-colorblind')
-ymin, ymax = ax.get_ylim()
-ax.set_ylim(0.9, ymax)
-ax.legend(prop={"size": 6})
-ax.set_xlabel(r"lg(E$_{\nu}$ / eV)")
-ax.set_ylabel(r"V$_{\rm eff}$ / (" + reference_trigger.replace("_", " ") + ")")
-ax.tick_params(axis="both", which="both", direction="in")
-ax.yaxis.set_ticks_position("both")
-ax.xaxis.set_ticks_position("both")
 
-if save_path == '':
-    filename = os.path.join(ABS_PATH_HERE, "figures/", f"QuickVeffRatio{plot_name}.png")
-else:
-    filename = save_path 
-print("Saving", filename)
-np.savez(filename.replace('.png', '.npz'), **npz_file)
-fig.savefig(filename, bbox_inches="tight")
-plt.close()
+    sorting_index = np.argsort(lgEs)
+    lgEs = np.array(lgEs)[sorting_index]
+    npz_file = {}
+    npz_file['lgEs'] = lgEs
+
+    for i, name in enumerate(standard_triggers + list(all_models.keys())):
+        marker = next(markers)
+        linestyle = next(linestyles)
+
+        avg = np.array(avg_veff[name]) / np.array(avg_veff[reference_trigger])
+
+
+        avg = np.array(avg)[sorting_index]
+        npz_file[name] = avg
+
+        # print(lgEs)
+        # print(avg)
+
+        ax.plot(
+            lgEs,
+            avg,
+            label=name.replace("_", " "),
+            color=colors[i],
+            marker=marker,
+            #linestyle=linestyle,
+        )
+    style.use('seaborn-colorblind')
+    ymin, ymax = ax.get_ylim()
+    ax.set_ylim(0.9, ymax)
+    ax.legend(prop={"size": 6})
+    ax.set_xlabel(r"lg(E$_{\nu}$ / eV)")
+    ax.set_ylabel(r"V$_{\rm eff}$ / (" + reference_trigger.replace("_", " ") + ")")
+    ax.tick_params(axis="both", which="both", direction="in")
+    ax.yaxis.set_ticks_position("both")
+    ax.xaxis.set_ticks_position("both")
+
+    
+    filename = os.path.join(save_path, f"QuickVeffRatio{plot_name}.png")
+ 
+    print("Saving", filename)
+    np.savez(filename.replace('.png', '.npz'), **npz_file)
+    fig.savefig(filename, bbox_inches="tight")
+    plt.close()
+
+for model_num in [243,244,245,246,247,250,251,252,253,254,400,401,402,403,404]:
+    veff(models=model_num, device=2, test=False)

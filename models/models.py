@@ -4,9 +4,9 @@ import math
 from typing import List
 from torch.nn.modules import MultiheadAttention, Linear, Dropout, BatchNorm1d, TransformerEncoderLayer
 import torch.nn.functional as F
-from dataHandler.datahandler import save_data, get_model_path
-
+import dataHandler.datahandler as dd
 import sys
+import os
 import torch.nn.functional as F
 from itertools import zip_longest
 from ptflops import get_model_complexity_info
@@ -935,7 +935,7 @@ def build_encoder_transformer(config):
     features = 1
   else:
     features = config['architecture']['d_model']   
- 
+  # TODO remove this not used
   if config['architecture']['data_type'] == 'chunked':
     data_order = 'bcs'
   elif config['architecture']['data_type'] == 'trigger':
@@ -1143,6 +1143,25 @@ class ModelWrapper(nn.Module):
     src_mask = None #torch.zeros(self.batch_size, self.seq_len, self.seq_len)
     return self.model(x)
     
+def get_last_model(model_path):
+  files = os.listdir(model_path)
+  epochs = [file_name.split('_')[-1].split('.')[0] for file_name in files]
+  new_epochs = []
+  for epoch in epochs:
+      try:
+          new_epochs.append(int(epoch))
+      except:
+          pass  
+  epochs = new_epochs    
+  last_epoch = max(epochs)
+
+  return last_epoch
+
+def get_state(config, text):
+  model_path = dd.get_model_path(config, text=f'{text}')
+  state = torch.load(model_path)
+  return state
+
 def load_model(config, text='early_stop', verbose=False):
   """
     Load model from config file
@@ -1165,10 +1184,15 @@ def load_model(config, text='early_stop', verbose=False):
 
   model = build_encoder_transformer(config)
   model_dict = model.state_dict()
+  if text == 'last':
+    transformer_model_path = dd.get_value(config, 'model_path') + 'saved_model'
+    
+    last_epoch = get_last_model(transformer_model_path)
+    text = last_epoch
 
-  model_path = get_model_path(config, text=f'{text}')
+  model_path = dd.get_model_path(config, text=f'{text}')
 
-  print(f'Preloading model {model_path}') if verbose else None
+  print(f'Preloading model {model_path}') #if verbose else None
   state = torch.load(model_path)
 
   if '/mnt/md0/halin/Models/' not in config['basic']['model_path']  :

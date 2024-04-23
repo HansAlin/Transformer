@@ -4,18 +4,18 @@ data_locations:
   tag_folder_veff: CDF_0.7
 
   # Noise for phased array
-  phased_array_noise: 
-    prod: prod_2023.06.07 # For phased data
+  # phased_array_noise: 
+  #   prod: prod_2023.06.07 # For phased data
 
   # Noise for LPDA data
-  # high_low_noise:   
-  #   prod: prod_2023.03.24 # For pre trigger data
+  high_low_noise:   
+    prod: prod_2023.03.24 # For pre trigger data
 
   # Trigger data
   # Signal for LPDA and phased data
   pre_trig_signal:  
-    # prod: prod_2023.05.16 # For pre LPDA data
-    prod: prod_2023.06.12 # Fore Phased data
+    prod: prod_2023.05.16 # For pre LPDA data
+    # prod: prod_2023.06.12 # Fore Phased data
     
 
   # noiseless_signal:  # For chunked data
@@ -26,8 +26,8 @@ data_locations:
 
 sampling:
   band:
-    high: 0.22 # 0.23 LPDA, 0.22 Phased
-    low: 0.096 # 0.08 LPDA, 0.096 Phased
+    high: 0.23 # 0.23 LPDA, 0.22 Phased
+    low: 0.08 # 0.08 LPDA, 0.096 Phased
   filter:
     order_high: 10
     order_low: 5
@@ -40,9 +40,9 @@ transformer:
     N: 2
     activation: 'relu' # Posible options: 'relu', 'gelu'
     by_pass: false
-    d_ff: 128
-    d_model: 64 # Have to be dividable by h
-    data_type: phased # Possible options: 'trigger', 'chunked' 'phased'
+    d_ff: 64
+    d_model: 32 # Have to be dividable by h
+    data_type: trigger # Possible options: 'trigger', 'chunked' 'phased'
     embed_type: linear # Posible options: 'lin_relu_drop', 'lin_gelu_drop', 'linear', 'cnn', 'ViT'
     encoder_type: vanilla # Posible options: 'normal', 'none', 'bypass', 'vanilla'
     final_type: d_model_average_linear # Posible options: 'double_linear', 'single_linear', 'seq_average_linear', 'd_model_average_linear' for unknown seq_len chose 'd_model_average_linear'
@@ -53,7 +53,7 @@ transformer:
       stride: 1 # options for cnn: 2, 1, options for ViT: 1, 2, 4 Note: for ViT stride has to be equal to kernel_size
     max_pool: True
     max_relative_position: Null
-    n_ant: &n_ant 5
+    n_ant: &n_ant 4
     normalization: layer # Posible options: 'layer', 'batch'
     omega: 10000
     output_shape: null
@@ -105,6 +105,7 @@ transformer:
     early_stop: 100
     learning_rate: &lrn_rate 0.001
     loss_function: &loss_fn BCEWithLogits # Options BCEWithLogits, hinge, hinge_max
+    warm_up: True
     metric: Efficiency
     num_epochs: 100
     step_size: 7

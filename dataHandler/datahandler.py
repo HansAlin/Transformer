@@ -158,9 +158,9 @@ def get_trigger_data(config, random_seed=123, subset=False, save_test_set=False)
 
 
   waveform_filenames = data_locations.PreTrigSignalFiles(config=config, nu=nu, inter=inter, lgE=lgE, beam=use_beam) 
-  if get_value(config, 'data_type') == 'trigger':
+  if get_value(config, 'antenna_type') == 'LPDA':
     background_filenames = data_locations.HighLowNoiseFiles("3.421", config=config, nFiles=nFiles)
-  elif get_value(config, 'data_type') == 'phased':  
+  elif get_value(config, 'antenna_type') == 'phased':  
      background_filenames = data_locations.PhasedArrayNoiseFiles(config, beam=use_beam)
      
   if subset:

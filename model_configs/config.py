@@ -66,6 +66,89 @@ def get_config(num):
     elif num == 0:
         with open('/home/halin/Master/Transformer/model_configs/config.yaml', 'r') as file:
           config = yaml.safe_load(file)
+
+        # get the correct data files
+        config['sampling'] = {}
+        config['sampling']['filter'] = {}
+        config['sampling']['band'] = {}
+        config['data_locations'] = {}
+        config['data_locations']['tag_folder_veff'] = 'CDF_0.7'
+
+        # Pre-trigger
+        if config['transformer']['architecture']['data_type'] == 'trigger': 
+          config['data_locations']['high_low_noise'] = {}
+          config['data_locations']['pre_trig_signal'] = {}
+
+
+
+          # LPDA data
+          if config['transformer']['architecture']['antenna_type'] == 'LPDA':
+            
+            config['data_locations']['high_low_noise']['prod'] = 'prod_2023.03.24'
+            config['data_locations']['pre_trig_signal']['prod'] = 'prod_2023.05.16'  
+
+            config['sampling']['band']['high'] = 0.23
+            config['sampling']['band']['low'] = 0.08
+            config['sampling']['rate'] = 0.5
+            config['sampling']['filter']['order_high'] = 10
+            config['sampling']['filter']['order_low'] = 5
+            config['sampling']['filter']['type'] = 'butter'
+
+            config['data_locations']['tag_folder_veff'] = 'CDF_0.7' #veff prod prod_2024.04.22/CDF_0.7
+
+          # Phased array data
+          elif config['transformer']['architecture']['antenna_type'] == 'phased': 
+
+            config['data_locations']['phased_array_noise'] = {}     
+            config['data_locations']['phased_array_noise']['prod'] = 'prod_2023.06.07'
+            config['data_locations']['pre_trig_signal']['prod'] = 'prod_2023.06.12' 
+
+            config['sampling']['band']['high'] = 0.22
+            config['sampling']['band']['low'] = 0.096
+            config['sampling']['rate'] = 0.5
+            config['sampling']['filter']['order_high'] = 10
+            config['sampling']['filter']['order_low'] = 5
+            config['sampling']['filter']['type'] = 'butter' #TODO is this correct
+
+            config['data_locations']['tag_folder_veff'] = 'CDF_1.0' #veff prod prod_2024.04.19/CDF_1.0
+
+        # Chunked
+        elif config['transformer']['architecture']['data_type'] == 'chunked':
+          config['data_locations']['noiseless_signal'] = {}
+          config['data_locations']['unbiased_noise'] = {}
+
+          # LPDA data
+          if config['transformer']['architecture']['antenna_type'] == 'LPDA':
+
+            config['data_locations']['noiseless_signal']['prod'] = 'prod_2023.05.30'
+            config['data_locations']['unbiased_noise']['prod'] = 'prod_2023.02.09'
+
+            config['sampling']['band']['high'] = 0.23
+            config['sampling']['band']['low'] = 0.08
+            config['sampling']['rate'] = 0.5
+            config['sampling']['filter']['order_high'] = 10
+            config['sampling']['filter']['order_low'] = 5
+            config['sampling']['filter']['type'] = 'butter'
+
+            config['data_locations']['tag_folder_veff'] = 'CDF_0.7' #veff prod prod_2024.04.22/CDF_0.7
+
+          # Phased array data
+          elif config['transformer']['architecture']['antenna_type'] == 'phased': 
+
+            config['data_locations']['noiseless_signal']['prod'] = 'prod_2023.05.19'
+            config['data_locations']['unbiased_noise']['prod'] = 'prod_2024.03.15'
+
+            config['sampling']['band']['high'] = 0.22
+            config['sampling']['band']['low'] = 0.096
+            config['sampling']['rate'] = 0.5
+            config['sampling']['filter']['order_high'] = 10
+            config['sampling']['filter']['order_low'] = 5
+            config['sampling']['filter']['type'] = 'butter' #TODO is this correct
+
+            config['data_locations']['tag_folder_veff'] = 'CDF_1.0' #veff prod prod_2024.04.19/CDF_1.0
+
+          
+
         return config
     
 

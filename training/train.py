@@ -37,7 +37,7 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
 
   data_type = configs[0]['transformer']['architecture'].get('data_type', 'chunked')
   if data_type == 'chunked':
-    train_loader, val_loader, test_loader = get_chunked_data(batch_size=batch_size, config=configs[0], subset=test) # 
+    train_loader, val_loader, test_loader = get_chunked_data(config=configs[0], subset=False) # 
   else:
     train_loader, val_loader, test_loader = get_trigger_data(configs[0], subset=test) # 
 

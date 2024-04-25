@@ -74,6 +74,14 @@ def get_config(num):
         config['data_locations'] = {}
         config['data_locations']['tag_folder_veff'] = 'CDF_0.7'
 
+        config['input_length'] = config['transformer']['architecture']['seq_len']
+        config['n_ant'] = config['transformer']['architecture']['n_ant']
+        config['training']['batch_size'] = config['transformer']['training']['batch_size']
+        config['training']['learning_rate'] = config['transformer']['training']['learning_rate']
+        config['training']['loss_fn'] = config['transformer']['training']['loss_function']
+
+
+
         # Pre-trigger
         if config['transformer']['architecture']['data_type'] == 'trigger': 
           config['data_locations']['high_low_noise'] = {}
@@ -106,9 +114,9 @@ def get_config(num):
             config['sampling']['band']['high'] = 0.22
             config['sampling']['band']['low'] = 0.096
             config['sampling']['rate'] = 0.5
-            config['sampling']['filter']['order_high'] = 10
-            config['sampling']['filter']['order_low'] = 5
-            config['sampling']['filter']['type'] = 'butter' #TODO is this correct
+            config['sampling']['filter']['order_high'] = 7
+            config['sampling']['filter']['order_low'] = 4
+            config['sampling']['filter']['type'] = 'cheby1' #TODO is this correct
 
             config['data_locations']['tag_folder_veff'] = 'CDF_1.0' #veff prod prod_2024.04.19/CDF_1.0
 
@@ -135,15 +143,15 @@ def get_config(num):
           # Phased array data
           elif config['transformer']['architecture']['antenna_type'] == 'phased': 
 
-            config['data_locations']['noiseless_signal']['prod'] = 'prod_2023.05.19'
-            config['data_locations']['unbiased_noise']['prod'] = 'prod_2024.03.15'
+            config['data_locations']['noiseless_signal']['prod'] = 'prod_2024.03.15'
+            config['data_locations']['unbiased_noise']['prod'] = 'prod_2023.05.19'
 
             config['sampling']['band']['high'] = 0.22
             config['sampling']['band']['low'] = 0.096
             config['sampling']['rate'] = 0.5
-            config['sampling']['filter']['order_high'] = 10
-            config['sampling']['filter']['order_low'] = 5
-            config['sampling']['filter']['type'] = 'butter' #TODO is this correct
+            config['sampling']['filter']['order_high'] = 7
+            config['sampling']['filter']['order_low'] = 4
+            config['sampling']['filter']['type'] = 'cheby1' #TODO is this correct
 
             config['data_locations']['tag_folder_veff'] = 'CDF_1.0' #veff prod prod_2024.04.19/CDF_1.0
 

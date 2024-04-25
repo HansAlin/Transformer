@@ -102,7 +102,19 @@ def LoadTransformerModel(model_name, model_list, text, device):
     return name
 
 def veff(models, device, save_path=None, test=False): 
+    """ Calculate the effective volume for a given model or models. 
+        The 1 Hz triger is used as a reference trigger and is equal to one. 
+        All the other triggers are compared to this trigger.
+
+        Args:
+            models (list, int, dict): List of models to run, or a single model number. 
+                                        If a single model number is given, the best epoch is used. 
+                                        If a dictionary is given, the keys are the model numbers and the values are the model epoch.
+            device (int): Which cuda device to use
+            save_path (str): Path to save the plot
+            test (bool): If True, only two files are loaded
     
+    """
     if type(models) == list or type(models) == int:
 
         if type(models) == int:
@@ -364,26 +376,31 @@ def veff(models, device, save_path=None, test=False):
             model_dict[best_model]['count'] += 1
 
             
+        flavor_ratio = {"e": 1 / 3.0, "mu": 1 / 3.0, "tau": 1 / 3.0}
+        interaction_weight = {"cc": 0.7064, "nc": 1.0 - 0.7064}
 
-    avg_veff = dict()
-    for trig_name in standard_triggers + list(all_models.keys()):
-        avg_veff[trig_name] = []
-
-    lgEs = []
-
-    for lgE in all_dat.keys():
-        lgEs.append(lgE)
-
+        avg_veff = dict()
         for trig_name in standard_triggers + list(all_models.keys()):
-            avg_veff[trig_name].append(0.0)
+            avg_veff[trig_name] = []
 
-        for flavor in all_dat[lgE].keys():
-            for current in all_dat[lgE][flavor].keys():
+        lgEs = []
 
-                for trig_name in standard_triggers + list(all_models.keys()):
-                    avg_veff[trig_name][-1] += (
-                        all_dat[lgE][flavor][current][trig_name]["weight"] / all_dat[lgE][flavor][current]["n_tot"]
-                    )
+        for lgE in all_dat.keys():
+            lgEs.append(lgE)
+
+            for trig_name in standard_triggers + list(all_models.keys()):
+                avg_veff[trig_name].append(0.0)
+
+            for flavor in all_dat[lgE].keys():
+                for current in all_dat[lgE][flavor].keys():
+
+                    for trig_name in standard_triggers + list(all_models.keys()):
+                        avg_veff[trig_name][-1] += (
+                            flavor_ratio[flavor]
+                            * interaction_weight[current]
+                            * (all_dat[lgE][flavor][current][trig_name]["weight"] / all_dat[lgE][flavor][current]["n_tot"])
+                        )
+
     print("Results:")
     model_num_str = ''
     for model_num in model_dict.keys():
@@ -502,5 +519,5 @@ def veff(models, device, save_path=None, test=False):
     fig.savefig(filename, bbox_inches="tight")
     plt.close()
 
-for model_num in [243,244,245,246,247,250,251,252,253,254,400,401,402,403,404]:
-    veff(models=model_num, device=2, test=False)
+for model_num in [246]:
+    veff(models=model_num, device=2, test=False, save_path='/home/halin/Master/Transformer/figures/veff/')

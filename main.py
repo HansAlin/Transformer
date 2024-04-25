@@ -60,9 +60,9 @@ def main():
     print(e)  
     args = argparse.Namespace()
     args.start_model_num = None
-    args.epochs = 6
-    args.test = True
-    args.cuda_device = 2
+    args.epochs = 100
+    args.test = False
+    args.cuda_device = 0
     args.config_number = 0
     args.resume_training_for_model = None
     args.inherit_model = None
@@ -87,21 +87,17 @@ def main():
     hyper_param = {
                 # 'N':[2]
                 # 'pos_enc_type':['Relative'],
-                'max_relative_position': [None],
-                # 'h': [4],
-                # 'd_model': [64],
-                # 'h': [16],
-                # 'd_model': [512],
-                # 'd_ff': [256],
-                # 'd_model': [16, 256],
-                # 'd_ff': [16, 256],
-                # 'h': [4],
-                # 'N': [2, 4],
+                #'max_relative_position': [None],
+              'd_model': [32, 128],
+              'd_ff': [32, 128],
+              'h': [4, 8],
+              'N': [2, 3],
                   }
 
     # Get all combinations
     combinations = list(itertools.product(*hyper_param.values()))
-
+    # TODO remove this after running 256, ...
+    combinations = combinations[6:]
     if args.start_model_num == None:
       if args.test:
         print("Test mode")
@@ -173,7 +169,7 @@ def main():
 
     for combination in combinations:
       params = dict(zip(hyper_param.keys(), combination))
-      print(params)
+      print(f"Model number: {model_num}, and parameters: {params}")
       for hyper_param_key, hyper_paramter in params.items():
         config['transformer']['architecture'][hyper_param_key] = hyper_paramter
       config['transformer']['basic']['model_num'] = model_num

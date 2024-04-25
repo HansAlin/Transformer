@@ -12,6 +12,7 @@ import torch
 
 import matplotlib.cm as cm
 import itertools
+import torch.nn as nn
 
 
 
@@ -394,7 +395,7 @@ def plot_examples(x, y, config=None, save_path=''):
     ax[j].axhline(0, color='gray', linestyle='-')  # Highlight y=0 line  
     ax[j].grid(True)   
   fig.text(0.005, 0.5, 'V / rms', va='center', rotation='vertical')  # Add common y-label
-  plt.grid()
+ 
   plt.tight_layout()  # Make tight layout    
   plt.savefig(save_path)
   plt.clf()
@@ -964,7 +965,7 @@ def change_format_units(df):
 
 
 
-def plot_attention_scores(model, x, y, save_path='/home/halin/Master/Transformer/figures/', extra_identifier=''):
+def plot_attention_scores(model, x, y, save_path='/home/halin/Master/Transformer/figures/attention/', extra_identifier=''):
     if y == 0:
       y = 'noise'
     elif y == 1:
@@ -975,18 +976,24 @@ def plot_attention_scores(model, x, y, save_path='/home/halin/Master/Transformer
 
     x = x.cpu().detach().numpy()
     item = 1
-
+    j = 0
     try:
       for name, module in model.named_modules():
-        if isinstance(module, mm.MultiHeadAttentionBlock):
+        if isinstance(module, mm.MultiHeadAttentionBlock) or isinstance(module, mm.VanillaEncoderBlock):
           
-          first_att = module.attention_scores
+          if isinstance(module, mm.VanillaEncoderBlock):
+            first_att = module.get_attention_scores()
+            head_range = 1
+          else:
+            first_att = module.attention_scores
+            head_range = 4
           first_att = first_att.cpu().detach().numpy()
 
           fig = plt.figure(figsize=(20, 20))  # Increase the size of the figure
           outer_grid = gridspec.GridSpec(2, 2, wspace=0.1, hspace=0.1)  # Add some space between the figures
           fig.suptitle(f'Attention Scores {item}- {y}', fontsize=16)
-          for i in range(4):
+          
+          for i in range(head_range):
             inner_grid = gridspec.GridSpecFromSubplotSpec(2, 2, 
                                                           subplot_spec=outer_grid[i], 
                                                           width_ratios=[1, 5], 
@@ -1003,9 +1010,13 @@ def plot_attention_scores(model, x, y, save_path='/home/halin/Master/Transformer
             fig.add_subplot(ax3)
 
             x_reduced = x[0,:,0]
-            ax1.set_title(f"Head {i+1}")
+            ax1.set_title(f"Head {j+1}")
             # Plot the attention scores
-            im = ax1.imshow(first_att[0,i,:,:], cmap='hot', interpolation='none')
+            if head_range == 4:
+              im = ax1.imshow(first_att[0,i,:,:], cmap='hot', interpolation='none')
+            else:
+              im = ax1.imshow(first_att[0,:,:], cmap='hot', interpolation='none')
+            j += 1
             # Remove the x and y ticks
             ax1.set_xticks([])
             ax1.set_yticks([])
@@ -1025,8 +1036,9 @@ def plot_attention_scores(model, x, y, save_path='/home/halin/Master/Transformer
             # Create a colorbar in the new Axes object
             cbar = fig.colorbar(im, cax=cax)
           fig.subplots_adjust(left=0.05, right=0.95, bottom=0.05, top=0.95, wspace=0, hspace=0)
-          plt.savefig(save_path + f'{extra_identifier}_attention_scores_{item}_{y}.png')
-          plt.close()
+          if j == 3:
+            plt.savefig(save_path + f'{extra_identifier}attention_scores_{item}_{y}.png')
+            plt.close()
           item += 1
     except:
       print('No attention scores found')

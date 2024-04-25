@@ -632,6 +632,9 @@ class VanillaEncoderBlock(nn.Module):
     self.feed_forward_block = FeedForwardBlock(d_model, d_ff, dropout, activation)
     self.residual_type = residual_type
 
+  def get_attention_scores(self):
+    return self.attention_scores
+
   def forward(self, x, src_mask, src_key_padding_mask=None, is_causal=None):
     # (batch_size, seq_len, d_model)
     # Multi head attention block
@@ -641,7 +644,7 @@ class VanillaEncoderBlock(nn.Module):
     if self.residual_type == 'pre_ln':
       x2 = self.norm_1(x) # --> (seq_len, batch_size, d_model)
       x2 = x2.permute(1, 0, 2) # --> (seq_len, batch_size, d_model)
-      x2  = self.self_attn(x2, x2, x2, attn_mask=src_mask, key_padding_mask=src_key_padding_mask)[0]# --> (seq_len, batch_size, d_model)
+      x2, self.attention_scores  = self.self_attn(x2, x2, x2, attn_mask=src_mask, key_padding_mask=src_key_padding_mask)# --> (seq_len, batch_size, d_model)
       x = x.permute(1, 0, 2) # --> (seq_len, batch_size, d_model)
       x = x + self.dropout_1(x2) # --> (seq_len, batch_size, d_model)
       x = x.permute(1, 0, 2) # --> (batch_size, seq_len, d_model)
@@ -652,7 +655,7 @@ class VanillaEncoderBlock(nn.Module):
       x = x + self.dropout_2(x2)
 
     elif self.residual_type == 'post_ln':
-      x2  = self.self_attn(x, x, x, attn_mask=src_mask, key_padding_mask=src_key_padding_mask)[0]
+      x2, self.attention_scores  = self.self_attn(x, x, x, attn_mask=src_mask, key_padding_mask=src_key_padding_mask)
       x = x + self.dropout_1(x2) # --> (seq_len, batch_size, d_model)
       x = x.permute(1, 0, 2) # --> (batch_size, seq_len, d_model)
       x = self.norm_1(x) # --> (batch_size, seq_len, d_model)
@@ -901,29 +904,6 @@ class EncoderTransformer(nn.Module):
         return x
 
 
-# class build_encoder_transformer(nn.Module):
-#   def __init__(self, config):
-#     super(build_encoder_transformer, self).__init__()
-#     if 'transformer' in config:
-#       config = config['transformer']
-#     self.encoder = build_encoder_transformer(config)
-  
-
-#     if config['architecture']['data_type'] == 'trigger':
-#       self.first = 0
-#       self.second = 1
-#       self.third = 2
-#     elif config['architecture']['data_type'] == 'chunked':
-#       self.first = 0
-#       self.second = 1
-#       self.third = 2
-#     else:
-#       raise ValueError(f"Unsupported data type: {config['architecture']['data_type']}")  
-
-#   def forward(self, x):
-#     x = x.permute(self.first,self.second,self.third)
-#     return self.encoder(x, src_mask=None)
-
 def build_encoder_transformer(config): 
   
   if 'transformer' in config:
@@ -992,7 +972,6 @@ def build_encoder_transformer(config):
   else:
       raise ValueError(f"Unsupported positional encoding type: {pos_enc_type}")
 
-  num_embeddings = config['architecture']['n_ant']  if by_pass else 1 
 
   src_pos = [src_pos_func() for _ in range(num_embeddings)]
 
@@ -1162,7 +1141,7 @@ def get_state(config, text):
   state = torch.load(model_path)
   return state
 
-def load_model(config, text='early_stop', verbose=False):
+def load_model(config, text='last', verbose=False):
   """
     Load model from config file
     
@@ -1170,8 +1149,10 @@ def load_model(config, text='early_stop', verbose=False):
         config (dict): The configuration dictionary. Should be loaded from a yaml file and should be the
                         same as the one used to train the model and also be the model config and not the 
                         training config.
-        text (str, optional): The text to add to the model name. Defaults to 'early_stop'. Other options are
-                              'final'.
+        text (str, optional): The text to add to the model name. Defaults to 'last'.
+                              Normaly ones specifies the specific epoch, as a sting,
+                                one wants to load.
+        verbose (bool, optional): If True, print several informations during evaluation. Defaults to False.
     Returns:
             model
 

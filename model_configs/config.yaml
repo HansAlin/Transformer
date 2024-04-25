@@ -32,8 +32,8 @@ transformer:
     by_pass: false
     d_ff: 64
     d_model: 32
-    data_type: chunked
-    embed_type: linear
+    data_type: trigger
+    embed_type: cnn
     encoder_type: vanilla
     final_type: d_model_average_linear
     h: 4
@@ -97,4 +97,4 @@ transformer:
     metric: Efficiency
     num_epochs: 100
     step_size: 7
-    warm_up: true
+    warm_up: false

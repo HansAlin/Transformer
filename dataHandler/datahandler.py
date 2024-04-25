@@ -108,6 +108,27 @@ def load_raw_data(data_path='/home/halin/Autoencoder/Data/',
 #               save_path='/home/hansalin/Code/Transformer/Test/data/data.npy'
 #               )
 
+def get_data(config, random_seed=123, subset=False, save_test_set=False):
+ 
+  """
+    This function loads pre-triggered or chunked data depending on the config file
+
+    Args:
+      config: data config file, yaml, needs to contain necessary parameters
+      random_seed: random seed
+      subset: if True, only one file is loaded
+      save_test_set: if True, test set is saved
+
+    Returns:
+      train_loader, val_loader, test_loader
+  """
+  data_type = get_value(config, 'data_type')
+  if data_type == 'trigger':
+    train_loader, val_loader, test_loader = get_trigger_data(config, subset=subset)
+  elif data_type == 'chunked':
+    train_loader, val_loader, test_loader = get_chunked_data(config, subset=subset)
+
+  return train_loader, val_loader, test_loader  
 
 def get_trigger_data(config, random_seed=123, subset=False, save_test_set=False):
  

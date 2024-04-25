@@ -10,7 +10,7 @@ sys.path.append(CODE_DIR_1)
 # type(sys.path)
 # for path in sys.path:
 #    print(path)
-from models.models import InputEmbeddings, LayerNormalization, FinalBlock, build_encoder_transformer
+import models.models as mm
 import dataHandler.datahandler as dd
 # from training.train import test_model
 import plots.plots as pp
@@ -291,12 +291,12 @@ def condense_sequence(match):
 #     '/home/halin/Master/nuradio-analysis/plots/fLow_0.08-fhigh_0.23-rate_0.5/config_312/veff_n_lges_017_0_average_rolls_0.npz'
 
 # ]
-models = [241,245,246]
-veff_files = []
-for model in models:
-    veff_files.append(f'/home/halin/Master/Transformer/figures/QuickVeffRatio_{model}_best.npz')
-models_string = '_'.join(map(str, models))
-pp.plot_veff(veff_files, plot_path='/home/halin/Master/Transformer/figures/veff/veff_' + models_string + '.png')
+# models = [241,245,246]
+# veff_files = []
+# for model in models:
+#     veff_files.append(f'/home/halin/Master/Transformer/figures/QuickVeffRatio_{model}_best.npz')
+# models_string = '_'.join(map(str, models))
+# pp.plot_veff(veff_files, plot_path='/home/halin/Master/Transformer/figures/veff/veff_' + models_string + '.png')
 
 ########################################################################
 # Test roc nr curve
@@ -341,3 +341,31 @@ pp.plot_veff(veff_files, plot_path='/home/halin/Master/Transformer/figures/veff/
 # shape = (batch_size, seq_len, n_ant)
 # x = np.random.randn(*shape)
 # pp.plot_examples(x,y)
+
+########################################################################
+# Plot attention scores                                                #
+########################################################################
+
+models = [250]
+config = dd.get_model_config(models[0])
+train_loader, val_loader, test_loader = dd.get_data(config, subset=True)
+del train_loader, val_loader
+
+for model_num in models:
+    config = dd.get_model_config(model_num)
+    best_epoch = config['transformer']['results']['best_epoch']
+    model = mm.load_model(config=config, text=f'best_epoch')
+
+    x, y = next(iter(test_loader))
+    model.eval()
+    
+
+    signal_index = torch.where(y == 1)[0][0]
+    noise_index = torch.where(y == 0)[0][0]
+    signal = x[signal_index,:,:].unsqueeze(0)
+    noise = x[noise_index,:,:].unsqueeze(0)
+    out = model(signal)
+    pp.plot_attention_scores(model=model, x=signal, y=1)
+    out = model
+    pp.plot_attention_scores(model=model, x=noise, y=0)  
+

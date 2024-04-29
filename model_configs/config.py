@@ -84,7 +84,7 @@ def get_config(num):
 
         # Pre-trigger
         if config['transformer']['architecture']['data_type'] == 'trigger': 
-          config['data_locations']['high_low_noise'] = {}
+          
           config['data_locations']['pre_trig_signal'] = {}
 
 
@@ -92,6 +92,7 @@ def get_config(num):
           # LPDA data
           if config['transformer']['architecture']['antenna_type'] == 'LPDA':
             
+            config['data_locations']['high_low_noise'] = {}
             config['data_locations']['high_low_noise']['prod'] = 'prod_2023.03.24'
             config['data_locations']['pre_trig_signal']['prod'] = 'prod_2023.05.16'  
 

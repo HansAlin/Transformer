@@ -119,7 +119,7 @@ def veff(models, device, save_path=None, test=False):
 
         if type(models) == int:
             config = get_model_config(model_num=models)
-
+            antenna_type = get_value(config, 'antenna_type')
             if save_path is None:
                 save_path = get_value(config, 'model_path') + 'plot/'
             
@@ -133,14 +133,17 @@ def veff(models, device, save_path=None, test=False):
 
         for model_num in models:
             config = get_model_config(model_num=model_num)
+            antenna_type = get_value(config, 'antenna_type')
+
             data_type = get_value(config, 'data_type')
             best_epoch = get_value(config, 'best_epoch')
+
 
             transformer_models[f'{model_num}_best'] = f'{model_num}_{best_epoch}.pth'
         print(f"Models: {transformer_models}")
 
     elif type(models) == dict:
-
+        antenna_type = 'LPDA'
         transformer_models = models
         print(f"Models: {transformer_models}")
 
@@ -165,10 +168,8 @@ def veff(models, device, save_path=None, test=False):
     print(f"Using device: {device}, name of GPU: {torch.cuda.get_device_name(device=device)}")
     
 
-    if data_type == 'chunked':
-        data_path = '/mnt/md0/acoleman/rno-g/signal-generation/data/npy-files/veff/fLow_0.08-fhigh_0.23-rate_0.5/CDF_0.7/'
-        file_list=glob.glob(os.path.join(data_path, "*.npz"))
-    elif data_type == 'trigger':    
+    
+    if antenna_type == 'LPDA':    
         #data_path = '/home/acoleman/data/rno-g/signal-generation/data/npy-files/veff/fLow_0.08-fhigh_0.23-rate_0.5/CDF_0.7/'
         data_path = '/mnt/md0/data/trigger-development/rno-g/veff/fLow_0.08-fhigh_0.23-rate_0.5/prod_2023.11.27/CDF_0.7/'
         file_list = glob.glob(data_path+'VeffData_nu_*.npz')
@@ -519,5 +520,5 @@ def veff(models, device, save_path=None, test=False):
     fig.savefig(filename, bbox_inches="tight")
     plt.close()
 
-for model_num in [246]:
+for model_num in [400]:
     veff(models=model_num, device=2, test=False, save_path='/home/halin/Master/Transformer/figures/veff/')

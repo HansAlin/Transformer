@@ -1171,7 +1171,7 @@ def load_model(config, text='last', verbose=False):
     last_epoch = get_last_model(transformer_model_path)
     text = last_epoch
 
-  model_path = dd.get_model_path(config, text=f'{text}')
+  model_path = dd.get_model_path(config, text=f'_{text}.')
 
   print(f'Preloading model {model_path}') #if verbose else None
   state = torch.load(model_path)

@@ -19,7 +19,7 @@ import subprocess
 import tensorboard
 from models.models import build_encoder_transformer, get_FLOPs, count_parameters, load_model, get_state
 from dataHandler.datahandler import save_data, save_model, create_model_folder, get_model_path, get_chunked_data, get_trigger_data, get_value
-from evaluate.evaluate import test_model, validate, get_energy
+from evaluate.evaluate import test_model, validate, get_energy, find_best_model
 import lossFunctions.lossFunctions as ll
 
 
@@ -33,7 +33,7 @@ def get_least_utilized_gpu():
 
 
 
-def training(configs, cuda_device, second_device=None, batch_size=32, channels=4, model_folder='', test=False, retraining=False):
+def training(configs, cuda_device, model_folder='', test=False, retraining=False):
 
   data_type = configs[0]['transformer']['architecture'].get('data_type', 'chunked')
   if data_type == 'chunked':
@@ -48,25 +48,21 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
 
   precision = torch.float32
 
+  #######################################################################
+  #  Set up the GPU's to use                                           #
+  #######################################################################
+  if torch.cuda.is_available(): 
+    device = torch.device(f'cuda:{cuda_device}')
+    print(f"Current GPU usage: {device}")
+
+  else:
+      print('No GPU available training stops.')
+      return None
+
+
   for config in configs:
 
-    #######################################################################
-    #  Set up the GPU's to use                                           #
-    #######################################################################
-    if torch.cuda.is_available(): 
-      device = torch.device(f'cuda:{cuda_device}')
-      if second_device == None:
-        print(f"Let's use GPU {cuda_device}!")
-        
-      else:  
-        if torch.cuda.device_count() > 1 and get_least_utilized_gpu()[second_device] == 0 :
-            print(f"Let's use GPU {cuda_device} and {second_device}!")
-            model = nn.DataParallel(model, device_ids=[cuda_device, second_device])
-        else:
-            print(f"Let's use GPU {cuda_device}!")
-            device = torch.device(f'cuda:{cuda_device}')
-    else:
-        device = torch.device("cpu")
+
  
     df = pd.DataFrame([], columns= ['Train_loss', 'Val_loss', 'metric', 'Epochs', 'lr'])
     if not retraining:
@@ -149,7 +145,7 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
 
 
 
-    model = model.to(device).to(precision)
+    model.to(device).to(precision)
 
     n_ant = config['transformer']['architecture']['n_ant']
    
@@ -184,7 +180,7 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
       # set the model in training mode
       model.train()
       first_param = next(model.parameters())
-      print(f"Type: {first_param.dtype} Device: {first_param.device}")
+      print(f"Type: {first_param.dtype} Device: {first_param.device}, GPU: {device}")
       
       train_loss = []
       val_loss = []
@@ -196,9 +192,9 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
       #############################################
         
       num_of_bathes = int(len(train_loader))
-      for istep in tqdm(range(len(train_loader))):
+      for istep in tqdm(range(len(train_loader)), disable=False):
 
-        print(f"Epoch {epoch}/{config['transformer']['training']['num_epochs']} Batch {batch_num}/{num_of_bathes}", end="\r") # config['transformer']['training']['num_epochs']
+        print(f"Epoch {epoch}/{config['transformer']['training']['num_epochs']} Batch {batch_num}/{num_of_bathes}, GPU: {device} ", end="\r") # config['transformer']['training']['num_epochs']
   
         x_batch, y_batch = train_loader.__getitem__(istep)
         if data_type == 'chunked':
@@ -325,88 +321,8 @@ def training(configs, cuda_device, second_device=None, batch_size=32, channels=4
     config['transformer']['results']['training_time'] = total_training_time
     config['transformer']['results']['energy'] = config['transformer']['results']['power']*total_training_time
 
-    # model_path = get_model_path(config)
-    # model
-    # print(f'Preloading model {model_path}')
-    # state = torch.load(model_path)
-    # model.load_state_dict(state['model_state_dict'])
+    save_data(config, df)
+    
+    del model
 
-    if torch.cuda.is_available(): 
-
-      device = torch.device(f'cuda:{cuda_device}')
-    else:
-      device = torch.device("cpu")
-
-
-    best_efficiency = 0
-    best_accuracy = 0
-    best_precision = 0
-    best_model_epoch = None
-    best_threshold = None
-    best_model = None
-    best_y_pred_data = None
-
-    df = pd.DataFrame([], columns= ['Epoch', 'Accuracy', 'Precission', 'Efficiency', 'Threshold'])
-
-    for model_epoch in range(1, config['transformer']['training']['num_epochs'] + 1):  
-      model_path = get_model_path(config, f'{model_epoch}')
-      model = load_model(config=config, text=f'{model_epoch}')
-
-      y_pred_data, accuracy , efficiency, precision, threshold = test_model(model=model, 
-                                                                  test_loader=test_loader,
-                                                                  device=device, 
-                                                                  config=config, 
-                                                                  extra_identifier=f'_{model_epoch}',
-                                                                  plot_attention=True)  
-      temp_df = pd.DataFrame([[model_epoch, accuracy, precision, efficiency, threshold]],
-                            columns= ['Epoch', 'Accuracy', 'Precission', 'Efficiency', 'Threshold'])
-      df = pd.concat([df, temp_df], ignore_index=True)
-      state_dict = torch.load(model_path)
-
-      try:
-          state_dict['model_state_dict']['threshold'] = threshold
-      except:
-          state_dict['threshold'] = threshold
-      torch.save(state_dict, model_path)
-
-      if efficiency >= best_efficiency:
-        best_efficiency = efficiency
-        best_accuracy = accuracy
-        best_precision = precision
-        best_model_epoch = model_epoch
-        best_threshold = threshold
-        best_model = model  
-        best_y_pred_data = y_pred_data
-
-
-    config['transformer']['results']['Accuracy'] = float(best_accuracy)
-    config['transformer']['results']['Efficiency'] = float(best_efficiency)
-    config['transformer']['results']['Precission'] = float(best_precision)
-    config['transformer']['results']['best_epoch'] = int(best_model_epoch)
-    config['transformer']['results']['best_threshold'] = float(best_threshold)
-
-    print(f"Test efficiency for best model: {config['transformer']['results']['Efficiency']:.4f}")
-
-    histogram(y_pred_data['y_pred'], y_pred_data['y'], config, text='_best', threshold=best_threshold)
-    nr_area, nse, threshold = plot_performance_curve([y_pred_data['y_pred']], [y_pred_data['y']], [config], curve='nr', x_lim=[0,1], bins=1000, text='best')
-    config['transformer']['results']['nr_area'] = float(nr_area)
-    config['transformer']['results']['NSE_AT_10KNRF'] = float(nse)
-    roc_area, nse, threshold = plot_performance_curve([y_pred_data['y_pred']], [y_pred_data['y']], [config], curve='roc', bins=1000, text='best')
-    config['transformer']['results']['roc_area'] = float(roc_area)
-    config['transformer']['results']['NSE_AT_10KROC'] = float(nse)
-    config['transformer']['results']['TRESH_AT_10KNRF'] = float(threshold)
-    plot_results(config['transformer']['basic']['model_num'], config['transformer'])
-
-
-    x_batch, y_batch = train_loader.__getitem__(0)
-    x = x_batch.cpu().detach().numpy()
-    y = y_batch.cpu().detach().numpy()
-      
-    plot_examples(x, y, config=config['transformer'])
-    plot_performance(config['transformer'], device, x_batch=x_batch, y_batch=y_batch, lim_value=best_threshold, )
-    save_data(config, df, y_pred_data)
-    save_data(config, df, y_pred_data, text='best')
-    save_model(best_model, optimizer, scheduler, config, epoch, text='best', threshold=threshold, )
-    # model_num = [str(get_value(config, 'model_num'))]
-    # model_path = get_value(config, 'model_path') + '/plot/'
-    # subprocess.call(['python3', '/home/halin/Master/Transformer/QuickVeffRatio.py', '--models'] + model_num + ['--save_path', model_path])
+    find_best_model(config, device, test=test)

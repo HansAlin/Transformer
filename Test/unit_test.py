@@ -491,10 +491,12 @@ if __name__ == '__main__':
                 #  'data_type': ['trigger'],
                 # 'encoder_type':['vanilla', 'normal'],
                 # 'max_pool': [True, False],
-                'd_model': [16, 256],
-                'd_ff': [16, 256],
-                'h': [4],
-                'N': [2, 4],
+      'data_type': ['chunked'],
+      'antenna_type': ['LPDA'],
+    'd_model': [4, 32],
+    'd_ff': [4, 32],
+    'h': [2],
+    'N': [2, 4], 
                 
 
     }

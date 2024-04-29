@@ -12,6 +12,8 @@ import sys
 import argparse
 import itertools
 import copy
+import yaml
+
 
 
 # type(sys.path)
@@ -50,6 +52,11 @@ def parse_args():
   
   return args
 
+def compare_dicts(dict1, dict2, exclude_keys):
+    diff_keys = [k for k in dict1 if k not in exclude_keys and dict1[k] != dict2.get(k)]
+    diff_keys.extend([k for k in dict2 if k not in exclude_keys and dict2[k] != dict1.get(k)])
+    return diff_keys
+
 def main(): 
 
   # start_model_num, epochs, test, cuda_device, config_number, inherit_model, retrain
@@ -62,12 +69,13 @@ def main():
     args.start_model_num = None
     args.epochs = 100
     args.test = False
-    args.cuda_device = 0
+    args.cuda_device = 2
     args.config_number = 0
     args.resume_training_for_model = None
-    args.inherit_model = None
+    args.inherit_model = 265
 
-
+  compare_model = 265
+  compare_config = dh.get_model_config(compare_model)
 
 
   models_path = '/mnt/md0/halin/Models/'
@@ -88,16 +96,19 @@ def main():
                 # 'N':[2]
                 # 'pos_enc_type':['Relative'],
                 #'max_relative_position': [None],
-              'd_model': [32, 128],
-              'd_ff': [32, 128],
-              'h': [4, 8],
-              'N': [2, 3],
+      # 'antenna_type': ['LPDA'],
+      # 'data_type': ['chunked'],
+    'd_model': [8],
+    'd_ff': [32, 128],
+    'h': [4, 8],
+    'N': [2, 3],  
+
                   }
 
     # Get all combinations
     combinations = list(itertools.product(*hyper_param.values()))
     # TODO remove this after running 256, ...
-    combinations = combinations[6:]
+    # combinations = combinations[2:]
     if args.start_model_num == None:
       if args.test:
         print("Test mode")
@@ -141,25 +152,8 @@ def main():
       config['transformer']['architecture']['pretrained'] = False 
       config['transformer']['basic']['model_path'] = ''
       config['transformer']['training']['num_epochs'] = args.epochs
-      config['transformer']['results']['Accuracy'] = 0
-      config['transformer']['results']['Efficiency'] = 0
-      config['transformer']['results']['Precission'] = 0
-      config['transformer']['results']['training_time'] = 0
-      config['transformer']['results']['energy'] = 0
-      config['transformer']['results']['trained'] = False
-      config['transformer']['results']['power'] = 0
-      config['transformer']['results']['roc_area'] = 0
-      config['transformer']['results']['nr_area'] = 0
-      config['transformer']['results']['NSE_AT_10KNRF'] = 0
-      config['transformer']['results']['TRESH_AT_10KNRF'] = 0
-      config['transformer']['results']['NSE_AT_100KNRF'] = 0
-      config['transformer']['results']['NSE_AT_10KROC'] = 0
-      config['transformer']['num of parameters']['MACs'] = 0
-      config['transformer']['num of parameters']['encoder_param'] = 0
-      config['transformer']['num of parameters']['final_param'] = 0
-      config['transformer']['num of parameters']['input_param'] = 0
-      config['transformer']['num of parameters']['num_param'] = 0
-      config['transformer']['num of parameters']['pos_param'] = 0  
+      config['transformer']['results'] = {}
+      config['transformer']['num of parameters'] = {}
       config['transformer']['results']['current_epoch'] = 0
       config['transformer']['results']['global_epoch'] = 0
 
@@ -176,11 +170,18 @@ def main():
       configs.append(copy.deepcopy(config))
       model_num += 1
 
+  for config in configs:
+    print(f"Batch size: {dh.get_value(config, 'batch_size'):>5}, d_model: {dh.get_value(config, 'd_model'):>5}, d_ff: {dh.get_value(config, 'd_ff'):>5}, h: {dh.get_value(config, 'h'):>5}, N: {dh.get_value(config, 'N'):>5}, Loss function: {dh.get_value(config, 'loss_function'):>5}, Embedding: {dh.get_value(config, 'embed_type'):>5}, Positional encoding: {dh.get_value(config, 'pos_enc_type'):>5}, Projection: {dh.get_value(config, 'projection_type'):>5}, Antenna type: {dh.get_value(config, 'antenna_type'):>5}, Data type: {dh.get_value(config, 'data_type'):>5}" )
+
+    exclude_keys = {'basic', 'num_of_parameters', 'results'}
+    diff_keys = compare_dicts(config, compare_config, exclude_keys)
+    print(f"Different keys: {diff_keys}")
+  answer = input("Do you want to continue? (y/n): ")
+  if answer == 'n':
+    sys.exit()
+
   training(configs=configs, 
           cuda_device=args.cuda_device,
-          second_device=None,
-          batch_size=configs[0]['transformer']['training']['batch_size'], 
-          channels=configs[0]['transformer']['architecture']['n_ant'],
           model_folder=models_path,
           test=args.test,
           retraining=retraining,)

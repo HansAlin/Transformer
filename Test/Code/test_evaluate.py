@@ -12,7 +12,7 @@ CODE_DIR_4 = '/home/halin/Master/nuradio-analysis/'
 sys.path.append(CODE_DIR_4)
 
 
-from evaluate.evaluate import test_model, get_results, get_quick_veff_ratio, test_threshold, noise_rejection
+from evaluate.evaluate import test_model, get_results, get_quick_veff_ratio, test_threshold, noise_rejection, find_best_model
 import models.models as mm
 from model_configs.config import get_config
 import dataHandler.datahandler as dd
@@ -144,134 +144,13 @@ from analysis_tools.config import GetConfig
 #model_num
 
 #################################################################################
-# Test perfomance
+# Test find best model
 #################################################################################
-test = False
-chunked = False
-plot = False
-data = True
-to_data_frame = True
-save_thresholds = False
-models = [246]
-seq_len = 128
-noise_rejection_rate = 1e4
-device = 0
-text2 = '_validation_1'
-text1 = ''
-
-if data:
-    if chunked:
-        config = dd.get_model_config(model_num=models[0], type_of_file='yaml')
-        train_data, val_data, test_data = dd.get_chunked_data(64, config=config, subset=test)
-    else:
-        data_config = dd.get_data_config()
-        data_config['input_length'] = seq_len
-        train_data, val_data, test_data = dd.get_trigger_data(config=data_config,
-                                                        subset=test)
-
-    del train_data
-    del val_data
-
-
-for model_num in models:
-
-    config = dd.get_model_config(model_num=model_num, type_of_file='yaml')
-    if seq_len != dd.get_value(config, 'seq_len'):
-        print(f"Sequence length does not match for model {model_num}, no testing")
-        continue
-    if not to_data_frame:
-        df = pd.read_pickle(f'/home/halin/Master/Transformer/Test/data/epoch_data_model_{model_num}.pkl')
-
-
-    # if 'transformer' in config and chunked == False:
-    #     config = config['transformer']
-    if chunked:
-        model_path = f'/home/halin/Master/nuradio-analysis/data/models/fLow_0.08-fhigh_0.23-rate_0.5/config_{model_num}/*.pth'
-    else:
-        model_path = f'/mnt/md0/halin/Models/model_{model_num}/saved_model/*.pth'
-    model_epoch_path = glob.glob(model_path)
-
-    data_dict = {'Epoch': [], 'Efficiency': [], 'Threshold': []}
-
-    best_efficiency = 0
-
-    if test:
-        model_epoch_path = model_epoch_path[:1]
-
-    for model_path in model_epoch_path:
-        # if '_52.pth' not in model_path:
-        #     continue
-        which_epoch = model_path.split('_')[-1].split('.')[0]
-        model = mm.load_model(config, which_epoch, verbose=False)
-
-
-        if not to_data_frame:
-            threshold = df[df['Epoch'] == which_epoch]['Threshold'].values[0]    
-            efficiency = df[df['Epoch'] == which_epoch]['Efficiency'].values[0]
-
-
-        # if 'threshold' in state:
-        #     del state['threshold']
-        # model.load_state_dict(state, strict=False)
-        if data:
-            y_pred_data, accuracy, efficiency, precission, threshold = test_model(model=model,
-                                                        test_loader=test_data,
-                                                        device=device,
-                                                        config=config,
-                                                        plot_attention=False,
-                                                        extra_identifier=model_num,
-                                                        noise_rejection_rate=noise_rejection_rate,
-                                                        )
-        if plot:
-            AOC, nse, threshold2 =  pp.plot_performance_curve([y_pred_data['y_pred']], 
-                                                         [y_pred_data['y']], 
-                                                         [config], 
-                                                         curve='nr', 
-                                                         x_lim=[0.8,1], 
-                                                         bins=10000, 
-                                                         log_bins=False, 
-                                                         reject_noise=1e4,
-                                                         save_path=f'/home/halin/Master/Transformer/figures/efficiency/performance_model_{model_num}_{which_epoch}_{text2}.png',
-                                                         text= f'{which_epoch} {text2}',
-                                                         )
-        if plot:    
-            pp.plot_threshold_efficiency(y_pred=y_pred_data['y_pred'],
-                                     y=y_pred_data['y'],
-                                     save_path=f'/home/halin/Master/Transformer/figures/efficiency/threshold_efficiency_model_{model_num}_{which_epoch}_{text2}.png',
-  
-                                     )
-        # # print(f'{model_num:<15} {text:<15} {text2:<25} {AOC:<15.6f} {nse:<15.6f} {threshold:<15.6f}')
-        epoch = model_path.split('_')[-1].split('.')[0]
-        state_dict = torch.load(model_path)
-    
-        if save_thresholds:
-            try:
-                state_dict['model_state_dict']['threshold'] = threshold
-            except:
-                state_dict['threshold'] = threshold
-            if not test:
-                torch.save(state_dict, model_path)
-
-        print(f"Model: {model_num}, Epoch {epoch:>10}   with threshold {threshold:>10.2f} has an efficiency of {efficiency:>10.4f}")
-        if plot:
-            pp.histogram(y_pred_data['y_pred'], 
-                    y=y_pred_data['y'], 
-                    config=config['transformer'],
-                    bins=100, 
-                    save_path=f'/home/halin/Master/Transformer/figures/hist/hist_model_num_{model_num}_{epoch}_{text2}.png',
-                    text= f'{epoch} {text2}',
-                    threshold=threshold,
-                    )
-
-        data_dict['Epoch'].append(epoch)
-        data_dict['Efficiency'].append(efficiency)
-        data_dict['Threshold'].append(threshold)
-    if to_data_frame:
-        df = pd.DataFrame(data_dict)
-        df.to_pickle(f'/home/halin/Master/Transformer/Test/data/epoch_data_model_{model_num}{text2}.pkl')
-        
-
-# #
+model_num = 256
+config = dd.get_model_config(model_num=model_num)
+device = torch.device('cuda:0')
+save_path = '/home/halin/Master/Transformer/Models/'
+find_best_model(config=config, device=device, save_path='/home/halin/Master/Transformer/figures')
 
 
 # #################################################################################

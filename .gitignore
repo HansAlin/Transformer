@@ -177,3 +177,4 @@ Test/
 figures/
 
 training_scheme.txt
+*.png

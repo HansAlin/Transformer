@@ -14,7 +14,7 @@ import glob
 import time
 
 from models.models import ModelWrapper, get_n_params, build_encoder_transformer, load_model, ResidualConnection, MultiHeadAttentionBlock, InputEmbeddings, PositionalEncoding, FinalBlock, FeedForwardBlock, CnnInputEmbeddings, BatchNormalization, LayerNormalization, ViTEmbeddings
-from dataHandler.datahandler import get_model_config, get_chunked_data, save_data, get_model_path
+from dataHandler.datahandler import get_model_config, get_chunked_data, save_data, get_model_path, get_data
 import plots.plots as pp
 CODE_DIR_1  ='/home/acoleman/software/NuRadioMC/'
 sys.path.append(CODE_DIR_1)
@@ -679,8 +679,8 @@ def test_threshold(model_num, treshold=None):
   data_path = model_folder + 'y_pred_data.pkl'
   y_pred_data = pd.read_pickle(data_path)
   print(y_pred_data.head())
-  y_pred = y_pred_data['y_pred']
-  y = y_pred_data['y']
+  y_pred = y_pred
+  y = y
   y_pred = y_pred.to_numpy()
   y = y.to_numpy()
   if treshold is not None:
@@ -823,3 +823,86 @@ def get_threshold(config, text='final', verbose=False):
               print(f"Model path: {model_path}, Threshold: {threshold}, Sigmoid: {sigmoid}")
           return threshold, sigmoid
 
+def find_best_model(config, device, save_path='', test=True):
+   
+    plot_attention = False
+
+    best_efficiency = 0
+    best_accuracy = 0
+    best_precision = 0
+    best_model_epoch = None
+    best_threshold = None
+    best_y_pred_data = None
+
+    df = pd.DataFrame([], columns= ['Epoch', 'Accuracy', 'Precission', 'Efficiency', 'Threshold'])
+
+    train_loader, val_loader, test_loader = get_data(config, subset=test)
+
+    del train_loader, val_loader
+
+    num_epochs = config['transformer']['results']['current_epoch'] 
+
+    for model_epoch in range(1, num_epochs+ 1):  
+      model_path = get_model_path(config, f'{model_epoch}')
+      model = load_model(config=config, text=f'{model_epoch}')
+
+      y_pred_data, accuracy , efficiency, precision, threshold = test_model(model=model, 
+                                                                  test_loader=test_loader,
+                                                                  device=device, 
+                                                                  config=config, 
+                                                                  extra_identifier=f'_{model_epoch}',
+                                                                  plot_attention=plot_attention)  
+      temp_df = pd.DataFrame([[model_epoch, accuracy, precision, efficiency, threshold]],
+                            columns= ['Epoch', 'Accuracy', 'Precission', 'Efficiency', 'Threshold'])
+      df = pd.concat([df, temp_df], ignore_index=True)
+      state_dict = torch.load(model_path)
+
+      try:
+          state_dict['model_state_dict']['threshold'] = threshold
+      except:
+          state_dict['threshold'] = threshold
+      if not test:    
+        torch.save(state_dict, model_path)
+
+      if efficiency >= best_efficiency:
+        best_efficiency = efficiency
+        best_accuracy = accuracy
+        best_precision = precision
+        best_model_epoch = model_epoch
+        best_threshold = threshold
+        best_y_pred_data = y_pred_data  
+
+
+      del model
+
+    config['transformer']['results']['Accuracy'] = float(best_accuracy)
+    config['transformer']['results']['Efficiency'] = float(best_efficiency)
+    config['transformer']['results']['Precission'] = float(best_precision)
+    config['transformer']['results']['best_epoch'] = int(best_model_epoch)
+    config['transformer']['results']['best_threshold'] = float(best_threshold)
+
+    print(f"Test efficiency for best model: {config['transformer']['results']['Efficiency']:.4f}")
+
+    y = best_y_pred_data['y']
+    y_pred = best_y_pred_data['y_pred']
+
+    pp.histogram(y_pred, y, config, text='_best', threshold=best_threshold, save_path=save_path)
+    nr_area, nse, threshold = pp.plot_performance_curve([y_pred], [y], [config], curve='nr', x_lim=[0,1], bins=1000, text='best', save_path=save_path)
+    config['transformer']['results']['nr_area'] = float(nr_area)
+    config['transformer']['results']['NSE_AT_10KNRF'] = float(nse)
+    roc_area, nse, threshold = pp.plot_performance_curve([y_pred], [y], [config], curve='roc', bins=1000, text='best', save_path=save_path)
+    config['transformer']['results']['roc_area'] = float(roc_area)
+    config['transformer']['results']['NSE_AT_10KROC'] = float(nse)
+    config['transformer']['results']['TRESH_AT_10KNRF'] = float(threshold)
+    pp.plot_results(config['transformer']['basic']['model_num'], config['transformer'])
+
+
+    x_batch, y_batch = test_loader.__getitem__(0)
+    x = x_batch.cpu().detach().numpy()
+    y = y_batch.cpu().detach().numpy()
+      
+    pp.plot_examples(x, y, config=config['transformer'], save_path=save_path)
+    pp.plot_performance(config['transformer'], device, x_batch=x_batch, y_batch=y_batch, lim_value=best_threshold, save_path=save_path)
+    if not test:
+      save_data(config, df, y_pred_data)
+      save_data(config, df, y_pred_data, text='best')

@@ -2,7 +2,7 @@ arch: Transformer
 input_length: 128
 n_ant: 4
 training:
-  batch_size: 64
+  batch_size: 1024
   cdf: 0.7
   consecutive_deadtime: 2
   extra_gap_per_waveform: 200
@@ -28,7 +28,7 @@ transformer:
     GSA: false
     N: 2
     activation: relu
-    antenna_type: LPDA
+    antenna_type: phased
     by_pass: false
     d_ff: 64
     d_model: 32
@@ -88,7 +88,7 @@ transformer:
     trained: false
     training_time: 0
   training:
-    batch_size: 64
+    batch_size: 1024
     decreas_factor: 0.7
     dropout: 0
     early_stop: 100

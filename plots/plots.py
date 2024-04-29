@@ -977,72 +977,76 @@ def plot_attention_scores(model, x, y, save_path='/home/halin/Master/Transformer
     x = x.cpu().detach().numpy()
     item = 1
     j = 0
-    try:
-      for name, module in model.named_modules():
-        if isinstance(module, mm.MultiHeadAttentionBlock) or isinstance(module, mm.VanillaEncoderBlock):
+    attention_scores = []
+    
+    for name, module in model.named_modules():
+      if isinstance(module, mm.MultiHeadAttentionBlock) or isinstance(module, mm.VanillaEncoderBlock):
+        
+        if isinstance(module, mm.VanillaEncoderBlock):
+          first_att = module.get_attention_scores()
           
-          if isinstance(module, mm.VanillaEncoderBlock):
-            first_att = module.get_attention_scores()
-            head_range = 1
-          else:
-            first_att = module.attention_scores
-            head_range = 4
-          first_att = first_att.cpu().detach().numpy()
-
-          fig = plt.figure(figsize=(20, 20))  # Increase the size of the figure
-          outer_grid = gridspec.GridSpec(2, 2, wspace=0.1, hspace=0.1)  # Add some space between the figures
-          fig.suptitle(f'Attention Scores {item}- {y}', fontsize=16)
+        else:
+          first_att = module.attention_scores
           
-          for i in range(head_range):
-            inner_grid = gridspec.GridSpecFromSubplotSpec(2, 2, 
-                                                          subplot_spec=outer_grid[i], 
-                                                          width_ratios=[1, 5], 
-                                                          height_ratios=[5, 1],
-                                                          wspace=0,
-                                                          hspace=0)
+        first_att = first_att.cpu().detach().numpy()
+        attention_scores.append(first_att)
 
-            ax0 = plt.Subplot(fig, inner_grid[0])
-            ax1 = plt.Subplot(fig, inner_grid[1])
-            ax3 = plt.Subplot(fig, inner_grid[3])
 
-            fig.add_subplot(ax0)
-            fig.add_subplot(ax1)
-            fig.add_subplot(ax3)
+    number_attentions = len(attention_scores)  
+    head_range = number_attentions
 
-            x_reduced = x[0,:,0]
-            ax1.set_title(f"Head {j+1}")
-            # Plot the attention scores
-            if head_range == 4:
-              im = ax1.imshow(first_att[0,i,:,:], cmap='hot', interpolation='none')
-            else:
-              im = ax1.imshow(first_att[0,:,:], cmap='hot', interpolation='none')
-            j += 1
-            # Remove the x and y ticks
-            ax1.set_xticks([])
-            ax1.set_yticks([])
-            # Plot the reduced input as a curve along the x axis
-            ax3.plot(x_reduced)
-            ax3.grid()
-            ax3.set_xlim([0, len(x_reduced)]) 
-            # Plot the reduced input as a curve along the y axis
-            ax0.plot(x_reduced, range(len(x_reduced)))
-            ax0.grid()
-            ax0.set_ylim([len(x_reduced), 0]) 
-            ax0.invert_xaxis()  # Invert the y axis to align it with the imshow plot
+    fig = plt.figure(figsize=(20, 20))  # Increase the size of the figure
 
-            # Create a new Axes object for the colorbar
-            cax = fig.add_axes([0.96, 0.2, 0.01, 0.6])
+    # outer_grid = gridspec.GridSpec(2, 2, wspace=0.1, hspace=0.1)  # Add some space between the figures
+    fig.suptitle(f'Attention Scores {item}- {y}', fontsize=16)
+    
+    for i in range(head_range):
+      inner_grid = gridspec.GridSpecFromSubplotSpec(2, 2, 
+                                                        #subplot_spec=outer_grid[i], 
+                                                        width_ratios=[1, 5], 
+                                                        height_ratios=[5, 1],
+                                                        wspace=0,
+                                                        hspace=0)
 
-            # Create a colorbar in the new Axes object
-            cbar = fig.colorbar(im, cax=cax)
-          fig.subplots_adjust(left=0.05, right=0.95, bottom=0.05, top=0.95, wspace=0, hspace=0)
-          if j == 3:
-            plt.savefig(save_path + f'{extra_identifier}attention_scores_{item}_{y}.png')
-            plt.close()
-          item += 1
-    except:
-      print('No attention scores found')
-      return None
+      ax0 = plt.Subplot(fig, inner_grid[0])
+      ax1 = plt.Subplot(fig, inner_grid[1])
+      ax3 = plt.Subplot(fig, inner_grid[3])
+
+      fig.add_subplot(ax0)
+      fig.add_subplot(ax1)
+      fig.add_subplot(ax3)
+
+      x_reduced = x[0,:,0]
+      ax1.set_title(f"Head {j+1}")
+      # Plot the attention scores
+      attention_score = attention_scores[i][0]
+      im = ax1.imshow(attention_score, cmap='hot', interpolation='none')
+      plt.savefig(save_path + f'{extra_identifier}attention_scores_{item}_{y}.png')
+      plt.close()
+      # # Remove the x and y ticks
+      # ax1.set_xticks([])
+      # ax1.set_yticks([])
+      # # Plot the reduced input as a curve along the x axis
+      # ax3.plot(x_reduced)
+      # ax3.grid()
+      # ax3.set_xlim([0, len(x_reduced)]) 
+      # # Plot the reduced input as a curve along the y axis
+      # ax0.plot(x_reduced, range(len(x_reduced)))
+      # ax0.grid()
+      # ax0.set_ylim([len(x_reduced), 0]) 
+      # ax0.invert_xaxis()  # Invert the y axis to align it with the imshow plot
+
+      # # Create a new Axes object for the colorbar
+      # cax = fig.add_axes([0.96, 0.2, 0.01, 0.6])
+
+      # # Create a colorbar in the new Axes object
+      # cbar = fig.colorbar(im, cax=cax)
+      # fig.subplots_adjust(left=0.05, right=0.95, bottom=0.05, top=0.95, wspace=0, hspace=0)
+
+      
+      item += 1
+  
+
 
 
 def plot_hist(values, names, log=False, threshold=None, bins=100, xlim=0, ylim=10000,save_path='/home/halin/Master/Transformer/figures/noise_hist.png'):

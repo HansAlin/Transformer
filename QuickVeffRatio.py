@@ -173,7 +173,7 @@ def veff(models, device, save_path=None, test=False):
         #data_path = '/home/acoleman/data/rno-g/signal-generation/data/npy-files/veff/fLow_0.08-fhigh_0.23-rate_0.5/CDF_0.7/'
         data_path = '/mnt/md0/data/trigger-development/rno-g/veff/fLow_0.08-fhigh_0.23-rate_0.5/prod_2023.11.27/CDF_0.7/'
         file_list = glob.glob(data_path+'VeffData_nu_*.npz')
-    elif data_type == 'phased':
+    elif antenna_type == 'phased':
         data_path = '/mnt/md0/data/trigger-development/rno-g/veff/fLow_0.096-fhigh_0.22-rate_0.5/prod_2024.04.12/CDF_1.0/'
         file_list = glob.glob(data_path+'VeffData_nu_*.npz')
 
@@ -502,7 +502,7 @@ def veff(models, device, save_path=None, test=False):
             marker=marker,
             #linestyle=linestyle,
         )
-    style.use('seaborn-colorblind')
+    #style.use('seaborn-colorblind')
     ymin, ymax = ax.get_ylim()
     ax.set_ylim(0.9, ymax)
     ax.legend(prop={"size": 6})
@@ -520,5 +520,5 @@ def veff(models, device, save_path=None, test=False):
     fig.savefig(filename, bbox_inches="tight")
     plt.close()
 
-for model_num in [400]:
-    veff(models=model_num, device=2, test=False, save_path='/home/halin/Master/Transformer/figures/veff/')
+for model_num in [407]:
+    veff(models=model_num, device=1, test=False, save_path=None)

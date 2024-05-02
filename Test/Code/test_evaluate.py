@@ -146,11 +146,13 @@ from analysis_tools.config import GetConfig
 #################################################################################
 # Test find best model
 #################################################################################
-model_num = 256
-config = dd.get_model_config(model_num=model_num)
-device = torch.device('cuda:0')
-save_path = '/home/halin/Master/Transformer/Models/'
-find_best_model(config=config, device=device, save_path='/home/halin/Master/Transformer/figures')
+model_nums = [264,265]
+test = False
+for model_num in model_nums:
+    config = dd.get_model_config(model_num=model_num)
+    device = torch.device('cuda:2')
+
+    find_best_model(config=config, device=device, save_path='/home/halin/Master/Transformer/figures', test=test)
 
 
 # #################################################################################

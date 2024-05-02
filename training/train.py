@@ -170,8 +170,8 @@ def training(configs, cuda_device, model_folder='', test=False, retraining=False
     x_batch, y_batch = test_loader.__getitem__(0)
     x = x_batch.cpu().detach().numpy()
     y = y_batch.cpu().detach().numpy()
-      
-    plot_examples(x, y, config=config['transformer'])
+    if data_type != 'chunked':  
+      plot_examples(x, y, config=config['transformer'])
 
     for epoch in range(initial_epoch, config['transformer']['training']['num_epochs'] + 1):
 
@@ -235,12 +235,19 @@ def training(configs, cuda_device, model_folder='', test=False, retraining=False
 
           x_batch, y_batch = x_batch.to(device).to(precision), y_batch.to(device).to(precision)
           outputs = model(x_batch)
+
+          if data_type == 'chunked':
+            outputs = outputs.squeeze()
+
           val_loss.append(criterion(outputs, y_batch.squeeze()).item())
           pred = outputs.cpu().detach().numpy()
           preds.append(pred)
           ys.append(y_batch.cpu().detach().numpy())
-
-        threshold, accuracy, efficiency, precission, recall, F1 = validate(np.asarray(ys), np.asarray(preds))  # config['transformer']['training']['metric']
+        if data_type == 'chunked':
+          noise_rejection = config['sampling']['rate']*1e9/config['input_length']
+        else:
+          noise_rejection = 10000
+        threshold, accuracy, efficiency, precission, recall, F1 = validate(np.asarray(ys), np.asarray(preds), noise_rejection=noise_rejection)  # config['transformer']['training']['metric']
         if config['transformer']['training']['metric'] == 'Accuracy':
           met = accuracy
         elif config['transformer']['training']['metric'] == 'Efficiency':

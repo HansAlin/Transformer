@@ -481,28 +481,40 @@ if __name__ == '__main__':
         ]
   
     test_dict = {
-                #'GSA': [False],
+                #'GSA': [False, True],
+                # 'max_pool': [False],
                 # 'projection_type': ['linear', 'cnn'], 
-                # 'activation': ['relu', 'gelu'],
-                # 'normalization': ['layer', 'batch'],
                 # 'embed_type': ['cnn', 'linear'],# 'ViT', ''cnn', 'linear'],
                 # 'pos_enc_type':['Relative', 'Sinusoidal', 'Learnable'],
-                #   'pre_def_dot_product': [True, False],
-                #  'data_type': ['trigger'],
-                # 'encoder_type':['vanilla', 'normal'],
+                # 'pre_def_dot_product': [True],
+                # 'encoder_type':['normal'], #'vanilla',
+                # 'batch_size': [1024] ,
+                # 'max_relative_position': [32],
                 # 'max_pool': [True, False],
-      'data_type': ['chunked'],
-      'antenna_type': ['LPDA'],
-    'd_model': [4, 32],
-    'd_ff': [4, 32],
-    'h': [2],
-    'N': [2, 4], 
+                # 'data_type': ['chunked'],
+                # 'antenna_type': ['LPDA'],
+                'd_model': [4, 32],
+                'd_ff': [4, 32],
+                'h': [2],
+                'N': [2, 4], 
                 
 
     }
     combinations = list(itertools.product(*test_dict.values()))
+    # combinations = [dict(zip(test_dict.keys(), values)) for values in itertools.product(*test_dict.values())]
 
+    # # Filter out the undesired combination
+    # filtered_combinations = [combo for combo in combinations if not (combo['max_pool'] is True and combo['projection_type'] == 'linear')]
+
+    # # Convert dictionaries back to lists
+    # combinations = [list(combo.values()) for combo in filtered_combinations]
+
+    # # Update test_dict to match the filtered combinations
+    # test_dict = {key: [combo[key] for combo in filtered_combinations] for key in test_dict.keys()}
+
+  
     configs = []
+
     for combination in combinations:
         params = dict(zip(test_dict.keys(), combination))
 

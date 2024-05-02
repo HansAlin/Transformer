@@ -53,9 +53,9 @@ class BatchNormalization(nn.Module):
 
   def forward(self, x):
     # (batch_size, seq_len, d_model)
-    x = x.permute(1,2,0) # (batch_size, d_model, seq_len)
+    x = x.permute(0, 2, 1) # (batch_size, d_model, seq_len)
     x = self.batch_norm(x)
-    x = x.permute(2,0,1)
+    x = x.permute(0, 2, 1)
     return x
   
 
@@ -558,14 +558,14 @@ class ResidualConnection(nn.Module):
   """ This layer adds the residual connection from sublayer to the input.
       It also appies a 
   """
-  def __init__(self, features: int, dropout: float = 0.1, residual_type='post_ln', normalization='layer'):
+  def __init__(self, d_model: int, batch_size: int, dropout: float = 0.1, residual_type='post_ln', normalization='layer'):
     super().__init__()
     self.dropout = nn.Dropout(dropout)
     self.residual_type = residual_type
     if normalization == 'layer':
-      self.norm = LayerNormalization(features=features)
+      self.norm = LayerNormalization(features=d_model)
     elif normalization == 'batch':
-      self.norm = BatchNormalization(features=features)
+      self.norm = BatchNormalization(features=d_model)
     
   def forward(self, x, sublayer):
     if self.residual_type == 'post_ln':
@@ -589,7 +589,8 @@ class ResidualConnection(nn.Module):
   
 class EncoderBlock(nn.Module):
   def __init__(self, 
-               features: int,
+               d_model: int,
+               batch_size: int,
                self_attention_block: MultiHeadAttentionBlock,
                feed_forward_block: FeedForwardBlock, 
                dropout: float = 0.1,
@@ -598,11 +599,13 @@ class EncoderBlock(nn.Module):
     super().__init__()
     self.self_attention_block = self_attention_block
     self.feed_forward_block =  feed_forward_block
-    self.residual_connection_1 = ResidualConnection(features=features, 
+    self.residual_connection_1 = ResidualConnection(d_model=d_model, 
+                                                    batch_size=batch_size,
                                                     dropout=dropout, 
                                                     residual_type=residual_type,
                                                     normalization=normalization)
-    self.residual_connection_2 = ResidualConnection(features=features,
+    self.residual_connection_2 = ResidualConnection(d_model=d_model,
+                                                    batch_size=batch_size,
                                                     dropout=dropout, 
                                                     residual_type=residual_type,
                                                     normalization=normalization)
@@ -626,8 +629,8 @@ class VanillaEncoderBlock(nn.Module):
       self.norm_1 = LayerNormalization(d_model)
       self.norm_2 = LayerNormalization(d_model)
     elif normalization == 'batch': 
-      self.norm_1 = BatchNormalization(d_model)
-      self.norm_2 = BatchNormalization(d_model)  
+      self.norm_1 = BatchNormalization(features=d_model)
+      self.norm_2 = BatchNormalization(features=d_model)  
  
     self.feed_forward_block = FeedForwardBlock(d_model, d_ff, dropout, activation)
     self.residual_type = residual_type
@@ -746,7 +749,8 @@ class VanillaEncoderTransformer(nn.Module):
                final_block: FinalBlock,
                residual_type: str = 'post_ln',
                normalization: str = 'layer',
-               features: int = 512,
+               d_model: int = 512,
+               batch_size: int = 128,
                data_type: str = 'trigger'
                ) -> None:
     super().__init__()
@@ -761,9 +765,9 @@ class VanillaEncoderTransformer(nn.Module):
       self.norm = nn.Identity()
     elif residual_type == 'pre_ln':
       if normalization == 'layer':
-        self.norm = LayerNormalization(features=features)
+        self.norm = LayerNormalization(features=d_model)
       elif normalization == 'batch':
-        self.norm = BatchNormalization(features=features)
+        self.norm = BatchNormalization(features=d_model)
 
     self.network_blocks = nn.ModuleList()
     block1 = nn.Sequential(src_embed, src_pos, encoders, self.norm)
@@ -814,7 +818,8 @@ class Encoder(nn.Module):
 
 class EncoderTransformer(nn.Module):
     def __init__(self, 
-                 features:int,
+                 d_model:int,
+                 batch_size:int,
                  encoders: List[nn.Module], 
                  src_embed: List[InputEmbeddings], 
                  src_pos: List[PositionalEncoding],
@@ -825,9 +830,10 @@ class EncoderTransformer(nn.Module):
                  data_type: str = 'trigger'
                  ) -> None:
         super().__init__()
-
+        self.d_model = d_model
+        self.batch_size = batch_size
         self.data_type = data_type
-        norm = self.get_norm(residual_type, normalization, features)
+        norm = self.get_norm(residual_type, normalization)
         self.network_blocks = nn.ModuleList()
             
         if encoding_type == 'normal':
@@ -861,10 +867,14 @@ class EncoderTransformer(nn.Module):
         else:
             raise ValueError(f"Unsupported encoding type: {encoding_type}")
 
-    def get_norm(self, residual_type, normalization, features):
+    def get_norm(self, residual_type, normalization):
         norm_types = {'post_ln': nn.Identity, 'pre_ln': {'layer': LayerNormalization, 'batch': BatchNormalization}}
         try:
             if residual_type == 'pre_ln':
+                if normalization == 'layer':
+                  features = self.d_model
+                elif normalization == 'batch':
+                  features = self.d_model
                 return norm_types[residual_type][normalization](features=features)
             return norm_types[residual_type]()
         except KeyError:
@@ -1015,7 +1025,8 @@ def build_encoder_transformer(config):
                                               d_ff=config['architecture']['d_ff'] ,
                                                dropout=config['training']['dropout'], 
                                                activation=config['architecture']['activation'])
-        encoder_block = EncoderBlock(features=features,
+        encoder_block = EncoderBlock(d_model=config['architecture']['d_model'],
+                                     batch_size=config['training']['batch_size'],
                                     self_attention_block=encoder_self_attention_block, 
                                     feed_forward_block=feed_forward_block, 
                                     dropout=config['training']['dropout'],
@@ -1060,11 +1071,13 @@ def build_encoder_transformer(config):
                                                     final_block=final_block,
                                                     residual_type=config['architecture'].get('residual_type', 'post_ln'),
                                                     normalization=config['architecture'].get('normalization', 'layer')  ,
-                                                    features=features,
+                                                    d_model=config['architecture']['d_model'],
+                                                    batch_size=config['training']['batch_size'],
                                                     data_type=config['architecture']['data_type']
                                                     )
   else:
-    encoder_transformer = EncoderTransformer(features=features,
+    encoder_transformer = EncoderTransformer(d_model=config['architecture']['d_model'],
+                                            batch_size=config['training']['batch_size'],
                                             encoders=encoders,
                                             src_embed=src_embed,
                                             src_pos= src_pos, 

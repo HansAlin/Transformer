@@ -842,6 +842,13 @@ def find_best_model(config, device, save_path='', test=True):
 
     num_epochs = config['transformer']['results']['current_epoch'] 
 
+    data_type = config['transformer']['architecture']['data_type']
+
+    if data_type == 'chunked':
+      noise_rejection = config['sampling']['rate']*1e9/config['input_length']
+    else:
+      noise_rejection = 10000
+
     for model_epoch in range(1, num_epochs+ 1):  
       model_path = get_model_path(config, f'{model_epoch}')
       model = load_model(config=config, text=f'{model_epoch}')
@@ -851,7 +858,8 @@ def find_best_model(config, device, save_path='', test=True):
                                                                   device=device, 
                                                                   config=config, 
                                                                   extra_identifier=f'_{model_epoch}',
-                                                                  plot_attention=plot_attention)  
+                                                                  plot_attention=plot_attention,
+                                                                  noise_rejection_rate=noise_rejection,)  
       temp_df = pd.DataFrame([[model_epoch, accuracy, precision, efficiency, threshold]],
                             columns= ['Epoch', 'Accuracy', 'Precission', 'Efficiency', 'Threshold'])
       df = pd.concat([df, temp_df], ignore_index=True)

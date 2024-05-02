@@ -71,7 +71,7 @@ def histogram(y_pred, y, config, bins=100, save_path='', text='', threshold=None
     ax.axvline(x=median_noise, color='b', linestyle='--', label=f'Median noise {median_noise:.2f}')
     ax.axvline(x=mean_signal, color='g', linestyle='-', label=f'Mean signal {mean_signal:.2f}')
     ax.axvline(x=mean_noise, color='b', linestyle='-', label=f'Mean noise {mean_noise:.2f}')  
-    ax.axvline(x=quantile_signal, color='g', linestyle='-.', label=f'Quantile signal {(1 - quantile_signal):.2f}')  
+    ax.axvline(x=quantile_signal, color='g', linestyle='-.', label=f'90 % signal {(1 - quantile_signal):.2f}')  
     ax.legend()
 
     plt.savefig(save_path)

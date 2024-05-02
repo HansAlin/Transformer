@@ -42,6 +42,7 @@ def parse_args():
   parser.add_argument('--config_number', type=int,help='Which config file type to use. Recomend 0')
   parser.add_argument('--resume_training_for_model', default=None, type=int, help='Resume training for model')
   parser.add_argument('--inherit_model', default=None, type=int, help='Inherit model')
+  parser.add_argument('--save_configs', default=None, type=bool, help='Save configs to file.')
   
   
   args = parser.parse_args()
@@ -57,6 +58,16 @@ def compare_dicts(dict1, dict2, exclude_keys):
     diff_keys.extend([k for k in dict2 if k not in exclude_keys and dict2[k] != dict1.get(k)])
     return diff_keys
 
+def save_configs(configs):
+  for config in configs:
+    model_num = config['transformer']['basic']['model_num']
+    model_path = f'/home/halin/Master/nuradio-analysis/data/models/fLow_0.08-fhigh_0.23-rate_0.5/config_{model_num}.yaml'
+    config['transformer']['basic']['model_path'] = model_path
+    save_path = f'/home/halin/Master/nuradio-analysis/configs/chunked/config_{model_num}.yaml'
+    with open(save_path, 'w') as file:
+      yaml.dump(config, file)
+
+
 def main(): 
 
   # start_model_num, epochs, test, cuda_device, config_number, inherit_model, retrain
@@ -69,12 +80,13 @@ def main():
     args.start_model_num = None
     args.epochs = 100
     args.test = False
-    args.cuda_device = 2
+    args.cuda_device = 1
     args.config_number = 0
     args.resume_training_for_model = None
-    args.inherit_model = 265
+    args.inherit_model = None
+    args.save_configs = False
 
-  compare_model = 265
+  compare_model = 256
   compare_config = dh.get_model_config(compare_model)
 
 
@@ -96,19 +108,26 @@ def main():
                 # 'N':[2]
                 # 'pos_enc_type':['Relative'],
                 #'max_relative_position': [None],
-      # 'antenna_type': ['LPDA'],
-      # 'data_type': ['chunked'],
-    'd_model': [8],
-    'd_ff': [32, 128],
-    'h': [4, 8],
-    'N': [2, 3],  
-
+      'antenna_type': ['LPDA'],
+      'data_type': ['chunked'],
+                # 'max_pool': [False],
+                # 'projection_type': ['linear', 'cnn'], 
+                # 'embed_type': ['linear'],# 'ViT', ''cnn', 'linear'],
+                # 'pos_enc_type':['Relative', 'Sinusoidal', 'Learnable'],
+                # 'pre_def_dot_product': [True],
+                # 'encoder_type':['normal'], #'vanilla',
+                # 'batch_size': [1024] ,
+                # 'max_relative_position': [32],
+                'd_model': [4, 128],
+                'd_ff': [16, 64],
+                'h': [2],
+                'N': [2, 4], 
                   }
 
     # Get all combinations
     combinations = list(itertools.product(*hyper_param.values()))
     # TODO remove this after running 256, ...
-    # combinations = combinations[2:]
+    #combinations = combinations[1:]
     if args.start_model_num == None:
       if args.test:
         print("Test mode")
@@ -160,13 +179,21 @@ def main():
  
     config['transformer']['basic']['model_num'] = model_num
     config['transformer']['training']['num_epochs'] = args.epochs
+    
 
     for combination in combinations:
       params = dict(zip(hyper_param.keys(), combination))
       print(f"Model number: {model_num}, and parameters: {params}")
       for hyper_param_key, hyper_paramter in params.items():
-        config['transformer']['architecture'][hyper_param_key] = hyper_paramter
+        if hyper_param_key in config['transformer']['architecture']:
+          config['transformer']['architecture'][hyper_param_key] = hyper_paramter
+        elif hyper_param_key in config['transformer']['basic']:
+          config['transformer']['basic'][hyper_param_key] = hyper_paramter
+        elif hyper_param_key in config['transformer']['training']:
+          config['transformer']['training'][hyper_param_key] = hyper_paramter  
+
       config['transformer']['basic']['model_num'] = model_num
+      config['training']['batch_size'] = config['transformer']['training']['batch_size']
       configs.append(copy.deepcopy(config))
       model_num += 1
 
@@ -180,7 +207,10 @@ def main():
   if answer == 'n':
     sys.exit()
 
-  training(configs=configs, 
+  if args.save_configs:
+    save_configs(configs)
+  else:
+    training(configs=configs, 
           cuda_device=args.cuda_device,
           model_folder=models_path,
           test=args.test,

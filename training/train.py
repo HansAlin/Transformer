@@ -170,8 +170,8 @@ def training(configs, cuda_device, model_folder='', test=False, retraining=False
     x_batch, y_batch = test_loader.__getitem__(0)
     x = x_batch.cpu().detach().numpy()
     y = y_batch.cpu().detach().numpy()
-    if data_type != 'chunked':  
-      plot_examples(x, y, config=config['transformer'])
+    
+    plot_examples(x, y, config=config['transformer'], data_type=data_type)
 
     for epoch in range(initial_epoch, config['transformer']['training']['num_epochs'] + 1):
 

@@ -1,14 +1,14 @@
 arch: Transformer
-input_length: 256
-n_ant: 4
+input_length: 128
+n_ant: 5
 training:
-  batch_size: 256
+  batch_size: 1000
   cdf: 0.7
   consecutive_deadtime: 2
   extra_gap_per_waveform: 200
   forward_skip_size: 199
   learning_rate: 0.001
-  loss_fn: BCE
+  loss_fn: BCEWithLogits
   ns_readout_window: 800
   permute_for_RNN_input: false
   probabilistic_sampling_ensure_min_signal_fraction: 0.3
@@ -21,29 +21,29 @@ training:
   start_frac: 0.3
   test_frac: 0.1
   trigger_time: 200
-  upsampling: 1
+  upsampling: 2
   val_frac: 0.1
 transformer:
   architecture:
     GSA: false
     N: 2
     activation: relu
-    antenna_type: LPDA
+    antenna_type: phased
     by_pass: false
     d_ff: 64
     d_model: 32
-    data_type: chunked
+    data_type: trigger
     embed_type: linear
     encoder_type: vanilla
     final_type: d_model_average_linear
-    h: 4
+    h: 2
     inherit_model: null
     input_embeddings:
       kernel_size: 3
       stride: 1
     max_pool: false
-    max_relative_position: 32
-    n_ant: 4
+    max_relative_position: None
+    n_ant: 5
     normalization: layer
     omega: 10000
     output_shape: null
@@ -53,7 +53,7 @@ transformer:
     pretrained: null
     projection_type: linear
     residual_type: pre_ln
-    seq_len: 256
+    seq_len: 128
   basic:
     data_path: ''
     model: null
@@ -88,12 +88,12 @@ transformer:
     trained: false
     training_time: 0
   training:
-    batch_size: 256
+    batch_size: 1000
     decreas_factor: 0.7
     dropout: 0
     early_stop: 100
     learning_rate: 0.001
-    loss_function: BCE
+    loss_function: BCEWithLogits
     metric: Efficiency
     num_epochs: 100
     step_size: 7

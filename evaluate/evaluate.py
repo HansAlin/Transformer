@@ -349,9 +349,10 @@ def get_transformer_triggers(waveforms, trigger_times, model_name, pre_trig):
                 x = x.transpose(1, 2)
               elif find_key_in_dict(config, 'data_type') == 'chunked':
                  x = x  
-              elif find_key_in_dict(config, 'data_type') == 'phased':
-                 x = x.transpose(1, 2)
-                 x = x[:, :, :n_ant]   
+              else:
+                 print("Data type not found")
+                 assert False   
+ 
               yhat = model(x)
               if sigmoid:
                 yhat = torch.sigmoid(yhat)
@@ -748,10 +749,6 @@ def noise_rejection(model_number, model_type='final', cuda_device=0, verbose=Fal
   seq_len = config['architecture']['seq_len']  
   noise = noise[:100000, 250:seq_len+250, :]
 
-  if verbose:
-    print(f"Mean: {noise_mean}, std: {noise_std}")
-    pp.plot_examples(noise.cpu().detach().numpy(), save_path='/home/halin/Master/Transformer/figures/test_1.png')
-    print(noise.shape)
 
   device = torch.device(f"cuda:{cuda_device}")
  
@@ -843,6 +840,7 @@ def find_best_model(config, device, save_path='', test=True):
     num_epochs = config['transformer']['results']['current_epoch'] 
 
     data_type = config['transformer']['architecture']['data_type']
+    antenna_type = config['transformer']['architecture']['antenna_type']
 
     if data_type == 'chunked':
       noise_rejection = config['sampling']['rate']*1e9/config['input_length']
@@ -909,7 +907,7 @@ def find_best_model(config, device, save_path='', test=True):
     x = x_batch.cpu().detach().numpy()
     y = y_batch.cpu().detach().numpy()
       
-    pp.plot_examples(x, y, config=config['transformer'], save_path=save_path)
+    pp.plot_examples(x, y, config=config['transformer'], save_path=save_path, data_type=data_type, antenna_type=antenna_type)
     pp.plot_performance(config['transformer'], device, x_batch=x_batch, y_batch=y_batch, lim_value=best_threshold, save_path=save_path)
     if not test:
       save_data(config, df, y_pred_data)

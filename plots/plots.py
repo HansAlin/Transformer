@@ -342,17 +342,32 @@ def plot_collections(models, labels, bins=100, save_path='', models_path='Test/M
                         reject_noise=reject_noise)
 
 
-def plot_examples(x, y, config=None, save_path=''):
+def plot_examples(x, y, config=None, save_path='', data_type='trigger', antenna_type='LPDA'):
 
   plt.rcParams.update({'font.size': 15})  # Change the font size here
   
+  if data_type == 'chunked':
+    x = x.permute(0,2,1)
+    y = y.max(dim=-1)
+    if antenna_type == 'phased':
+      sample_rate = 1 # GHz
+    else:
+      sample_rate = 0.5 # GHz
+  else:
+    sample_rate = 0.5 # GHz    
 
   signals = np.where(y == 1)[0]
   noise = np.where(y == 0)[0]
-  x_signals = x[signals]
-  x_noise = x[noise]
+  n_ant = x.shape[2]
+  seq_len = x.shape[1]
 
-  seq_len = x_signals.shape[1]
+  x_signals = x[signals][:,:,:4] # For guarrante that we only use 4 antennas
+  x_noise = x[noise][:,:,:4]    # For guarrante that we only use 4 antennas
+
+  input_length = seq_len
+
+  time_window = input_length / (sample_rate)
+  time_window = f' ({time_window:.0f} ns)'
 
  # Find highest signal value
   max_index_flat = np.argmax(np.abs(x_signals))
@@ -373,10 +388,12 @@ def plot_examples(x, y, config=None, save_path=''):
     if not isExist:
         os.makedirs(save_path)
         print("The new directory is created!")
+
     save_path = save_path + 'examples.png'
   else:
     if save_path == '':
       save_path = os.getcwd() + '/figures/examples/examples.png'
+
 
   
 
@@ -384,12 +401,12 @@ def plot_examples(x, y, config=None, save_path=''):
   for j in range(2):
 
     ax[j].plot(x[j])
-    tixs1 = np.arange(0, seq_len + 1, seq_len//8)
-    tix_labels = tixs1/2
-    ax[j].set_xticks(tixs1)  # Set x-ticks at these locations
-    ax[j].set_xticklabels(tix_labels)  # Label x-ticks with these values
+    # tixs1 = np.arange(0, seq_len + 1, seq_len//8)
+    # tix_labels = tixs1/2
+    # ax[j].set_xticks(tixs1)  # Set x-ticks at these locations
+    # ax[j].set_xticklabels(tix_labels)  # Label x-ticks with these values
     
-    ax[j].set_xlabel('Time (ns)')  # Set x-label
+    ax[j].set_xlabel(f'Samples {time_window}')  # Set x-label
     
     ax[j].set_title(f'{title[j]}')  # Set title
     ax[j].axhline(0, color='gray', linestyle='-')  # Highlight y=0 line  

@@ -87,7 +87,10 @@ def LoadTransformerModel(model_name, model_list, text, device):
     model_list[name] = dict()
     model_list[name]["config"] = config
     data_type = get_value(config, 'data_type' )
-    model_list[name]['data_config'] = GetConfig(f'/home/halin/Master/Transformer/{data_type}_data_config.yaml')
+    if 'training' in config.keys() and 'sampling' in config.keys():
+        model_list[name]['data_config'] = config
+    else:    
+        model_list[name]['data_config'] = GetConfig(f'/home/halin/Master/Transformer/{data_type}_data_config.yaml')
     model_list[name]['data_config']['input_length'] = get_value(config, 'seq_len')
     model_list[name]['data_config']['n_ant'] = get_value(config, 'n_ant')
     model_list[name]['data_config']['training']['batch_size'] = get_value(config, 'batch_size')
@@ -174,7 +177,7 @@ def veff(models, device, save_path=None, test=False):
         data_path = '/mnt/md0/data/trigger-development/rno-g/veff/fLow_0.08-fhigh_0.23-rate_0.5/prod_2023.11.27/CDF_0.7/'
         file_list = glob.glob(data_path+'VeffData_nu_*.npz')
     elif antenna_type == 'phased':
-        data_path = '/mnt/md0/data/trigger-development/rno-g/veff/fLow_0.096-fhigh_0.22-rate_0.5/prod_2024.04.12/CDF_1.0/'
+        data_path = '/mnt/md0/data/trigger-development/rno-g/veff/fLow_0.096-fhigh_0.22-rate_0.5/prod_2024.04.19/CDF_1.0/'
         file_list = glob.glob(data_path+'VeffData_nu_*.npz')
 
 
@@ -189,7 +192,15 @@ def veff(models, device, save_path=None, test=False):
     band_flow = float(sampling_string.split("-")[0].split("_")[1])
     band_fhigh = float(sampling_string.split("-")[1].split("_")[1])
     sampling_rate = float(sampling_string.split("-")[2].split("_")[1])
-    rms_noise = GetRMSNoise(band_flow, band_fhigh, sampling_rate, 300 * units.kelvin)
+
+    try:
+        upsampling = get_value(config, 'upsampling')
+    except:
+        upsampling = 1
+
+    rms_noise = GetRMSNoise(band_flow, band_fhigh, sampling_rate*upsampling, 300 * units.kelvin)
+
+
     print(f"Scaling all values by 1 / {rms_noise / (1e-6 * units.volt):0.4f} uV to normalize to SNR")
 
 
@@ -289,9 +300,9 @@ def veff(models, device, save_path=None, test=False):
         ## Calculate the normal triggers
         for std_trig_name in standard_triggers:
             trig_mask = file_dat[std_trig_name].astype(bool)
-            detected_pre_trig_events = np.sum(file_dat["weight"][trig_mask])
-            print(f"\t{std_trig_name}: {detected_pre_trig_events} events")  
-            all_dat[lgE][flavor][current][std_trig_name]["weight"] += detected_pre_trig_events
+            pre_trig_weights = np.sum(file_dat["weight"][trig_mask])
+            print(f"\t{std_trig_name}, {np.sum(trig_mask)} events, {pre_trig_weights} weight") 
+            all_dat[lgE][flavor][current][std_trig_name]["weight"] += pre_trig_weights
 
             passing_snrs = snr_values[trig_mask]
             for snr in passing_snrs:
@@ -520,5 +531,7 @@ def veff(models, device, save_path=None, test=False):
     fig.savefig(filename, bbox_inches="tight")
     plt.close()
 
-for model_num in [407]:
-    veff(models=model_num, device=1, test=False, save_path=None)
+models = range(296,300)
+
+for model_num in models:
+    veff(models=model_num, device=2, test=False, save_path=None)

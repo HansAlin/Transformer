@@ -53,9 +53,22 @@ def parse_args():
   
   return args
 
-def compare_dicts(dict1, dict2, exclude_keys):
-    diff_keys = [k for k in dict1 if k not in exclude_keys and dict1[k] != dict2.get(k)]
-    diff_keys.extend([k for k in dict2 if k not in exclude_keys and dict2[k] != dict1.get(k)])
+def compare_dicts(dict1, dict2, exclude_keys, parent_key=''):
+    diff_keys = []
+
+    for k in dict1:
+        full_key = f'{parent_key}.{k}' if parent_key else k
+        if k not in exclude_keys:
+            if isinstance(dict1[k], dict) and isinstance(dict2.get(k), dict):
+                diff_keys.extend(compare_dicts(dict1[k], dict2.get(k), exclude_keys, full_key))
+            elif dict1[k] != dict2.get(k):
+                diff_keys.append((full_key, dict1[k], dict2.get(k)))
+
+    for k in dict2:
+        if k not in exclude_keys and k not in dict1:
+            full_key = f'{parent_key}.{k}' if parent_key else k
+            diff_keys.append((full_key, None, dict2[k]))
+
     return diff_keys
 
 def save_configs(configs):
@@ -68,6 +81,13 @@ def save_configs(configs):
       yaml.dump(config, file)
 
 
+def update_nested_dict(d, key, value):
+    for k, v in d.items():
+        if isinstance(v, dict):
+            update_nested_dict(v, key, value)
+        if k == key:
+            d[k] = value
+
 def main(): 
 
   # start_model_num, epochs, test, cuda_device, config_number, inherit_model, retrain
@@ -79,11 +99,11 @@ def main():
     args = argparse.Namespace()
     args.start_model_num = None
     args.epochs = 100
-    args.test = False
-    args.cuda_device = 1
+    args.test = True
+    args.cuda_device = 2
     args.config_number = 0
     args.resume_training_for_model = None
-    args.inherit_model = None
+    args.inherit_model = 256
     args.save_configs = False
 
   compare_model = 256
@@ -104,30 +124,33 @@ def main():
     config = get_config(args.config_number)
     retraining = False
     #config = old_config.copy()
+
+    cnn_configs = [
+            {'kernel_size': 3, 'stride': 1},
+           # {'kernel_size': 3, 'stride': 2},
+        ]
+    vit_configs = [
+            # {'kernel_size': 2, 'stride': 2},
+            {'kernel_size': 5, 'stride': 5},
+        ]
+
+
     hyper_param = {
-                # 'N':[2]
-                # 'pos_enc_type':['Relative'],
-                #'max_relative_position': [None],
-      'antenna_type': ['LPDA'],
-      'data_type': ['chunked'],
-                # 'max_pool': [False],
-                # 'projection_type': ['linear', 'cnn'], 
-                # 'embed_type': ['linear'],# 'ViT', ''cnn', 'linear'],
-                # 'pos_enc_type':['Relative', 'Sinusoidal', 'Learnable'],
-                # 'pre_def_dot_product': [True],
-                # 'encoder_type':['normal'], #'vanilla',
-                # 'batch_size': [1024] ,
-                # 'max_relative_position': [32],
-                'd_model': [4, 128],
-                'd_ff': [16, 64],
-                'h': [2],
-                'N': [2, 4], 
+                'max_pool': [False, True],
+                'projection_type': ['linear', 'cnn'], 
+                'embed_type': ['cnn', 'linear', 'ViT'],
+                'pos_enc_type':['Relative', 'Sinusoidal', 'Learnable', 'None'],
+                'pre_def_dot_product': [True],
+                'encoder_type':['normal'], #'vanilla',
+                'batch_size': [1024] ,
+                'max_relative_position': [32],  
+                'd_model': [30],
                   }
 
     # Get all combinations
     combinations = list(itertools.product(*hyper_param.values()))
     # TODO remove this after running 256, ...
-    #combinations = combinations[1:]
+    #combinations = combinations[5:]
     if args.start_model_num == None:
       if args.test:
         print("Test mode")
@@ -183,14 +206,50 @@ def main():
 
     for combination in combinations:
       params = dict(zip(hyper_param.keys(), combination))
+
+      if params.get('embed_type') == 'linear' and params.get('max_pool') == True:
+        continue
+
       print(f"Model number: {model_num}, and parameters: {params}")
-      for hyper_param_key, hyper_paramter in params.items():
-        if hyper_param_key in config['transformer']['architecture']:
-          config['transformer']['architecture'][hyper_param_key] = hyper_paramter
-        elif hyper_param_key in config['transformer']['basic']:
-          config['transformer']['basic'][hyper_param_key] = hyper_paramter
-        elif hyper_param_key in config['transformer']['training']:
-          config['transformer']['training'][hyper_param_key] = hyper_paramter  
+
+      # Have to update kernels differently for cnn and ViT
+      if params.get('embed_type') == 'cnn':
+
+        if config['transformer']['architecture']['n_ant'] == 5 or params.get('n_ant') == 5:
+            if params.get('d_model') != None:
+                if params.get('d_model') % 5 == 0:
+                    pass
+                elif config['transformer']['architecture']['d_model']  % 5 == 0:
+                    pass
+            elif config['transformer']['architecture']['d_model']  % 5 == 0:
+                pass    
+            else:
+                assert False, "d_model must be divisible by 5"
+
+
+        for cnn_config in cnn_configs:
+              params_copy = params.copy()
+              params_copy.update(cnn_config)
+              
+              for (test_key, value) in params_copy.items():
+                  update_nested_dict(config, test_key, value)
+
+      elif params.get('embed_type') == 'ViT':
+
+        for vit_config in vit_configs:
+            params_copy = params.copy()
+            params_copy.update(vit_config)
+            params.update(vit_config)
+            for (test_key, value) in params_copy.items():
+                update_nested_dict(config, test_key, value)  
+            config['transformer']['architecture']['max_relative_position'] = config['transformer']['architecture']['max_relative_position'] // params['stride']    
+
+      else:
+            for (test_key, value) in params.items():
+                update_nested_dict(config, test_key, value)
+
+      if params.get('max_pool') == True:
+            config['transformer']['architecture']['max_relative_position'] = config['transformer']['architecture']['max_relative_position'] // 2    
 
       config['transformer']['basic']['model_num'] = model_num
       config['training']['batch_size'] = config['transformer']['training']['batch_size']
@@ -200,9 +259,11 @@ def main():
   for config in configs:
     print(f"Batch size: {dh.get_value(config, 'batch_size'):>5}, d_model: {dh.get_value(config, 'd_model'):>5}, d_ff: {dh.get_value(config, 'd_ff'):>5}, h: {dh.get_value(config, 'h'):>5}, N: {dh.get_value(config, 'N'):>5}, Loss function: {dh.get_value(config, 'loss_function'):>5}, Embedding: {dh.get_value(config, 'embed_type'):>5}, Positional encoding: {dh.get_value(config, 'pos_enc_type'):>5}, Projection: {dh.get_value(config, 'projection_type'):>5}, Antenna type: {dh.get_value(config, 'antenna_type'):>5}, Data type: {dh.get_value(config, 'data_type'):>5}" )
 
-    exclude_keys = {'basic', 'num_of_parameters', 'results'}
-    diff_keys = compare_dicts(config, compare_config, exclude_keys)
-    print(f"Different keys: {diff_keys}")
+  exclude_keys = {'basic', 'results', 'num of parameters'}
+  diff_keys = compare_dicts(configs[0], compare_config, exclude_keys)
+  print(f"Different keys: {diff_keys}")
+  for key, val1, val2 in diff_keys:
+      print(f'Key: {key}\nDict1 Value: {val1}\nDict2 Value: {val2}\n---')
   answer = input("Do you want to continue? (y/n): ")
   if answer == 'n':
     sys.exit()

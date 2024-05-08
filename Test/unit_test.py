@@ -477,7 +477,7 @@ if __name__ == '__main__':
         ]
     vit_configs = [
             # {'kernel_size': 2, 'stride': 2},
-            # {'kernel_size': 4, 'stride': 4},
+            {'kernel_size': 5, 'stride': 5},
         ]
   
     test_dict = {
@@ -491,26 +491,20 @@ if __name__ == '__main__':
                 # 'batch_size': [1024] ,
                 # 'max_relative_position': [32],
                 # 'max_pool': [True, False],
-                # 'data_type': ['chunked'],
-                # 'antenna_type': ['LPDA'],
-                'd_model': [4, 32],
-                'd_ff': [4, 32],
-                'h': [2],
-                'N': [2, 4], 
+                'max_pool': [False, True],
+                'projection_type': ['linear', 'cnn'], 
+                'embed_type': ['cnn', 'linear', 'ViT'],
+                'pos_enc_type':['Relative', 'Sinusoidal', 'Learnable', 'None'],
+                'pre_def_dot_product': [True],
+                'encoder_type':['normal'], #'vanilla',
+                'batch_size': [1024] ,
+                'max_relative_position': [32],  
+                'd_model': [30],
+                
                 
 
     }
     combinations = list(itertools.product(*test_dict.values()))
-    # combinations = [dict(zip(test_dict.keys(), values)) for values in itertools.product(*test_dict.values())]
-
-    # # Filter out the undesired combination
-    # filtered_combinations = [combo for combo in combinations if not (combo['max_pool'] is True and combo['projection_type'] == 'linear')]
-
-    # # Convert dictionaries back to lists
-    # combinations = [list(combo.values()) for combo in filtered_combinations]
-
-    # # Update test_dict to match the filtered combinations
-    # test_dict = {key: [combo[key] for combo in filtered_combinations] for key in test_dict.keys()}
 
   
     configs = []
@@ -518,7 +512,21 @@ if __name__ == '__main__':
     for combination in combinations:
         params = dict(zip(test_dict.keys(), combination))
 
+        if params.get('embed_type') == 'linear' and params.get('max_pool') == True:
+            continue
+
         if params.get('embed_type') == 'cnn':
+
+            if config['transformer']['architecture']['n_ant'] == 5 or params.get('n_ant') == 5:
+                if params.get('d_model') != None:
+                    if params.get('d_model') % 5 == 0:
+                        pass
+                    elif config['transformer']['architecture']['d_model']  % 5 == 0:
+                        pass
+                elif config['transformer']['architecture']['d_model']  % 5 == 0:
+                    pass    
+                else:
+                    assert False, "d_model must be divisible by 5"
 
             for cnn_config in cnn_configs:
                 params_copy = params.copy()
@@ -526,8 +534,7 @@ if __name__ == '__main__':
                 
                 for (test_key, value) in params_copy.items():
                     update_nested_dict(config, test_key, value)
-                new_config = copy.deepcopy(config)
-                configs.append(new_config)
+
 
         elif params.get('embed_type') == 'ViT':
 
@@ -537,14 +544,18 @@ if __name__ == '__main__':
                 params.update(vit_config)
                 for (test_key, value) in params_copy.items():
                     update_nested_dict(config, test_key, value)
-                new_config = copy.deepcopy(config)
-                configs.append(new_config)
+                config['transformer']['architecture']['max_relative_position'] = config['transformer']['architecture']['max_relative_position'] // params['stride']       
+
 
         else:
             for (test_key, value) in params.items():
                 update_nested_dict(config, test_key, value)
-            new_config = copy.deepcopy(config)
-            configs.append(new_config)
+
+        if params.get('max_pool') == True:
+            config['transformer']['architecture']['max_relative_position'] = config['transformer']['architecture']['max_relative_position'] // 2    
+
+        new_config = copy.deepcopy(config)
+        configs.append(new_config)
 
     for config in configs:
 

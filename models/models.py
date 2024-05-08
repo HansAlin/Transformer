@@ -163,7 +163,7 @@ class ViTEmbeddings(nn.Module):
 
   def forward(self, x):
     x = x.transpose(1, 2) # (batch_size, seq_len, channels) --> (batch_size, channels, seq_len)
-    x = x.unsqueeze(1)  # Add an extra dimension for channels (batch_size, 1, channels, seq_len)
+    x = x.unsqueeze(1)  # Add an extra dimension for "channels" (batch_size, 1, channels, seq_len)
      
     # Calculate padding dynamically
     seq_len = x.size(-1)
@@ -533,7 +533,10 @@ class MultiHeadAttentionBlock(nn.Module):
       value = value.view(value.shape[0], value.shape[1], self.h, self.d_h).transpose(1,2) # (batch_size, seq_len, d_model) --> (batch_size, h, seq_len, d_h)
 
       if self.pre_def_dot_product:
-        x = F.scaled_dot_product_attention(query, key, value, mask, self.dropout_value)
+        x = F.scaled_dot_product_attention(query=query,
+                                           key=key, 
+                                           value=value, 
+                                           dropout_p=self.dropout_value)
 
 
       else:
@@ -1316,6 +1319,8 @@ def get_FLOPs(model, config, verbose=False):
   out_put_size = 1
   flops = 0
 
+  seq_len_updated = False
+
   for name, module in model.named_modules():
     ## Input embeddings
     if isinstance(module, InputEmbeddings):
@@ -1334,8 +1339,20 @@ def get_FLOPs(model, config, verbose=False):
           input_flops += 2 * (int(cnn1) + int(cnn2))
 
        elif isinstance(module.embedding, ViTEmbeddings):
-          MACs1 = n_ant * seq_len * module.embedding.kernel_size * module.embedding.kernel_size * module.embedding.out_put_size
-          input_flops += 2 * MACs1  
+            
+          if seq_len % module.embedding.height != 0:
+            total_padding = (module.embedding.kernel_size - seq_len % module.embedding.kernel_size) % module.embedding.kernel_size
+          else:
+            total_padding = 0
+
+          new_seq_len = (seq_len + total_padding) // module.embedding.kernel_size
+
+          if not seq_len_updated:
+            seq_len = new_seq_len
+            seq_len_updated = True
+
+          ViT = ( 1 * new_seq_len ) * (module.embedding.kernel_size * module.embedding.kernel_size) * module.embedding.out_put_size
+          input_flops += 2 * ViT 
 
        if module.dropout.p > 0:
         input_flops += 2 * batch_size * seq_len * d_model

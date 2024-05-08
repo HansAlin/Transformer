@@ -238,7 +238,9 @@ def get_trigger_data(config, random_seed=123, subset=False, save_test_set=False)
 
   assert len(waveforms)
 
-  rms_noise = GetRMSNoise(float(band_flow), float(band_fhigh), sampling_rate, 300 * units.kelvin)
+  upsampling = config.get('upsampling', 1)
+
+  rms_noise = GetRMSNoise(float(band_flow), float(band_fhigh), sampling_rate*upsampling, 300 * units.kelvin)
   print(f"\t\tWill scale waveforms by values by 1 / {rms_noise / (1e-6 * units.volt):0.4f} uV")
   std = np.median(np.std(waveforms[:, :, int(waveforms.shape[-1] * 0.77) :]))
   print(f"\t\tFYI: the RMS noise of waveforms is {std / (1e-6 * units.volt):0.4f} uV")
@@ -376,6 +378,8 @@ def get_trigger_data(config, random_seed=123, subset=False, save_test_set=False)
   print("\tValidation:", len(waveforms[wwf_split_index:val_wwf_split_index]))
   print("\tTesting:", len(waveforms[val_wwf_split_index:]))
 
+  del waveforms
+
   return train_data, val_data, test_data
 
 def get_test_data(path='/home/halin/Master/Transformer/Test/data/', n_antennas=4, batch_size=32, seq_len=256, random_seed=123):
@@ -420,37 +424,37 @@ def get_test_data(path='/home/halin/Master/Transformer/Test/data/', n_antennas=4
 
   return train_data, val_data, test_data
 
-def plot_examples(background,waveforms,sampling_rate, config, output_plot_dir='/home/halin/Master/Transformer/Test/ModelsResults/test'):
-  n_events = 3
-  n_channels = background.shape[1]
-  ncols = 3
-  nrows = n_events * n_channels
-  fig, ax = plt.subplots(ncols=ncols, nrows=nrows, figsize=(ncols * 8, nrows * 3), gridspec_kw={"wspace": 0.2, "hspace": 0.0})
+# def plot_examples(background,waveforms,sampling_rate, config, output_plot_dir='/home/halin/Master/Transformer/Test/ModelsResults/test'):
+#   n_events = 3
+#   n_channels = background.shape[1]
+#   ncols = 3
+#   nrows = n_events * n_channels
+#   fig, ax = plt.subplots(ncols=ncols, nrows=nrows, figsize=(ncols * 8, nrows * 3), gridspec_kw={"wspace": 0.2, "hspace": 0.0})
 
-  for ievent in range(n_events):
-      for ich in range(n_channels):
-          ax[ievent * n_channels + ich, 0].plot(waveforms[ievent, ich], label=f"Signal, evt{ievent+1}, ch{ich+1}")
-          ax[ievent * n_channels + ich, 1].plot(background[ievent, ich], label=f"Bkgd, evt{ievent+1}, ch{ich+1}")
-          ax[ievent * n_channels + ich, 0].legend()
-          ax[ievent * n_channels + ich, 1].legend()
+#   for ievent in range(n_events):
+#       for ich in range(n_channels):
+#           ax[ievent * n_channels + ich, 0].plot(waveforms[ievent, ich], label=f"Signal, evt{ievent+1}, ch{ich+1}")
+#           ax[ievent * n_channels + ich, 1].plot(background[ievent, ich], label=f"Bkgd, evt{ievent+1}, ch{ich+1}")
+#           ax[ievent * n_channels + ich, 0].legend()
+#           ax[ievent * n_channels + ich, 1].legend()
 
-      spec = np.median(np.abs(fft.time2freq(waveforms[ievent], sampling_rate * config["training"]["upsampling"])), axis=0)
-      ax[ievent * n_channels, 2].plot(spec, color="k")
-      spec = np.median(np.abs(fft.time2freq(background[ievent], sampling_rate * config["training"]["upsampling"])), axis=0)
-      ax[ievent * n_channels, 2].plot(spec, color="r")
-      ax[ievent * n_channels, 2].set_yscale("log")
+#       spec = np.median(np.abs(fft.time2freq(waveforms[ievent], sampling_rate * config["training"]["upsampling"])), axis=0)
+#       ax[ievent * n_channels, 2].plot(spec, color="k")
+#       spec = np.median(np.abs(fft.time2freq(background[ievent], sampling_rate * config["training"]["upsampling"])), axis=0)
+#       ax[ievent * n_channels, 2].plot(spec, color="r")
+#       ax[ievent * n_channels, 2].set_yscale("log")
 
 
-  for i in range(len(ax)):
-      for j in range(len(ax[i])):
-          ax[i, j].tick_params(axis="both", which="both", direction="in")
-          ax[i, j].yaxis.set_ticks_position("both")
-          ax[i, j].xaxis.set_ticks_position("both")
+#   for i in range(len(ax)):
+#       for j in range(len(ax[i])):
+#           ax[i, j].tick_params(axis="both", which="both", direction="in")
+#           ax[i, j].yaxis.set_ticks_position("both")
+#           ax[i, j].xaxis.set_ticks_position("both")
 
-  example_plot_name = f"{output_plot_dir}/ExampleWaveforms.pdf"
-  print("Saving", example_plot_name)
-  fig.savefig(example_plot_name, bbox_inches="tight")
-  plt.close()
+#   example_plot_name = f"{output_plot_dir}/ExampleWaveforms.pdf"
+#   print("Saving", example_plot_name)
+#   fig.savefig(example_plot_name, bbox_inches="tight")
+#   plt.close()
 
 def get_chunked_data(config, subset=True):
   """
@@ -491,7 +495,7 @@ def get_chunked_data(config, subset=True):
   signal_labels = None
 
   if subset:
-    waveform_filenames = [waveform_filenames[0]]
+    waveform_filenames = waveform_filenames[:2]
     print(f"Only using {len(waveform_filenames)} files")
 
   print("\tReading in signal waveforms")

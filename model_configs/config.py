@@ -118,6 +118,8 @@ def get_config(num):
             config['sampling']['filter']['order_high'] = 7
             config['sampling']['filter']['order_low'] = 4
             config['sampling']['filter']['type'] = 'cheby1' #TODO is this correct
+            config['training']['upsampling'] = 2
+            config['training']['start_frac'] = 0.5
 
             config['data_locations']['tag_folder_veff'] = 'CDF_1.0' #veff prod prod_2024.04.19/CDF_1.0
 
@@ -153,6 +155,8 @@ def get_config(num):
             config['sampling']['filter']['order_high'] = 7
             config['sampling']['filter']['order_low'] = 4
             config['sampling']['filter']['type'] = 'cheby1' #TODO is this correct
+            config['training']['upsampling'] = 2
+            config['training']['start_frac'] = 0.5
 
             config['data_locations']['tag_folder_veff'] = 'CDF_1.0' #veff prod prod_2024.04.19/CDF_1.0
 

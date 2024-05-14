@@ -8,7 +8,7 @@ training:
   extra_gap_per_waveform: 200
   forward_skip_size: 199
   learning_rate: 0.001
-  loss_fn: BCEWithLogits
+  loss_fn: BCE
   ns_readout_window: 800
   permute_for_RNN_input: false
   probabilistic_sampling_ensure_min_signal_fraction: 0.3

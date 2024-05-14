@@ -99,14 +99,14 @@ def main():
     args = argparse.Namespace()
     args.start_model_num = None
     args.epochs = 100
-    args.test = True
-    args.cuda_device = 2
+    args.test = False
+    args.cuda_device = 0
     args.config_number = 0
     args.resume_training_for_model = None
-    args.inherit_model = 256
+    args.inherit_model = 518
     args.save_configs = False
 
-  compare_model = 256
+  compare_model = 518
   compare_config = dh.get_model_config(compare_model)
 
 
@@ -136,15 +136,9 @@ def main():
 
 
     hyper_param = {
-                'max_pool': [False, True],
-                'projection_type': ['linear', 'cnn'], 
-                'embed_type': ['cnn', 'linear', 'ViT'],
-                'pos_enc_type':['Relative', 'Sinusoidal', 'Learnable', 'None'],
-                'pre_def_dot_product': [True],
-                'encoder_type':['normal'], #'vanilla',
-                'batch_size': [1024] ,
-                'max_relative_position': [32],  
-                'd_model': [30],
+
+              'loss_function':['hinge'],
+                
                   }
 
     # Get all combinations
@@ -257,7 +251,7 @@ def main():
       model_num += 1
 
   for config in configs:
-    print(f"Batch size: {dh.get_value(config, 'batch_size'):>5}, d_model: {dh.get_value(config, 'd_model'):>5}, d_ff: {dh.get_value(config, 'd_ff'):>5}, h: {dh.get_value(config, 'h'):>5}, N: {dh.get_value(config, 'N'):>5}, Loss function: {dh.get_value(config, 'loss_function'):>5}, Embedding: {dh.get_value(config, 'embed_type'):>5}, Positional encoding: {dh.get_value(config, 'pos_enc_type'):>5}, Projection: {dh.get_value(config, 'projection_type'):>5}, Antenna type: {dh.get_value(config, 'antenna_type'):>5}, Data type: {dh.get_value(config, 'data_type'):>5}" )
+    print(f"Batch size: {dh.get_value(config, 'batch_size'):>4}, d_model: {dh.get_value(config, 'd_model'):>3}, d_ff: {dh.get_value(config, 'd_ff'):>3}, h: {dh.get_value(config, 'h'):>2}, N: {dh.get_value(config, 'N'):>2}, Loss function: {dh.get_value(config, 'loss_function'):>14}, Embedding: {dh.get_value(config, 'embed_type'):>6}, Positional encoding: {dh.get_value(config, 'pos_enc_type'):>12}, Projection: {dh.get_value(config, 'projection_type'):>8}, Antenna type: {dh.get_value(config, 'antenna_type'):>7}, Data type: {dh.get_value(config, 'data_type'):>7}" )
 
   exclude_keys = {'basic', 'results', 'num of parameters'}
   diff_keys = compare_dicts(configs[0], compare_config, exclude_keys)

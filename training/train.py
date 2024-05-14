@@ -332,4 +332,4 @@ def training(configs, cuda_device, model_folder='', test=False, retraining=False
     
     del model
 
-    find_best_model(config, device, test=test)
+    find_best_model(config, device, test=test, test_loader=test_loader)

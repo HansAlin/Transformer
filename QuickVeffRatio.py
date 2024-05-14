@@ -174,10 +174,10 @@ def veff(models, device, save_path=None, test=False):
     
     if antenna_type == 'LPDA':    
         #data_path = '/home/acoleman/data/rno-g/signal-generation/data/npy-files/veff/fLow_0.08-fhigh_0.23-rate_0.5/CDF_0.7/'
-        data_path = '/mnt/md0/data/trigger-development/rno-g/veff/fLow_0.08-fhigh_0.23-rate_0.5/prod_2023.11.27/CDF_0.7/'
+        data_path = '/mnt/md0/data/trigger-development/rno-g/veff/gen2/fLow_0.08-fhigh_0.23-rate_0.5/prod_2023.11.27/CDF_0.7/'
         file_list = glob.glob(data_path+'VeffData_nu_*.npz')
     elif antenna_type == 'phased':
-        data_path = '/mnt/md0/data/trigger-development/rno-g/veff/fLow_0.096-fhigh_0.22-rate_0.5/prod_2024.04.19/CDF_1.0/'
+        data_path = '/mnt/md0/data/trigger-development/rno-g/veff/rnog/fLow_0.096-fhigh_0.22-rate_0.5/prod_2024.04.19/CDF_1.0/'
         file_list = glob.glob(data_path+'VeffData_nu_*.npz')
 
 
@@ -247,6 +247,8 @@ def veff(models, device, save_path=None, test=False):
     ####################################
     ####################################
 
+    nr_of_files = len(file_list)    
+    count = 1
     for filename in file_list:
         print(filename)
 
@@ -348,7 +350,7 @@ def veff(models, device, save_path=None, test=False):
                 n_ref_trig = int(sum(file_dat[standard_triggers[0]].astype(bool))) # Number of true positive events from pre-trigger 'trig_1Hz'
                 n_or_trig = int(sum(np.bitwise_or(triggers.astype(bool), file_dat[standard_triggers[0]].astype(bool))))
                 print(
-                    f"\t  N_pre: {n_pre_trig}, N_trans: {n_transform_trig}, N_ref: {n_ref_trig}, N_or: {n_or_trig}, %det {n_transform_trig / n_pre_trig:0.2f}, % improve {n_or_trig / n_ref_trig:0.2f}, time: {elapsed_time:0.2f}"
+                    f"\t  N_pre: {n_pre_trig}, N_trans: {n_transform_trig}, N_ref: {n_ref_trig}, N_or: {n_or_trig}, %det {n_transform_trig / n_pre_trig:0.2f}, % improve {n_or_trig / n_ref_trig:0.2f}, time: {elapsed_time:0.2f}, file nr: {count}/{nr_of_files}"
                 )
                 model_dict[ml_trig_name]['predicted_signals'] += n_transform_trig
                 model_dict[ml_trig_name]['total_signals'] += n_pre_trig
@@ -417,7 +419,11 @@ def veff(models, device, save_path=None, test=False):
     model_num_str = ''
     for model_num in model_dict.keys():
         model_num_str += f'{model_num}_'
-        print(f"Model number: {model_num}, count: {model_dict[model_num]['count']:>5}, time: {model_dict[model_num]['time']:>7.0f}, total signals: {model_dict[model_num]['total_signals']:>7}, predicted signals: {model_dict[model_num]['predicted_signals']:>7}, Fraction: {model_dict[model_num]['predicted_signals']/model_dict[model_num]['total_signals']:>0.3f}")      
+        if model_dict[model_num]['total_signals'] == 0:
+            fraction = 0
+        else:
+            fraction = model_dict[model_num]['predicted_signals']/model_dict[model_num]['total_signals']    
+        print(f"Model number: {model_num}, count: {model_dict[model_num]['count']:>5}, time: {model_dict[model_num]['time']:>7.0f}, total signals: {model_dict[model_num]['total_signals']:>7}, predicted signals: {model_dict[model_num]['predicted_signals']:>7}, Fraction: {fraction:>0.3f}")      
 
     pd.DataFrame(model_dict).to_pickle(save_path + f'veff_model_{model_num_str}dict.pkl')
 
@@ -531,7 +537,7 @@ def veff(models, device, save_path=None, test=False):
     fig.savefig(filename, bbox_inches="tight")
     plt.close()
 
-models = range(296,300)
+models = range(600, 605)
 
 for model_num in models:
     veff(models=model_num, device=2, test=False, save_path=None)

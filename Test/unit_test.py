@@ -435,16 +435,6 @@ class TestValidation(BaseTest):
 
 
 
-
-
-
-
-
-
-
-
-
-
 def update_nested_dict(d, key, value):
     for k, v in d.items():
         if isinstance(v, dict):
@@ -481,25 +471,17 @@ if __name__ == '__main__':
         ]
   
     test_dict = {
-                #'GSA': [False, True],
-                # 'max_pool': [False],
-                # 'projection_type': ['linear', 'cnn'], 
-                # 'embed_type': ['cnn', 'linear'],# 'ViT', ''cnn', 'linear'],
-                # 'pos_enc_type':['Relative', 'Sinusoidal', 'Learnable'],
-                # 'pre_def_dot_product': [True],
-                # 'encoder_type':['normal'], #'vanilla',
-                # 'batch_size': [1024] ,
-                # 'max_relative_position': [32],
-                # 'max_pool': [True, False],
                 'max_pool': [False, True],
-                'projection_type': ['linear', 'cnn'], 
-                'embed_type': ['cnn', 'linear', 'ViT'],
-                'pos_enc_type':['Relative', 'Sinusoidal', 'Learnable', 'None'],
+                'projection_type': ['linear'], 
+                'embed_type': ['cnn', 'ViT'],
+                'pos_enc_type':['Relative', 'Sinusoidal', 'Learnable'],
                 'pre_def_dot_product': [True],
                 'encoder_type':['normal'], #'vanilla',
-                'batch_size': [1024] ,
+                'batch_size': [512] ,
                 'max_relative_position': [32],  
-                'd_model': [30],
+                'd_model': [60],
+                'd_ff': [16],
+                'h':[4] 
                 
                 
 

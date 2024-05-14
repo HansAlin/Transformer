@@ -820,7 +820,7 @@ def get_threshold(config, text='final', verbose=False):
               print(f"Model path: {model_path}, Threshold: {threshold}, Sigmoid: {sigmoid}")
           return threshold, sigmoid
 
-def find_best_model(config, device, save_path='', test=True):
+def find_best_model(config, device, save_path='', test=True, test_loader=None):
    
     plot_attention = False
 
@@ -833,9 +833,10 @@ def find_best_model(config, device, save_path='', test=True):
 
     df = pd.DataFrame([], columns= ['Epoch', 'Accuracy', 'Precission', 'Efficiency', 'Threshold'])
 
-    train_loader, val_loader, test_loader = get_data(config, subset=test)
+    if test_loader is None:
+      train_loader, val_loader, test_loader = get_data(config, subset=test)
 
-    del train_loader, val_loader
+      del train_loader, val_loader
 
     num_epochs = config['transformer']['results']['current_epoch'] 
 

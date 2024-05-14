@@ -91,10 +91,11 @@ def get_config(num):
 
           # LPDA data
           if config['transformer']['architecture']['antenna_type'] == 'LPDA':
-            
+            config['data_locations']['detector'] = 'gen2'
             config['data_locations']['high_low_noise'] = {}
             config['data_locations']['high_low_noise']['prod'] = 'prod_2023.03.24'
             config['data_locations']['pre_trig_signal']['prod'] = 'prod_2023.05.16'  
+            config['data_locations']['detector'] = 'gen2'
 
             config['sampling']['band']['high'] = 0.23
             config['sampling']['band']['low'] = 0.08
@@ -111,6 +112,7 @@ def get_config(num):
             config['data_locations']['phased_array_noise'] = {}     
             config['data_locations']['phased_array_noise']['prod'] = 'prod_2023.06.07'
             config['data_locations']['pre_trig_signal']['prod'] = 'prod_2023.06.12' 
+            config['data_locations']['detector'] = 'rnog'
 
             config['sampling']['band']['high'] = 0.22
             config['sampling']['band']['low'] = 0.096
@@ -133,6 +135,7 @@ def get_config(num):
 
             config['data_locations']['noiseless_signal']['prod'] = 'prod_2023.05.30'
             config['data_locations']['unbiased_noise']['prod'] = 'prod_2023.02.09'
+            config['data_locations']['detector'] = 'gen2'
 
             config['sampling']['band']['high'] = 0.23
             config['sampling']['band']['low'] = 0.08
@@ -148,6 +151,7 @@ def get_config(num):
 
             config['data_locations']['noiseless_signal']['prod'] = 'prod_2024.03.15'
             config['data_locations']['unbiased_noise']['prod'] = 'prod_2023.05.19'
+            config['data_locations']['detector'] = 'rnog'
 
             config['sampling']['band']['high'] = 0.22
             config['sampling']['band']['low'] = 0.096

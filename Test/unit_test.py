@@ -467,27 +467,27 @@ if __name__ == '__main__':
         ]
     vit_configs = [
             # {'kernel_size': 2, 'stride': 2},
-            {'kernel_size': 5, 'stride': 5},
+            {'kernel_size': 3, 'stride': 3},
         ]
-  
+    alt_combination = True
     test_dict = {
-                'max_pool': [False, True],
-                'projection_type': ['linear'], 
-                'embed_type': ['cnn', 'ViT'],
-                'pos_enc_type':['Relative', 'Sinusoidal', 'Learnable'],
-                'pre_def_dot_product': [True],
-                'encoder_type':['normal'], #'vanilla',
-                'batch_size': [512] ,
-                'max_relative_position': [32],  
-                'd_model': [60],
-                'd_ff': [16],
-                'h':[4] 
+                'embed_type': ['linear'] ,# 'ViT', 'linear'],
+                'n_ant':[2],
+                'd_model':[4],
+                'h':[2],
+                'seq_len': [5],
+                'encoder_type':['normal'],
+                'pos_enc_type':['Relative'],
+                'max_relative_position':[2],
+                'batch_size':[1],
                 
                 
 
     }
-    combinations = list(itertools.product(*test_dict.values()))
-
+    if alt_combination:
+      combinations = list(zip(*test_dict.values()))
+    else:
+      combinations = list(itertools.product(*test_dict.values()))
   
     configs = []
 

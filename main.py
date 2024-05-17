@@ -100,13 +100,14 @@ def main():
     args.start_model_num = None
     args.epochs = 100
     args.test = False
-    args.cuda_device = 0
+    args.cuda_device = 2
     args.config_number = 0
     args.resume_training_for_model = None
-    args.inherit_model = 518
+    args.inherit_model = 256
     args.save_configs = False
+    alt_combination = True
 
-  compare_model = 518
+  compare_model = 256
   compare_config = dh.get_model_config(compare_model)
 
 
@@ -136,13 +137,18 @@ def main():
 
 
     hyper_param = {
-
-              'loss_function':['hinge'],
-                
-                  }
+        'N': [1, 2, 3, 4,5][::-1],
+        'd_model': [8,16,32,64,128][::-1],
+        'd_ff': [16,32, 64, 128,256][::-1],
+        'h':[2,4,8,16,32][::-1], 
+        'batch_size': [1024,1024,1024,1024,1024][::-1],
+    }
 
     # Get all combinations
-    combinations = list(itertools.product(*hyper_param.values()))
+    if alt_combination:
+      combinations = list(zip(*hyper_param.values()))
+    else:
+      combinations = list(itertools.product(*hyper_param.values()))
     # TODO remove this after running 256, ...
     #combinations = combinations[5:]
     if args.start_model_num == None:

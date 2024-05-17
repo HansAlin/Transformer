@@ -22,7 +22,7 @@ import models.models as mm
 from dataHandler.datahandler import get_trigger_data, get_model_path, get_model_config
 #from evaluate.evaluate import get_model_path
 
-def histogram(y_pred, y, config, bins=100, save_path='', text='', threshold=None):
+def histogram(y_pred, y, config, bins=100, save_path='', text='', threshold=None, example_plot=False):
     """
           This function plots the histogram of the predictions of a given model.
           Args:
@@ -34,7 +34,8 @@ def histogram(y_pred, y, config, bins=100, save_path='', text='', threshold=None
     """
     y_pred = np.array(y_pred).flatten()
     y = np.array(y).flatten()
-
+    if max(y) == 0:
+      return None
     if 'transformer' in config:
       config = config['transformer']
     if save_path == '':
@@ -58,20 +59,26 @@ def histogram(y_pred, y, config, bins=100, save_path='', text='', threshold=None
     mean_noise = np.mean(y_pred_noise)
     # signal_wights = np.ones_like(y_pred_signal) / len(y_pred_signal)
     # noise_weights = np.ones_like(y_pred_noise) / len(y_pred_noise)
-
-    ax.set_title(f"Model {config['basic']['model_num']} {text}")
+    if not example_plot:
+      ax.set_title(f"Model {config['basic']['model_num']} {text}")
+    else:
+      ax.set_title("Example")  
     ax.hist(y_pred_signal, bins=bins, label='Pred signal', alpha=0.5) # weights=signal_wights, 
     ax.hist(y_pred_noise, bins=bins, label='Pred noise', alpha=0.5) # weights=noise_weights, 
     ax.set_yscale('log')
     
     ax.set_xlabel(r'noise $\leftrightarrow$ signal')
+    ax.set_ylabel('Counts')
     if threshold is not None:
-        ax.axvline(x=threshold, color='r', linestyle='--', label=f'Threshold {threshold:.2f}')
-    ax.axvline(x=median_signal, color='g', linestyle='--', label=f'Median signal {median_signal:.2f}')
-    ax.axvline(x=median_noise, color='b', linestyle='--', label=f'Median noise {median_noise:.2f}')
-    ax.axvline(x=mean_signal, color='g', linestyle='-', label=f'Mean signal {mean_signal:.2f}')
-    ax.axvline(x=mean_noise, color='b', linestyle='-', label=f'Mean noise {mean_noise:.2f}')  
-    ax.axvline(x=quantile_signal, color='g', linestyle='-.', label=f'90 % signal {(1 - quantile_signal):.2f}')  
+        ax.axvline(x=threshold, color='r', linestyle='--', label=f'Threshold at {threshold:.2f}')
+    if not example_plot:    
+      ax.axvline(x=median_signal, color='g', linestyle='--', label=f'Median signal {median_signal:.2f}')
+      ax.axvline(x=median_noise, color='b', linestyle='--', label=f'Median noise {median_noise:.2f}')
+      ax.axvline(x=mean_signal, color='g', linestyle='-', label=f'Mean signal {mean_signal:.2f}')
+      ax.axvline(x=mean_noise, color='b', linestyle='-', label=f'Mean noise {mean_noise:.2f}')  
+    text_string = f'{(quantile_signal):.2f}' 
+    text_string = '90 proc. signal at ' + text_string
+    ax.axvline(x=quantile_signal, color='g', linestyle='-.', label=text_string)  
     ax.legend()
 
     plt.savefig(save_path)
@@ -370,7 +377,11 @@ def plot_examples(x, y, config=None, save_path='', data_type='trigger', antenna_
   time_window = f' ({time_window:.0f} ns)'
 
  # Find highest signal value
-  max_index_flat = np.argmax(np.abs(x_signals))
+  try:
+    max_index_flat = np.argmax(np.abs(x_signals))
+  except ValueError:
+    print('No signal found')
+    return None
   batch_size_index, seq_len_index, n_ant_index = np.unravel_index(max_index_flat, x_signals.shape)
   max_signal_event = x_signals[batch_size_index, :, n_ant_index]
 

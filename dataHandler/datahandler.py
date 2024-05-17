@@ -185,8 +185,8 @@ def get_trigger_data(config, random_seed=123, subset=False, save_test_set=False)
      background_filenames = data_locations.PhasedArrayNoiseFiles(config, beam=use_beam)
      
   if subset:
-    waveform_filenames = [waveform_filenames[0]]
-    background_filenames = [background_filenames[0]]
+    waveform_filenames = waveform_filenames[:3]
+    background_filenames = background_filenames[:3]
      
 
   for background in background_filenames:
@@ -495,7 +495,7 @@ def get_chunked_data(config, subset=True):
   signal_labels = None
 
   if subset:
-    waveform_filenames = waveform_filenames[:2]
+    waveform_filenames = waveform_filenames[:4]
     print(f"Only using {len(waveform_filenames)} files")
 
   print("\tReading in signal waveforms")

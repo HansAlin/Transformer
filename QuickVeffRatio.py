@@ -352,6 +352,7 @@ def veff(models, device, save_path=None, test=False):
                 print(
                     f"\t  N_pre: {n_pre_trig}, N_trans: {n_transform_trig}, N_ref: {n_ref_trig}, N_or: {n_or_trig}, %det {n_transform_trig / n_pre_trig:0.2f}, % improve {n_or_trig / n_ref_trig:0.2f}, time: {elapsed_time:0.2f}, file nr: {count}/{nr_of_files}"
                 )
+                count += 1
                 model_dict[ml_trig_name]['predicted_signals'] += n_transform_trig
                 model_dict[ml_trig_name]['total_signals'] += n_pre_trig
                 model_dict[ml_trig_name]['time'] += elapsed_time
@@ -537,7 +538,7 @@ def veff(models, device, save_path=None, test=False):
     fig.savefig(filename, bbox_inches="tight")
     plt.close()
 
-models = range(600, 605)
+models = range(604,609)
 
 for model_num in models:
-    veff(models=model_num, device=2, test=False, save_path=None)
+    veff(models=model_num, device=0, test=False, save_path=None)

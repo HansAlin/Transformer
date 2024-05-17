@@ -12,6 +12,7 @@ sys.path.append(CODE_DIR_1)
 #    print(path)
 import models.models as mm
 import dataHandler.datahandler as dd
+import evaluate.evaluate as ee
 # from training.train import test_model
 import plots.plots as pp
 import torch
@@ -25,29 +26,20 @@ def condense_sequence(match):
     numbers = list(map(int, match.group(0).split('_')))
     return f'{numbers[0]}-{numbers[-1]}'
 
-# path = os.getcwd()
-
-# data_path = path + '/Test/data/test_1000_data.npy'
-# x_train, x_test, x_val, y_train, y_val, y_test = get_data(path=data_path)
-
-# train_loader, val_loader, test_loader, number_of_noise, number_of_signals = prepare_data(x_train, x_val, x_test, y_train, y_val, y_test, 32)
-
-# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")    
-# model_number = 992
-# with open(f"/mnt/md0/halin/Models/model_{model_number}/config.txt", 'rb') as f:
-#     config = pickle.load(f)
-# path = config['basic']['model_path']
-# save_path = f'/home/halin/Master/Transformer/Test/ModelsResults/test/model_{model_number}_noise_reduction.png'
-# df = pd.read_pickle(path + 'y_pred_data.pkl')
-# noise_reduction_factor([df['y_pred']], [df['y']], [config], save_path=save_path, x_lim=[0,1])
-#histogram(df['y_pred'], df['y'], config,)
-
-# model = build_encoder_transformer(config)
-
-# blocks = [ 'final_binary_block']
-# for block in blocks:
-#     plot_weights(model, config, block=block, quiet=True)
-
+####################################################################
+# Plot histogram                                                   #
+####################################################################
+model_num = 256
+device = torch.device(f'cuda:{0}')
+config = dd.get_model_config(model_num)
+train_loader, val_loader, test_loader = dd.get_data(config, subset=False)
+del train_loader, val_loader
+best_epoch = config['transformer']['results']['best_epoch']
+model = mm.load_model(config=config, text=f'{best_epoch}')
+y_pred_data, accuracy, efficiency, precision,threshold = ee.test_model(model, test_loader, device=device, config=config, )
+y_pred = y_pred_data['y_pred']
+y = y_pred_data['y']
+pp.histogram(y_pred=y_pred, y=y, config=config, save_path='/home/halin/Master/Transformer/Test/Code/plots/histogram.png',threshold=threshold, example_plot=True)
 
 # ###################################################################
 # #  Plot collections of noise reduction factors or roc             #
@@ -346,26 +338,26 @@ def condense_sequence(match):
 # Plot attention scores                                                #
 ########################################################################
 
-models = [250]
-config = dd.get_model_config(models[0])
-train_loader, val_loader, test_loader = dd.get_data(config, subset=True)
-del train_loader, val_loader
+# models = [250]
+# config = dd.get_model_config(models[0])
+# train_loader, val_loader, test_loader = dd.get_data(config, subset=True)
+# del train_loader, val_loader
 
-for model_num in models:
-    config = dd.get_model_config(model_num)
-    best_epoch = config['transformer']['results']['best_epoch']
-    model = mm.load_model(config=config, text=f'best_epoch')
+# for model_num in models:
+#     config = dd.get_model_config(model_num)
+#     best_epoch = config['transformer']['results']['best_epoch']
+#     model = mm.load_model(config=config, text=f'best_epoch')
 
-    x, y = next(iter(test_loader))
-    model.eval()
+#     x, y = next(iter(test_loader))
+#     model.eval()
     
 
-    signal_index = torch.where(y == 1)[0][0]
-    noise_index = torch.where(y == 0)[0][0]
-    signal = x[signal_index,:,:].unsqueeze(0)
-    noise = x[noise_index,:,:].unsqueeze(0)
-    out = model(signal)
-    pp.plot_attention_scores(model=model, x=signal, y=1)
-    out = model
-    pp.plot_attention_scores(model=model, x=noise, y=0)  
+#     signal_index = torch.where(y == 1)[0][0]
+#     noise_index = torch.where(y == 0)[0][0]
+#     signal = x[signal_index,:,:].unsqueeze(0)
+#     noise = x[noise_index,:,:].unsqueeze(0)
+#     out = model(signal)
+#     pp.plot_attention_scores(model=model, x=signal, y=1)
+#     out = model
+#     pp.plot_attention_scores(model=model, x=noise, y=0)  
 

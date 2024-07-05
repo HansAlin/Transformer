@@ -919,28 +919,26 @@ class EncoderTransformer(nn.Module):
 
 def build_encoder_transformer(config): 
   
-  if 'transformer' in config:
-    config = config['transformer']
 
   max_seq_len =    1024 # For the positional encoding
 
-  if config['architecture'].get('old_residual', False):
-    features = 1
-  else:
-    features = config['architecture']['d_model']   
-  # TODO remove this not used
-  if config['architecture']['data_type'] == 'chunked':
-    data_order = 'bcs'
-  elif config['architecture']['data_type'] == 'trigger':
-    data_order = 'bsc'  
+  # if config['transformer']['architecture'].get('old_residual', False):
+  #   features = 1
+  # else:
+  #   features = config['transformer']['architecture']['d_model']   
+  # # TODO remove this not used
+  # if config['transformer']['architecture']['data_type'] == 'chunked':
+  #   data_order = 'bcs'
+  # elif config['transformer']['architecture']['data_type'] == 'trigger':
+  #   data_order = 'bsc'  
 
-  if config['architecture'].get('encoder_type', 'normal')   == 'bypass':
+  if config['transformer']['architecture'].get('encoder_type', 'normal')   == 'bypass':
     by_pass = True
-    num_embeddings = config['architecture']['n_ant']  
+    num_embeddings = config['transformer']['architecture']['n_ant']  
     channels = 1
   else:
     by_pass = False 
-    channels = config['architecture']['n_ant'] 
+    channels = config['transformer']['architecture']['n_ant'] 
     num_embeddings = 1  
 
  
@@ -950,19 +948,19 @@ def build_encoder_transformer(config):
   #########################################################  
   max_pool = False   
 
-  if config['architecture']['embed_type'] == 'cnn' or config['architecture']['embed_type'] == 'ViT':  
-    kernel_size = config['architecture']['input_embeddings']['kernel_size']
-    stride = config['architecture']['input_embeddings']['stride']
-    if 'max_pool' in config['architecture']:
-      max_pool = config['architecture']['max_pool']
+  if config['transformer']['architecture']['embed_type'] == 'cnn' or config['transformer']['architecture']['embed_type'] == 'ViT':  
+    kernel_size = config['transformer']['architecture']['input_embeddings']['kernel_size']
+    stride = config['transformer']['architecture']['input_embeddings']['stride']
+    if 'max_pool' in config['transformer']['architecture']:
+      max_pool = config['transformer']['architecture']['max_pool']
 
   else:
     kernel_size = None
     stride = None
   
-  src_embed = [InputEmbeddings(d_model=config['architecture']['d_model'] , 
+  src_embed = [InputEmbeddings(d_model=config['transformer']['architecture']['d_model'] , 
                                n_ant=channels, dropout=config['training']['dropout'], 
-                               embed_type=config['architecture']['embed_type'], 
+                               embed_type=config['transformer']['architecture']['embed_type'], 
                                kernel_size=kernel_size,
                                stride=stride,
                                 max_pool=max_pool,
@@ -972,13 +970,13 @@ def build_encoder_transformer(config):
   # Create the positional encodings                       #
   #########################################################
   pos_enc_config = {
-      'Sinusoidal': lambda: PositionalEncoding(d_model=config['architecture']['d_model'] , dropout=config['training']['dropout'], max_seq_len=max_seq_len, omega=config['architecture']['omega'] ),
+      'Sinusoidal': lambda: PositionalEncoding(d_model=config['transformer']['architecture']['d_model'] , dropout=config['training']['dropout'], max_seq_len=max_seq_len, omega=config['transformer']['architecture']['omega'] ),
       'None': lambda: nn.Identity(),
       'Relative': lambda: nn.Identity(),
-      'Learnable': lambda: LearnablePositionalEncoding(d_model=config['architecture']['d_model'] , max_len=max_seq_len, dropout=config['training']['dropout'])
+      'Learnable': lambda: LearnablePositionalEncoding(d_model=config['transformer']['architecture']['d_model'] , max_len=max_seq_len, dropout=config['training']['dropout'])
   }
 
-  pos_enc_type = config['architecture']['pos_enc_type'] 
+  pos_enc_type = config['transformer']['architecture']['pos_enc_type'] 
 
   if pos_enc_type in pos_enc_config:
       src_pos_func = pos_enc_config[pos_enc_type]
@@ -991,104 +989,104 @@ def build_encoder_transformer(config):
   #########################################################
   # Create the encoder layers                             #
   #########################################################
-  if config['architecture'].get('encoder_type', 'normal')   == 'normal' or config['architecture'].get('encoder_type', 'normal')   == 'bypass':
+  if config['transformer']['architecture'].get('encoder_type', 'normal')   == 'normal' or config['transformer']['architecture'].get('encoder_type', 'normal')   == 'bypass':
 
-    num_encoders = config['architecture']['n_ant']  if by_pass else 1
+    num_encoders = config['transformer']['architecture']['n_ant']  if by_pass else 1
 
     encoders = []
     
     for _ in range(num_encoders):
       encoder_blocks = []
-      for _ in range(config['architecture']['N'] ):
-        if config['architecture']['pos_enc_type'] == 'Relative':
-          encoder_self_attention_block = MultiHeadAttentionBlock(d_model=config['architecture']['d_model'] , 
-                                                                 h=config['architecture']['h'] ,
+      for _ in range(config['transformer']['architecture']['N'] ):
+        if config['transformer']['architecture']['pos_enc_type'] == 'Relative':
+          encoder_self_attention_block = MultiHeadAttentionBlock(d_model=config['transformer']['architecture']['d_model'] , 
+                                                                 h=config['transformer']['architecture']['h'] ,
                                                                  max_seq_len=max_seq_len, 
                                                                  dropout=config['training']['dropout'], 
-                                                                 max_relative_position=config['architecture']['max_relative_position'], 
-                                                                 positional_encoding=config['architecture']['pos_enc_type'],
-                                                                 GSA=config['architecture'].get('GSA', False),
-                                                                 projection_type=config['architecture'].get('projection_type', 'linear'),
-                                                                 pre_def_dot_product=config['architecture'].get('pre_def_dot_product', False)
+                                                                 max_relative_position=config['transformer']['architecture']['max_relative_position'], 
+                                                                 positional_encoding=config['transformer']['architecture']['pos_enc_type'],
+                                                                 GSA=config['transformer']['architecture'].get('GSA', False),
+                                                                 projection_type=config['transformer']['architecture'].get('projection_type', 'linear'),
+                                                                 pre_def_dot_product=config['transformer']['architecture'].get('pre_def_dot_product', False)
 
                                                                  )
         else:
-          encoder_self_attention_block = MultiHeadAttentionBlock(d_model=config['architecture']['d_model'] , 
-                                                                 h=config['architecture']['h'] , 
+          encoder_self_attention_block = MultiHeadAttentionBlock(d_model=config['transformer']['architecture']['d_model'] , 
+                                                                 h=config['transformer']['architecture']['h'] , 
                                                                  max_seq_len=max_seq_len,
                                                                  dropout=config['training']['dropout'], 
                                                                  max_relative_position=None,
-                                                                 positional_encoding=config['architecture']['pos_enc_type'], 
-                                                                 GSA=config['architecture'].get('GSA', False),
-                                                                 projection_type=config['architecture'].get('projection_type', 'linear'),
-                                                                 pre_def_dot_product=config['architecture'].get('pre_def_dot_product', False)
+                                                                 positional_encoding=config['transformer']['architecture']['pos_enc_type'], 
+                                                                 GSA=config['transformer']['architecture'].get('GSA', False),
+                                                                 projection_type=config['transformer']['architecture'].get('projection_type', 'linear'),
+                                                                 pre_def_dot_product=config['transformer']['architecture'].get('pre_def_dot_product', False)
                                                                  )
 
-        feed_forward_block = FeedForwardBlock(d_model=config['architecture']['d_model'] , 
-                                              d_ff=config['architecture']['d_ff'] ,
+        feed_forward_block = FeedForwardBlock(d_model=config['transformer']['architecture']['d_model'] , 
+                                              d_ff=config['transformer']['architecture']['d_ff'] ,
                                                dropout=config['training']['dropout'], 
-                                               activation=config['architecture']['activation'])
-        encoder_block = EncoderBlock(d_model=config['architecture']['d_model'],
+                                               activation=config['transformer']['architecture']['activation'])
+        encoder_block = EncoderBlock(d_model=config['transformer']['architecture']['d_model'],
                                      batch_size=config['training']['batch_size'],
                                     self_attention_block=encoder_self_attention_block, 
                                     feed_forward_block=feed_forward_block, 
                                     dropout=config['training']['dropout'],
-                                    residual_type=config['architecture'].get('residual_type', 'post_ln'),
-                                    normalization=config['architecture'].get('normalization', 'layer')  )
+                                    residual_type=config['transformer']['architecture'].get('residual_type', 'post_ln'),
+                                    normalization=config['transformer']['architecture'].get('normalization', 'layer')  )
         encoder_blocks.append(encoder_block)
       encoders.append(Encoder(layers=nn.ModuleList(encoder_blocks)))
-  elif config['architecture'].get('encoder_type', 'normal')   == 'none':
+  elif config['transformer']['architecture'].get('encoder_type', 'normal')   == 'none':
     encoders = [None]
-  elif config['architecture'].get('encoder_type', 'normal')   == 'vanilla':
-    vanilla_layer = VanillaEncoderBlock(d_model=config['architecture']['d_model'] , 
-                                        h=config['architecture']['h'] , 
-                                        d_ff=config['architecture']['d_ff'] , 
+  elif config['transformer']['architecture'].get('encoder_type', 'normal')   == 'vanilla':
+    vanilla_layer = VanillaEncoderBlock(d_model=config['transformer']['architecture']['d_model'] , 
+                                        h=config['transformer']['architecture']['h'] , 
+                                        d_ff=config['transformer']['architecture']['d_ff'] , 
                                         dropout=config['training']['dropout'],
-                                        normalization=config['architecture'].get('normalization', 'layer')  ,
-                                        activation=config['architecture']['activation'],
-                                        residual_type=config['architecture'].get('residual_type', 'post_ln'))
-    encoders = nn.TransformerEncoder(vanilla_layer, num_layers=config['architecture']['N'], enable_nested_tensor=False )
+                                        normalization=config['transformer']['architecture'].get('normalization', 'layer')  ,
+                                        activation=config['transformer']['architecture']['activation'],
+                                        residual_type=config['transformer']['architecture'].get('residual_type', 'post_ln'))
+    encoders = nn.TransformerEncoder(vanilla_layer, num_layers=config['transformer']['architecture']['N'], enable_nested_tensor=False )
   else:
-    raise ValueError(f"Unsupported encoding type: {config['architecture'].get('encoder_type', 'normal')  }")        
+    raise ValueError(f"Unsupported encoding type: {config['transformer']['architecture'].get('encoder_type', 'normal')  }")        
     
 
   #########################################################
   # Create the final block                                #
   #########################################################
-  final_type = config['architecture'].get('final_type', 'double_linear') 
+  final_type = config['transformer']['architecture'].get('final_type', 'double_linear') 
   if by_pass:
     factor = 4
   else:
     factor = 1  
-  final_block = FinalBlock(d_model=config['architecture']['d_model'] *factor,
-                            seq_len=config['architecture']['seq_len'] , 
+  final_block = FinalBlock(d_model=config['transformer']['architecture']['d_model'] *factor,
+                            seq_len=config['transformer']['architecture']['seq_len'] , 
                             dropout=config['training']['dropout'], 
-                            out_put_size=config['architecture'].get('output_size', 1) , 
+                            out_put_size=config['transformer']['architecture'].get('output_size', 1) , 
                             forward_type=final_type)
 
   # Create the transformer
-  if config['architecture'].get('encoder_type', 'normal')   == 'vanilla':
+  if config['transformer']['architecture'].get('encoder_type', 'normal')   == 'vanilla':
     encoder_transformer = VanillaEncoderTransformer(encoders=encoders,
                                                     src_embed=src_embed[0],
                                                     src_pos= src_pos[0], 
                                                     final_block=final_block,
-                                                    residual_type=config['architecture'].get('residual_type', 'post_ln'),
-                                                    normalization=config['architecture'].get('normalization', 'layer')  ,
-                                                    d_model=config['architecture']['d_model'],
+                                                    residual_type=config['transformer']['architecture'].get('residual_type', 'post_ln'),
+                                                    normalization=config['transformer']['architecture'].get('normalization', 'layer')  ,
+                                                    d_model=config['transformer']['architecture']['d_model'],
                                                     batch_size=config['training']['batch_size'],
-                                                    data_type=config['architecture']['data_type']
+                                                    data_type=config['transformer']['architecture']['data_type']
                                                     )
   else:
-    encoder_transformer = EncoderTransformer(d_model=config['architecture']['d_model'],
+    encoder_transformer = EncoderTransformer(d_model=config['transformer']['architecture']['d_model'],
                                             batch_size=config['training']['batch_size'],
                                             encoders=encoders,
                                             src_embed=src_embed,
                                             src_pos= src_pos, 
                                             final_block=final_block,
-                                            encoding_type=config['architecture'].get('encoder_type', 'normal')  ,
-                                            residual_type=config['architecture'].get('residual_type', 'post_ln'),
-                                            normalization=config['architecture'].get('normalization', 'layer')  ,
-                                            data_type=config['architecture']['data_type'])
+                                            encoding_type=config['transformer']['architecture'].get('encoder_type', 'normal')  ,
+                                            residual_type=config['transformer']['architecture'].get('residual_type', 'post_ln'),
+                                            normalization=config['transformer']['architecture'].get('normalization', 'layer')  ,
+                                            data_type=config['transformer']['architecture']['data_type'])
 
   # Initialize the parameters
   for p in encoder_transformer.parameters():
@@ -1187,22 +1185,18 @@ def load_model(config, text='last', verbose=False):
             model
 
   """
-  if 'transformer' in config:
-    original_config = config
-    config = config['transformer']
-  else:
-    original_config = config  
+
 
   model = build_encoder_transformer(config)
   model_dict = model.state_dict()
   if text == 'last':
     try:
-      transformer_model_path = dd.get_value(config, 'model_path') + 'saved_model'
+      transformer_model_path = dd.get_value(config['transformer'], 'model_path') + 'saved_model'
       last_epoch = get_last_model(transformer_model_path)
     except:
-      transformer_model_path = dd.get_value(config, 'model_path') 
+      transformer_model_path = dd.get_value(config['transformer'], 'model_path') 
       
-      if dd.get_value(config, 'data_type') == 'chunked':
+      if dd.get_value(config['transformer'], 'data_type') == 'chunked':
         last_epoch = 'last'
       else:
         last_epoch = get_last_model(transformer_model_path)
@@ -1220,16 +1214,16 @@ def load_model(config, text='last', verbose=False):
   if type(text) == int:
     text = "{:03d}".format(text)
 
-  model_path = dd.get_model_path(config, text=f'_{text}.pth')
+  model_path = dd.get_model_path(config['transformer'], text=f'_{text}.pth')
 
   print(f'Preloading model {model_path}') #if verbose else None
   state = torch.load(model_path)
 
-  if '/mnt/md0/halin/Models/' not in config['basic']['model_path']  :
+  if '/mnt/md0/halin/Models/' not in config['transformer']['basic']['model_path']  :
     try:
       state = torch.load(model_path, map_location=torch.device("cpu"))
       model.load_state_dict(state, strict=True)
-      model.multiplys = get_FLOPs(model, original_config, verbose=verbose)
+      model.multiplys = get_FLOPs(model, config, verbose=verbose)
       model.adds =  0
       return model
     except:
@@ -1322,7 +1316,7 @@ def load_model(config, text='last', verbose=False):
   # Now load the new state dict
       
   model.load_state_dict(new_state_dict, strict=False)
-  model.multiplys = get_FLOPs(model, original_config, verbose=verbose)
+  model.multiplys = get_FLOPs(model, config, verbose=verbose)
   model.adds =  0
  
   return model

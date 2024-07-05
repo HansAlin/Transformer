@@ -2,13 +2,20 @@ arch: Transformer
 input_length: 128
 n_ant: 4
 training:
-  batch_size: 1000
+  batch_size: 1024
   cdf: 0.7
   consecutive_deadtime: 2
   extra_gap_per_waveform: 200
   forward_skip_size: 199
   learning_rate: 0.001
-  loss_fn: BCEWithLogits
+  step_size: 7            # Number of epochs after which the learning rate is decreased
+  dropout: 0
+  decreas_factor: 0.7     # With which factor the learning rate is decreased 
+  warm_up: false          # Only an option for pre-trigger data training Hans script
+  loss_fn: BCEWithLogits  # Options
+  num_epochs: 100         # Only an option for pre-trigger data training Hans script
+  metric: Efficiency      # Only an option for pre-trigger data training Hans script
+  early_stop: 100         # Only an option for pre-trigger data training Hans script
   ns_readout_window: 800
   permute_for_RNN_input: false
   probabilistic_sampling_ensure_min_signal_fraction: 0.3
@@ -31,70 +38,71 @@ transformer:
     antenna_type: LPDA
     by_pass: false
     d_ff: 64
-    d_model: 32
+    d_model: 32                       # Size of the model, needs to be a multiple of h
     data_type: trigger
     embed_type: cnn
-    encoder_type: vanilla
+    encoder_type: vanilla             # Options: 'vanilla' which implements the predefined multihead attention, 'normal' which implements everything from scratch
     final_type: d_model_average_linear
     h: 2
     inherit_model: null
     input_embeddings:
       kernel_size: 3
       stride: 1
-    max_pool: false
-    max_relative_position: 32
+    max_pool: false                   # Only option if embed_type is 'cnn' or 'ViT'
+    max_relative_position: 32         # Only option if pos_enc_type is 'Relative'
     n_ant: 4
     normalization: layer
     omega: 10000
     output_shape: null
     output_size: 1
-    pos_enc_type: Sinusoidal
+    pos_enc_type: Sinusoidal  # Options: Sinusoidal, Relative, Learnable, None
     pre_def_dot_product: false
     pretrained: null
     projection_type: linear
     residual_type: pre_ln
     seq_len: 128
   basic:
-    data_path: ''
-    model: null
-    model_name: Attention is all you need
+    #data_path: ''
+    #model: null
+    #model_name: Attention is all you need
     model_num: 0
     model_path: None
     model_type: base_encoder
   num of parameters:
-    MACs: 0
-    encoder_param: 0
-    final_param: 0
-    input_param: 0
+    FLOPS: 0
+    # MACs: 0
+    # encoder_param: 0
+    # final_param: 0
+    # input_param: 0
     num_param: 0
-    pos_param: 0
-    trained_noise: 0
-    trained_signal: 0
-  results:
-    Accuracy: 0
-    Efficiency: 0
-    NSE_AT_100KNRF: 0
-    NSE_AT_10KNRF: 0
-    NSE_AT_10KROC: 0
-    Precission: 0
-    TRESH_AT_10KNRF: 0
-    current_epoch: 0
-    energy: 0
-    global_epoch: 0
-    nr_area: 0
-    power: 0
-    roc_area: 0
-    test_acc: 0
-    trained: false
-    training_time: 0
-  training:
-    batch_size: 1000
-    decreas_factor: 0.7
-    dropout: 0
-    early_stop: 100
-    learning_rate: 0.001
-    loss_function: BCEWithLogits
-    metric: Efficiency
-    num_epochs: 100
-    step_size: 7
-    warm_up: false
+    # pos_param: 0
+    # trained_noise: 0
+    # trained_signal: 0
+  # results only used for training in Hans script  
+  # results:
+  #   Accuracy: 0
+  #   Efficiency: 0
+  #   NSE_AT_100KNRF: 0
+  #   NSE_AT_10KNRF: 0
+  #   NSE_AT_10KROC: 0
+  #   Precission: 0
+  #   TRESH_AT_10KNRF: 0
+  #   current_epoch: 0
+  #   energy: 0
+  #   global_epoch: 0
+  #   nr_area: 0
+  #   power: 0
+  #   roc_area: 0
+  #   test_acc: 0
+  #   trained: false
+  #   training_time: 0
+
+  # training:
+  #   #batch_size: 1000
+
+
+
+
+
+
+

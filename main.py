@@ -98,14 +98,14 @@ def main():
     print(e)  
     args = argparse.Namespace()
     args.start_model_num = None
-    args.epochs = 100
-    args.test = False
+    args.epochs = 2
+    args.test = True
     args.cuda_device = 1
-    args.config_number = 0
+    # args.config_number = 0
     args.resume_training_for_model = None
-    args.inherit_model = 320
-    args.save_configs = True
-    alt_combination = 'single'
+    args.inherit_model = 0
+    args.save_configs = False
+    alt_combination = 'combi'
     subset = None # None
 
   compare_model = 320
@@ -119,7 +119,7 @@ def main():
     old_config = dh.get_model_config(args.resume_training_for_model, type_of_file='yaml' )
 
     config = old_config.copy()
-    config['transformer']['training']['num_epochs'] = args.epochs
+    config['training']['num_epochs'] = args.epochs
     configs = [config]
     retraining = True
   else:
@@ -138,28 +138,18 @@ def main():
 
 
     hyper_param = {
-            'd_model': [50],
-            'd_ff': [78],
-            'h': [5,5,5],
-            'N': [4], 
-            'batch_size': [1024,1024,1024],
-            'max_pool': [True,True,True],
-            'embed_type': ['ViT', 'ViT', 'ViT'],
-            'max_relative_position': [0,0,0],
-            'pos_enc_type': ['Learnable', 'Learnable', 'Learnable'],
+            'd_model': [16],
+            'd_ff': [32],
+            'h': [4],
+            'N': [2], 
+            'batch_size': [1024],
+            'max_pool': [True,False],
+            'embed_type': ['ViT', 'cnn', 'linear'],
+            'max_relative_position': [16],
+            'pos_enc_type': ['Sinusoidal', 'Learnable', 'Relative'],
     }
 
-    # # Get all combinations
-    # if alt_combination == 'single':
-    #   combinations = list(zip(*hyper_param.values()))
-    # elif alt_combination == 'combi':
-    #   combinations = list(itertools.product(*hyper_param.values()))
-    # elif alt_combination == 'restrict':
-    #    combinations = dh.configs_with_flops_constarints(test_dict=hyper_param, 
-    #                                                     flop_limit=3e6,
-    #                                                     config_number=args.inherit_model)  
-    # # TODO remove this after running 256, ...
-    # combinations = combinations[:8]
+
     if args.start_model_num == None:
       if args.test:
         print("Test mode")
@@ -194,89 +184,12 @@ def main():
                                    vit_configs=vit_configs,
                                    alt_combination=alt_combination,
                                    subset=subset,)
-    
-        
-    # # Copy the config from the model to inherit from
-    # if args.inherit_model != None:
-    #   old_config = dh.get_model_config(args.inherit_model, type_of_file='yaml' )
-    #   config = old_config.copy()
-    #   if 'transformer' not in config:
-    #     config = {'transformer': config}
-
-
-    #   config['transformer']['architecture']['inherit_model'] = args.inherit_model
-    #   config['transformer']['architecture']['pretrained'] = False 
-    #   config['transformer']['basic']['model_path'] = ''
-    #   config['transformer']['training']['num_epochs'] = args.epochs
-    #   config['transformer']['results'] = {}
-    #   config['transformer']['num of parameters'] = {}
-    #   config['transformer']['results']['current_epoch'] = 0
-    #   config['transformer']['results']['global_epoch'] = 0
-
- 
-    # config['transformer']['basic']['model_num'] = model_num
-    # config['transformer']['training']['num_epochs'] = args.epochs
-    
-
-    # for combination in combinations:
-    #   params = dict(zip(hyper_param.keys(), combination))
-
-    #   if params.get('embed_type') == 'linear' and params.get('max_pool') == True:
-    #     continue
-
-    #   print(f"Model number: {model_num}, and parameters: {params}")
-
-    #   # Have to update kernels differently for cnn and ViT
-    #   if params.get('embed_type') == 'cnn':
-
-    #     if config['transformer']['architecture']['n_ant'] == 5 or params.get('n_ant') == 5:
-    #         if params.get('d_model') != None:
-    #             if params.get('d_model') % 5 == 0:
-    #                 pass
-    #             elif config['transformer']['architecture']['d_model']  % 5 == 0:
-    #                 pass
-    #         elif config['transformer']['architecture']['d_model']  % 5 == 0:
-    #             pass    
-    #         else:
-    #             assert False, "d_model must be divisible by 5"
-
-
-    #     for cnn_config in cnn_configs:
-    #           params_copy = params.copy()
-    #           params_copy.update(cnn_config)
-              
-    #           for (test_key, value) in params_copy.items():
-    #               update_nested_dict(config, test_key, value)
-
-    #   elif params.get('embed_type') == 'ViT':
-
-    #     for vit_config in vit_configs:
-    #         params_copy = params.copy()
-    #         params_copy.update(vit_config)
-    #         params.update(vit_config)
-    #         for (test_key, value) in params_copy.items():
-    #             update_nested_dict(config, test_key, value)  
-    #         config['transformer']['architecture']['max_relative_position'] = config['transformer']['architecture']['max_relative_position'] // params['stride']    
-
-    #   else:
-    #         for (test_key, value) in params.items():
-    #             update_nested_dict(config, test_key, value)
-
-    #   if params.get('max_pool') == True:
-    #         config['transformer']['architecture']['max_relative_position'] = config['transformer']['architecture']['max_relative_position'] // 2    
-
-    #   config['transformer']['basic']['model_num'] = model_num
-    #   config['training']['batch_size'] = config['transformer']['training']['batch_size']
-    #   configs.append(copy.deepcopy(config))
-      
-
 
 
   for config in configs:
     config['transformer']['basic']['model_num'] = model_num
-    config['training']['batch_size'] = config['transformer']['training']['batch_size']
-    config['transformer']['training']['num_epochs'] = args.epochs
-    print(f"Model number: {model_num}, Batch size: {dh.get_value(config, 'batch_size'):>4}, d_model: {dh.get_value(config, 'd_model'):>3}, d_ff: {dh.get_value(config, 'd_ff'):>3}, h: {dh.get_value(config, 'h'):>2}, N: {dh.get_value(config, 'N'):>2}, Loss function: {dh.get_value(config, 'loss_function'):>14}, Embedding: {dh.get_value(config, 'embed_type'):>6}, Positional encoding: {dh.get_value(config, 'pos_enc_type'):>12}, Projection: {dh.get_value(config, 'projection_type'):>8}, Antenna type: {dh.get_value(config, 'antenna_type'):>7}, Data type: {dh.get_value(config, 'data_type'):>7}" )
+    config['training']['num_epochs'] = args.epochs
+    print(f"Model number: {model_num}, Batch size: {dh.get_value(config, 'batch_size'):>4}, d_model: {dh.get_value(config, 'd_model'):>3}, d_ff: {dh.get_value(config, 'd_ff'):>3}, h: {dh.get_value(config, 'h'):>2}, N: {dh.get_value(config, 'N'):>2}, Loss function: {dh.get_value(config, 'loss_fn'):>14}, Embedding: {dh.get_value(config, 'embed_type'):>6}, Positional encoding: {dh.get_value(config, 'pos_enc_type'):>12}, Projection: {dh.get_value(config, 'projection_type'):>8}, Antenna type: {dh.get_value(config, 'antenna_type'):>7}, Data type: {dh.get_value(config, 'data_type'):>7}" )
     model_num += 1
 
 

@@ -193,12 +193,12 @@ def plot_performance_curve(y_preds, ys, configs, bins=1000, save_path='', text =
 
 def plot_results(model_number, config, path=''):
   if path == '':
-    path = config['basic']['model_path']
+    path = config['transformer']['basic']['model_path']
     plot_path = path + f'plot/' 
     df = pd.read_pickle(path + 'dataframe.pkl')
   else:
     plot_path = path
-    df = pd.read_pickle(config['basic']['model_path'] + 'dataframe.pkl')
+    df = pd.read_pickle(config['transformer']['basic']['model_path'] + 'dataframe.pkl')
 
   
 
@@ -445,10 +445,10 @@ def plot_performance(config, device, x_batch=None, y_batch=None,lim_value=0.2, m
         save_path (str): path to save the plot, optional
   
   """
-  model_num = config['basic']['model_num']
+  
   if x_batch == None and y_batch == None:
-    train_data, val_data, test_data = get_trigger_data(config, seq_len=config['seq_len'], 
-                                                            batch_size=config['batch_size'], 
+    train_data, val_data, test_data = get_trigger_data(config, seq_len=config['input_length'], 
+                                                            batch_size=config['training']['batch_size'], 
                                                             )
     del train_data
     del val_data
@@ -528,12 +528,12 @@ def plot_performance(config, device, x_batch=None, y_batch=None,lim_value=0.2, m
         ax[i].set_xticks(tixs1)  # Set x-ticks at these locations
         ax[i].set_xticklabels(tix_labels)  # Label x-ticks with these values
         ax[i].grid(True)
-      if config["architecture"]["data_type"] == "chunked":
+      if config['transformer']["architecture"]["data_type"] == "chunked":
         plt.legend()
       
-      fig.suptitle(f"Model {config['basic']['model_num']} - {text} treshold: {lim_value}")
+      fig.suptitle(f"Model {config['transformer']['basic']['model_num']} - {text} treshold: {lim_value}")
       if save_path == '':
-        path = config['basic']['model_path'] + f'plot/performance_{text.replace(" ", "_")}.png'
+        path = config['transformer']['basic']['model_path'] + f'plot/performance_{text.replace(" ", "_")}.png'
       else:
         path = save_path + f'performance_{text.replace(" ", "_")}.png'  
       fig.text(0.005, 0.5, 'V / rms', va='center', rotation='vertical')   

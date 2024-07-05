@@ -905,7 +905,7 @@ def find_best_model(config, device, save_path='', test=True, test_loader=None):
     config['transformer']['results']['roc_area'] = float(roc_area)
     config['transformer']['results']['NSE_AT_10KROC'] = float(nse)
     config['transformer']['results']['TRESH_AT_10KNRF'] = float(threshold)
-    pp.plot_results(config['transformer']['basic']['model_num'], config['transformer'])
+    pp.plot_results(config['transformer']['basic']['model_num'], config)
 
 
     x_batch, y_batch = test_loader.__getitem__(0)
@@ -913,7 +913,7 @@ def find_best_model(config, device, save_path='', test=True, test_loader=None):
     y = y_batch.cpu().detach().numpy()
       
     pp.plot_examples(x, y, config=config['transformer'], save_path=save_path, data_type=data_type, antenna_type=antenna_type)
-    pp.plot_performance(config['transformer'], device, x_batch=x_batch, y_batch=y_batch, lim_value=best_threshold, save_path=save_path)
+    pp.plot_performance(config, device, x_batch=x_batch, y_batch=y_batch, lim_value=best_threshold, save_path=save_path)
     if not test:
       save_data(config, df, y_pred_data)
       save_data(config, df, y_pred_data, text='best')

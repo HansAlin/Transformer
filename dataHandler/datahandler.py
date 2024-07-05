@@ -18,8 +18,7 @@ import yaml
 import itertools
 import copy
 
-import model_configs as mc
-import models.models as mm
+
 
 CODE_DIR_1  ='/home/acoleman/software/NuRadioMC/'
 sys.path.append(CODE_DIR_1)
@@ -29,6 +28,9 @@ sys.path.append(CODE_DIR_1)
 # sys.path.append(CODE_DIR_3)
 CODE_DIR_4 = '/home/halin/Master/nuradio-analysis/'
 sys.path.append(CODE_DIR_4)
+
+import model_configs as mc
+import models.models as mm
 
 from NuRadioReco.utilities import units, fft
 
@@ -808,7 +810,7 @@ def save_model(trained_model, optimizer, scheduler, config, global_step, text, t
     os.makedirs(saved_model_path)
     print("The new directory is created!")    
   torch.save({
-              'epoch': config['transformer']['results']['current_epoch'],
+              'epoch': global_step,
               'model_state_dict': trained_model.state_dict(), 
               'optimizer_state_dict': optimizer.state_dict(),
               'scheduler_state_dict': scheduler.state_dict(),
@@ -1203,7 +1205,7 @@ def config_production(base_config_number,
     """
 
     try:
-      config = mc.get_config(base_config_number)
+      config = mc.config.get_config(base_config_number)
     except:
       print(f'Loding config from model {base_config_number}')
       config = get_model_config(base_config_number)

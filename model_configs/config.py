@@ -76,9 +76,9 @@ def get_config(num):
 
         config['input_length'] = config['transformer']['architecture']['seq_len']
         config['n_ant'] = config['transformer']['architecture']['n_ant']
-        config['training']['batch_size'] = config['transformer']['training']['batch_size']
-        config['training']['learning_rate'] = config['transformer']['training']['learning_rate']
-        config['training']['loss_fn'] = config['transformer']['training']['loss_function']
+        # config['training']['batch_size'] = config['transformer']['training']['batch_size']
+        # config['training']['learning_rate'] = config['transformer']['training']['learning_rate']
+        # config['training']['loss_fn'] = config['transformer']['training']['loss_function']
 
 
 

@@ -319,7 +319,7 @@ class TestModel(BaseTest):
         max_pool = get_value(config, 'max_pool')
         d_model = get_value(config, 'd_model')
 
-        model = build_encoder_transformer(config['transformer'])
+        model = build_encoder_transformer(config)
         flops = get_FLOPs(model, config)
     
         print(f"\nFLOP: {flops/(1e6):>6.1f} M, "
@@ -469,19 +469,19 @@ if __name__ == '__main__':
             # {'kernel_size': 2, 'stride': 2},
             {'kernel_size': 4, 'stride': 4},
         ]
-    alt_combination = 'single'
+    alt_combination = 'combi' #single = one item from each, combi = all combinations restrict = only combinations that satisfy FLOPs
     test_dict = {
-            'd_model': [15,50],
-            'd_ff': [25,78],
-            'h': [5,5,5],
-            'N': [2,4,7], 
-            'batch_size': [1024,1024,1024],
-            'max_pool': [True,True,True],
-            'embed_type': ['ViT', 'ViT', 'ViT'],
-            'max_relative_position': [0,0,0],
-            'pos_enc_type': ['Learnable', 'Learnable', 'Learnable'],
+            'd_model': [16],
+            'd_ff': [32],
+            'h': [4],
+            'N': [2], 
+            'batch_size': [1024],
+            'max_pool': [True,False],
+            'embed_type': ['ViT', 'cnn', 'linear'],
+            'max_relative_position': [16],
+            'pos_enc_type': ['Sinusoidal', 'Learnable', 'Relative'],
     }
-    configs = config_production(base_config_number=320,
+    configs = config_production(base_config_number=0,
                                 test_dict=test_dict,
                                 cnn_configs=cnn_configs,
                                 vit_configs=vit_configs,

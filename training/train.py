@@ -67,16 +67,12 @@ def training(configs, cuda_device, model_folder='', test=False, retraining=False
     df = pd.DataFrame([], columns= ['Train_loss', 'Val_loss', 'metric', 'Epochs', 'lr'])
     if not retraining:
       
-      config['transformer']['results']['power'  ] = 0 # get_energy(cuda_device) # 
-      # config['transformer']['architecture']['output_size'] = output_size #
-      # config['transformer']['architecture']['out_put_shape'] = output_size # config['transformer']['architecture']['out_put_shape']
-      
       if config['transformer']['basic']['model_type'] == "base_encoder": # config['transformer']['basic']['model_type']
-        model = build_encoder_transformer(config['transformer']) #
+        model = build_encoder_transformer(config) #
 
-        optimizer = torch.optim.Adam(model.parameters(), lr=config['transformer']['training']['learning_rate']) #
+        optimizer = torch.optim.Adam(model.parameters(), lr=config['training']['learning_rate']) #
       
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=config['transformer']['training']['step_size'], gamma=config['transformer']['training']['decreas_factor']) #
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=config['training']['step_size'], gamma=config['training']['decreas_factor']) #
         
 
 
@@ -84,10 +80,10 @@ def training(configs, cuda_device, model_folder='', test=False, retraining=False
           print("No model found")
           return None
       
-      warmup = config['transformer']['training'].get('warm_up', False)
+      warmup = config['training'].get('warm_up', False)
 
       if warmup:
-        lr = config['transformer']['training']['learning_rate']
+        lr = config['training']['learning_rate']
         warmup_epochs = 10
         def lr_lambda(epoch):
           if epoch < warmup_epochs:
@@ -105,18 +101,21 @@ def training(configs, cuda_device, model_folder='', test=False, retraining=False
       config['transformer']['num of parameters']['input_param'] = results['src_embed_param'] # 
       config['transformer']['num of parameters']['final_param'] = results['final_param'] # 
       config['transformer']['num of parameters']['pos_param'] = results['buf_param'] 
+      config['transformer']['results'] = {}
+      config['transformer']['results']['current_epoch'] = 0
+      config['transformer']['results']['global_epoch'] = 0
       print(f"Number of paramters: {config['transformer']['num of parameters']['num_param']} input: {config['transformer']['num of parameters']['input_param']} encoder: {config['transformer']['num of parameters']['encoder_param']} final: {config['transformer']['num of parameters']['final_param']} pos: {config['transformer']['num of parameters']['pos_param']}")
       initial_epoch = 1
     else:
       model = load_model(config=config, text='last')
       state = get_state(config=config, text='last')
-      optimizer = torch.optim.Adam(model.parameters(), lr=config['transformer']['training']['learning_rate']) #
-      scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=config['transformer']['training']['step_size'], gamma=config['transformer']['training']['decreas_factor']) #
+      optimizer = torch.optim.Adam(model.parameters(), lr=config['training']['learning_rate']) #
+      scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=config['training']['step_size'], gamma=config['training']['decreas_factor']) #
 
-      warmup = config['transformer']['training'].get('warm_up', False)
+      warmup = config['training'].get('warm_up', False)
 
       if warmup:
-        lr = config['transformer']['training']['learning_rate']
+        lr = config['training']['learning_rate']
         warmup_epochs = 10
         def lr_lambda(epoch):
           if epoch < warmup_epochs:
@@ -150,7 +149,7 @@ def training(configs, cuda_device, model_folder='', test=False, retraining=False
     n_ant = config['transformer']['architecture']['n_ant']
    
     
-    loss_type = config['transformer']['training'].get('loss_function', 'BCE')
+    loss_type = config['training'].get('loss_fn', 'BCE')
     if loss_type == 'BCE':
       criterion = nn.BCELoss()
     elif loss_type == 'BCEWithLogits':
@@ -173,7 +172,7 @@ def training(configs, cuda_device, model_folder='', test=False, retraining=False
     
     plot_examples(x, y, config=config['transformer'], data_type=data_type)
 
-    for epoch in range(initial_epoch, config['transformer']['training']['num_epochs'] + 1):
+    for epoch in range(initial_epoch, config['training']['num_epochs'] + 1):
 
       epoch_time = time.time()
       
@@ -194,7 +193,7 @@ def training(configs, cuda_device, model_folder='', test=False, retraining=False
       num_of_bathes = int(len(train_loader))
       for istep in tqdm(range(len(train_loader)), disable=False):
 
-        print(f"Epoch {epoch}/{config['transformer']['training']['num_epochs']} Batch {batch_num}/{num_of_bathes}, GPU: {device} ", end="\r") # config['transformer']['training']['num_epochs']
+        print(f"Epoch {epoch}/{config['training']['num_epochs']} Batch {batch_num}/{num_of_bathes}, GPU: {device} ", end="\r") # config['training']['num_epochs']
   
         x_batch, y_batch = train_loader.__getitem__(istep)
         if data_type == 'chunked':
@@ -247,16 +246,16 @@ def training(configs, cuda_device, model_folder='', test=False, retraining=False
           noise_rejection = config['sampling']['rate']*1e9/config['input_length']
         else:
           noise_rejection = 10000
-        threshold, accuracy, efficiency, precission, recall, F1 = validate(np.asarray(ys), np.asarray(preds), noise_rejection=noise_rejection)  # config['transformer']['training']['metric']
-        if config['transformer']['training']['metric'] == 'Accuracy':
+        threshold, accuracy, efficiency, precission, recall, F1 = validate(np.asarray(ys), np.asarray(preds), noise_rejection=noise_rejection)  # config['training']['metric']
+        if config['training']['metric'] == 'Accuracy':
           met = accuracy
-        elif config['transformer']['training']['metric'] == 'Efficiency':
+        elif config['training']['metric'] == 'Efficiency':
           met = efficiency
-        elif config['transformer']['training']['metric'] == 'Precision':
+        elif config['training']['metric'] == 'Precision':
           met = precission
-        elif config['transformer']['training']['metric'] == 'recall':
+        elif config['training']['metric'] == 'recall':
           met = recall
-        elif config['transformer']['training']['metric'] == 'F1':
+        elif config['training']['metric'] == 'F1':
           met = F1  
         metric.append(met)
 
@@ -294,10 +293,10 @@ def training(configs, cuda_device, model_folder='', test=False, retraining=False
       ############################################
       writer.add_scalar('Training Loss' , train_loss, epoch)
       writer.add_scalar('Validation Loss' , val_loss, epoch)
-      writer.add_scalar(config['transformer']['training']['metric'], metric, epoch)    # config['transformer']['training']['metric']
+      writer.add_scalar(config['training']['metric'], metric, epoch)    # config['training']['metric']
       writer.flush()
 
-      print(f"Training Loss: {train_loss:.4f}, Validation Loss: {val_loss:.4f}, Val {config['transformer']['training']['metric']}: {metric:.6f}, Time: {time.time() - epoch_time:.2f} s")
+      print(f"Training Loss: {train_loss:.4f}, Validation Loss: {val_loss:.4f}, Val {config['training']['metric']}: {metric:.6f}, Time: {time.time() - epoch_time:.2f} s")
 
       #############################################
       # Early stopping
@@ -307,14 +306,13 @@ def training(configs, cuda_device, model_folder='', test=False, retraining=False
         early_stop_count = 0
       else:
         early_stop_count += 1
-      if early_stop_count >= config['transformer']['training']['early_stop']: # config['transformer']['training']['early_stop']
+      if early_stop_count >= config['training']['early_stop']: # config['training']['early_stop']
         print("Early stopping!")
         break
       
       config['transformer']['results']['current_epoch'] += 1
       config['transformer']['results']['global_epoch'] += 1
 
-      config['transformer']['results']['power'] = ((config['transformer']['results']['current_epoch'])*config['transformer']['results']['power'] + get_energy(cuda_device))/(config['transformer']['results']['current_epoch'] + 1)
     ###########################################
     # Training done                           #
     ###########################################  
@@ -326,7 +324,7 @@ def training(configs, cuda_device, model_folder='', test=False, retraining=False
 
     config['transformer']['results']['trained'] = True
     config['transformer']['results']['training_time'] = total_training_time
-    config['transformer']['results']['energy'] = config['transformer']['results']['power']*total_training_time
+
 
     save_data(config, df)
     

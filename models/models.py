@@ -1152,6 +1152,20 @@ def get_last_model(model_path):
 
   return last_epoch
 
+def get_last_model_chunked(model_path):
+  files = os.listdir(model_path)
+  epochs = [file_name.split('_')[-1].split('.')[0] for file_name in files]
+  new_epochs = []
+  for epoch in epochs:
+      try:
+          new_epochs.append(int(epoch))
+      except:
+          pass  
+  epochs = new_epochs    
+  last_epoch = max(epochs)
+
+  return last_epoch
+
 def get_state(config, text):
   model_path = dd.get_model_path(config, text=f'{text}')
   state = torch.load(model_path)
@@ -1182,12 +1196,31 @@ def load_model(config, text='last', verbose=False):
   model = build_encoder_transformer(config)
   model_dict = model.state_dict()
   if text == 'last':
-    transformer_model_path = dd.get_value(config, 'model_path') + 'saved_model'
+    try:
+      transformer_model_path = dd.get_value(config, 'model_path') + 'saved_model'
+      last_epoch = get_last_model(transformer_model_path)
+    except:
+      transformer_model_path = dd.get_value(config, 'model_path') 
+      
+      if dd.get_value(config, 'data_type') == 'chunked':
+        last_epoch = 'last'
+      else:
+        last_epoch = get_last_model(transformer_model_path)
+
     
-    last_epoch = get_last_model(transformer_model_path)
+    
     text = last_epoch
 
-  model_path = dd.get_model_path(config, text=f'_{text}.')
+  if type(text) == str:
+    try:
+      text = int(text)
+    except ValueError:
+      pass
+
+  if type(text) == int:
+    text = "{:03d}".format(text)
+
+  model_path = dd.get_model_path(config, text=f'_{text}.pth')
 
   print(f'Preloading model {model_path}') #if verbose else None
   state = torch.load(model_path)
@@ -1195,7 +1228,7 @@ def load_model(config, text='last', verbose=False):
   if '/mnt/md0/halin/Models/' not in config['basic']['model_path']  :
     try:
       state = torch.load(model_path, map_location=torch.device("cpu"))
-      model.load_state_dict(state)
+      model.load_state_dict(state, strict=True)
       model.multiplys = get_FLOPs(model, original_config, verbose=verbose)
       model.adds =  0
       return model
@@ -1289,7 +1322,8 @@ def load_model(config, text='last', verbose=False):
   # Now load the new state dict
       
   model.load_state_dict(new_state_dict, strict=False)
-
+  model.multiplys = get_FLOPs(model, original_config, verbose=verbose)
+  model.adds =  0
  
   return model
 

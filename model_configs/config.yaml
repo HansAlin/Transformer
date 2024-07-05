@@ -33,7 +33,7 @@ transformer:
     d_ff: 64
     d_model: 32
     data_type: trigger
-    embed_type: linear
+    embed_type: cnn
     encoder_type: vanilla
     final_type: d_model_average_linear
     h: 2

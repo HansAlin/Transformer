@@ -7,31 +7,48 @@ import evaluate.evaluate as ee
 import dataHandler.datahandler as dd
 
 
-for model_num in [201,202,203]:
-    config = dd.get_model_config(model_num=201)
-    batch_size = dd.get_value(config, 'batch_size')
-    seq_len = dd.get_value(config, 'seq_len')
-    n_ant = dd.get_value(config, 'n_ant')
+models = range(710,712)
+
+for model_num in models:
+    try:
+        config = dd.get_model_config(model_num=model_num)
+        batch_size = dd.get_value(config, 'batch_size')
+        seq_len = dd.get_value(config, 'seq_len')
+        n_ant = dd.get_value(config, 'n_ant')
 
 
-    model = mm.build_encoder_transformer(config['transformer'])
+        model = mm.build_encoder_transformer(config['transformer'])
 
 
-    flops = mm.get_FLOPs(model, config)
-    parameters = mm.get_n_params(model)
-    print(f"Model number: {model_num}, Flops: {flops}, Parameters: {parameters}")
+        flops = mm.get_FLOPs(model, config)
+        parameters = mm.get_n_params(model)
+        if dd.get_value(config, 'data_type') == 'chunked':
+            in_put = (n_ant, seq_len)
+        else:
+            in_put = (seq_len, n_ant)
 
-    if dd.get_value(config, 'data_type') == 'chunked':
-        in_put = (n_ant, seq_len)
-    else:
-        in_put = (seq_len, n_ant)
+        out = get_model_complexity_info(model, in_put, as_strings=True, print_per_layer_stat=False, verbose=False)
 
-    out = get_model_complexity_info(model, in_put, as_strings=True, print_per_layer_stat=False, verbose=False)
-    print(out)
-    config['transformer']['num of parameters']['num_param'] = parameters
-    config['transformer']['num of parameters']['FLOPs'] = flops
+        if 'FLOPs' in config['transformer']['num of parameters']:
+            oldFlops = config['transformer']['num of parameters']['FLOPs']
+        else:
+            oldFlops = 0  
+        if 'num_param' in config['transformer']['num of parameters']:
+            oldParams = config['transformer']['num of parameters']['num_param']
+        else:
+            oldParams = 0    
 
-    #dd.save_data(config)
+        print(f"Model number: {model_num}, New Flops: {flops/1e6:>7.2f} M, New Parameters: {parameters/1e3:>7.2f} k, Old Flops: {oldFlops/1e6:>7.2f} M, Old Parameters: {oldParams/1e3:>7.2f} k") 
+
+
+        
+        config['transformer']['num of parameters']['num_param'] = parameters
+        config['transformer']['num of parameters']['FLOPs'] = flops
+
+        dd.save_data(config)
+    except Exception as e:
+        #print(f"Model number: {model_num}, Error: {e}")
+        pass
 
 
 

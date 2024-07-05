@@ -12,7 +12,7 @@ import time
 CODE_DIR_1  ='/home/halin/Master/Transformer/'
 sys.path.append(CODE_DIR_1)
 from models.models import LayerNormalization, BatchNormalization, ResidualConnection, MultiHeadAttentionBlock, FeedForwardBlock, EncoderBlock, Encoder, InputEmbeddings, PositionalEncoding, FinalBlock, EncoderTransformer, build_encoder_transformer, get_FLOPs
-from dataHandler.datahandler import prepare_data, get_chunked_data, get_trigger_data, get_model_config
+from dataHandler.datahandler import prepare_data, get_chunked_data, get_trigger_data, get_model_config, config_production
 from model_configs.config import get_config
 import lossFunctions.lossFunctions as ll
 import evaluate.evaluate as ev
@@ -459,85 +459,36 @@ if __name__ == '__main__':
         device = torch.device("cpu")
 
     suite = unittest.TestSuite()
-    config = get_config(0)
-    #config = get_model_config(246)
+    # #config = get_config(0)
+    # config = get_model_config(500)
     cnn_configs = [
             {'kernel_size': 3, 'stride': 1},
            # {'kernel_size': 3, 'stride': 2},
         ]
     vit_configs = [
             # {'kernel_size': 2, 'stride': 2},
-            {'kernel_size': 3, 'stride': 3},
+            {'kernel_size': 4, 'stride': 4},
         ]
-    alt_combination = True
+    alt_combination = 'single'
     test_dict = {
-                'embed_type': ['linear'] ,# 'ViT', 'linear'],
-                'n_ant':[2],
-                'd_model':[4],
-                'h':[2],
-                'seq_len': [5],
-                'encoder_type':['normal'],
-                'pos_enc_type':['Relative'],
-                'max_relative_position':[2],
-                'batch_size':[1],
-                
-                
-
+            'd_model': [15,50],
+            'd_ff': [25,78],
+            'h': [5,5,5],
+            'N': [2,4,7], 
+            'batch_size': [1024,1024,1024],
+            'max_pool': [True,True,True],
+            'embed_type': ['ViT', 'ViT', 'ViT'],
+            'max_relative_position': [0,0,0],
+            'pos_enc_type': ['Learnable', 'Learnable', 'Learnable'],
     }
-    if alt_combination:
-      combinations = list(zip(*test_dict.values()))
-    else:
-      combinations = list(itertools.product(*test_dict.values()))
-  
-    configs = []
+    configs = config_production(base_config_number=320,
+                                test_dict=test_dict,
+                                cnn_configs=cnn_configs,
+                                vit_configs=vit_configs,
+                                alt_combination=alt_combination,
+                                subset=None
+                                )
 
-    for combination in combinations:
-        params = dict(zip(test_dict.keys(), combination))
-
-        if params.get('embed_type') == 'linear' and params.get('max_pool') == True:
-            continue
-
-        if params.get('embed_type') == 'cnn':
-
-            if config['transformer']['architecture']['n_ant'] == 5 or params.get('n_ant') == 5:
-                if params.get('d_model') != None:
-                    if params.get('d_model') % 5 == 0:
-                        pass
-                    elif config['transformer']['architecture']['d_model']  % 5 == 0:
-                        pass
-                elif config['transformer']['architecture']['d_model']  % 5 == 0:
-                    pass    
-                else:
-                    assert False, "d_model must be divisible by 5"
-
-            for cnn_config in cnn_configs:
-                params_copy = params.copy()
-                params_copy.update(cnn_config)
-                
-                for (test_key, value) in params_copy.items():
-                    update_nested_dict(config, test_key, value)
-
-
-        elif params.get('embed_type') == 'ViT':
-
-            for vit_config in vit_configs:
-                params_copy = params.copy()
-                params_copy.update(vit_config)
-                params.update(vit_config)
-                for (test_key, value) in params_copy.items():
-                    update_nested_dict(config, test_key, value)
-                config['transformer']['architecture']['max_relative_position'] = config['transformer']['architecture']['max_relative_position'] // params['stride']       
-
-
-        else:
-            for (test_key, value) in params.items():
-                update_nested_dict(config, test_key, value)
-
-        if params.get('max_pool') == True:
-            config['transformer']['architecture']['max_relative_position'] = config['transformer']['architecture']['max_relative_position'] // 2    
-
-        new_config = copy.deepcopy(config)
-        configs.append(new_config)
 
     for config in configs:
 

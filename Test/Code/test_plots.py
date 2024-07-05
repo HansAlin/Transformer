@@ -29,17 +29,26 @@ def condense_sequence(match):
 ####################################################################
 # Plot histogram                                                   #
 ####################################################################
-model_num = 256
+model_nums = [507,505]
+alternative_titels = [r'$N = 4$, $d_{model} = 256$, $d_{ff} = 256$, $h = 4$', r'$N = 4$, $d_{model} = 256$, $d_{ff} = 16$, $h = 4$']
 device = torch.device(f'cuda:{0}')
-config = dd.get_model_config(model_num)
+config = dd.get_model_config(model_nums[0])
 train_loader, val_loader, test_loader = dd.get_data(config, subset=False)
 del train_loader, val_loader
-best_epoch = config['transformer']['results']['best_epoch']
-model = mm.load_model(config=config, text=f'{best_epoch}')
-y_pred_data, accuracy, efficiency, precision,threshold = ee.test_model(model, test_loader, device=device, config=config, )
-y_pred = y_pred_data['y_pred']
-y = y_pred_data['y']
-pp.histogram(y_pred=y_pred, y=y, config=config, save_path='/home/halin/Master/Transformer/Test/Code/plots/histogram.png',threshold=threshold, example_plot=True)
+for model_num, alternative_title in zip(model_nums, alternative_titels):
+    config = dd.get_model_config(model_num)
+    best_epoch = config['transformer']['results']['best_epoch']
+    model = mm.load_model(config=config, text=f'{best_epoch}')
+    y_pred_data, accuracy, efficiency, precision,threshold = ee.test_model(model, test_loader, device=device, config=config, )
+    y_pred = y_pred_data['y_pred']
+    y = y_pred_data['y']
+    pp.histogram(y_pred=y_pred, 
+                y=y, 
+                config=config, 
+                save_path=f'/home/halin/Master/Transformer/Test/Code/plots/histogram_{model_num}.png',
+                threshold=threshold, 
+                example_plot=True,
+                alternative_title=alternative_title)
 
 # ###################################################################
 # #  Plot collections of noise reduction factors or roc             #

@@ -22,7 +22,7 @@ import models.models as mm
 from dataHandler.datahandler import get_trigger_data, get_model_path, get_model_config
 #from evaluate.evaluate import get_model_path
 
-def histogram(y_pred, y, config, bins=100, save_path='', text='', threshold=None, example_plot=False):
+def histogram(y_pred, y, config, bins=100, save_path='', text='', threshold=None, example_plot=False, alternative_title=None):
     """
           This function plots the histogram of the predictions of a given model.
           Args:
@@ -48,6 +48,7 @@ def histogram(y_pred, y, config, bins=100, save_path='', text='', threshold=None
 
     text = text.replace('_', '')
     plt.rcParams['text.usetex'] = True
+    plt.rcParams['font.size'] = 15
     fig, ax = plt.subplots(figsize=(10, 5))
     signal_mask = y == 1
     y_pred_signal = y_pred[signal_mask]
@@ -62,9 +63,12 @@ def histogram(y_pred, y, config, bins=100, save_path='', text='', threshold=None
     if not example_plot:
       ax.set_title(f"Model {config['basic']['model_num']} {text}")
     else:
-      ax.set_title("Example")  
-    ax.hist(y_pred_signal, bins=bins, label='Pred signal', alpha=0.5) # weights=signal_wights, 
-    ax.hist(y_pred_noise, bins=bins, label='Pred noise', alpha=0.5) # weights=noise_weights, 
+      if alternative_title != None:
+        ax.set_title(alternative_title)
+      else:
+        ax.set_title("Example")  
+    ax.hist(y_pred_signal, bins=bins, label='True signal', alpha=0.5) # weights=signal_wights, 
+    ax.hist(y_pred_noise, bins=bins, label='True noise', alpha=0.5) # weights=noise_weights, 
     ax.set_yscale('log')
     
     ax.set_xlabel(r'noise $\leftrightarrow$ signal')

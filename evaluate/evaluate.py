@@ -70,7 +70,12 @@ def test_model(model, test_loader, device, config, plot_attention=False, extra_i
 
     for istep in tqdm(range(len(test_loader)), disable=True):
 
+      if data_type == 'chunked':
+        x_test, y_test = next(iter(test_loader))
+        y_test = y_test.max(dim=1)[0]
+        
       x_test, y_test = test_loader.__getitem__(istep)
+
       if plot_attention:
         for i in range(0, len(x_test)):
           
@@ -104,8 +109,7 @@ def test_model(model, test_loader, device, config, plot_attention=False, extra_i
           #input(f"Noise {noise_events}, Signals {signal_events}. Press Enter to continue...")
 
            
-      if data_type == 'chunked':
-        y_test = y_test.max(dim=1)[0]
+
       x_test, y_test = x_test.to(device).to(precision), y_test.to(device).to(precision)
       y_test = y_test.squeeze() 
       outputs = model(x_test)

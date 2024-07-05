@@ -15,6 +15,11 @@ import time
 from tqdm import tqdm
 import glob
 import yaml
+import itertools
+import copy
+
+import model_configs as mc
+import models.models as mm
 
 CODE_DIR_1  ='/home/acoleman/software/NuRadioMC/'
 sys.path.append(CODE_DIR_1)
@@ -881,7 +886,7 @@ def get_model_path(config, text=''):
   # If a specific text is given, look for a file containing that text
   if text != '':
       for file in files:
-          if text in file and file.endswith('.pth'):
+          if text in file:
               return os.path.join(folder, file)
 
   # If no specific text is given or no file containing the text is found,
@@ -903,6 +908,11 @@ def save_data(config, df=None, y_pred_data=None, text=''):
     path = f"/home/halin/Master/nuradio-analysis/configs/chunked/config_{config['transformer']['basic']['model_num']}.yaml"
     with open(path, 'w') as data:
       yaml.dump(config, data, default_flow_style=False) 
+  elif '/home/halin/Master/nuradio-analysis/data/models/fLow_0.096-fhigh_0.22-rate_0.5' in config['transformer']['basic']['model_path']:
+    path = f"/home/halin/Master/nuradio-analysis/configs/chunked/config_{config['transformer']['basic']['model_num']}.yaml"
+    with open(path, 'w') as data:
+      yaml.dump(config, data, default_flow_style=False)
+                  
   else:
     path = config['transformer']['basic']['model_path']
     with open(path + f'config{text}.yaml', 'w') as data:
@@ -1149,5 +1159,168 @@ def update_value(dictionary, key, value):
               dictionary[k] = result
               return dictionary
   return None
+
+def update_nested_dict(d, key, value):
+    """
+    This function updates the value of a key in a nested dictionary.
+    Args:
+      d: dictionary, the dictionary to update
+      key: string, the key to update
+      value: the new value of the key
+    """
+    for k, v in d.items():
+        if isinstance(v, dict):
+            update_nested_dict(v, key, value)
+        if k == key:
+            d[k] = value
+
   
+def config_production(base_config_number, 
+                      test_dict,
+                      cnn_configs=[{'kernel_size': 3, 'stride': 1}],
+                          vit_configs = [{'kernel_size': 3, 'stride': 3}],
+                          alt_combination='combi',
+                          subset=None
+                        ):
+    """
+        This function creates a list of configs based on a base config and a test dictionary. The
+        test config should contain the keys that can be varied in the base config. 
+
+        Args:
+          base_config_number: int, 0 gives the default config from file every other value would try to 
+                              load the config from the model with that number
+          test_dict: dictionary, the dictionary containing the keys that can be varied                    
+                     Example: {'embed_type': ['linear', 'cnn', 'ViT']}
+          cnn_configs: list of cnn configurations valid for the other hyper parameters.
+          vit_configs: list of ViT configurations valid for the other hyper parameters.
+          alt_combination: option to choose between single = one item from each, 
+                                                    combi  = all combinations
+                                                    restrict = only combinations that satisfy FLOPs constraints
+          subset: int, the number of configurations to produce                                          
+
+        Returns:
+          configs: list of dictionaries, the list of configurations                                 
+    """
+
+    try:
+      config = mc.get_config(base_config_number)
+    except:
+      print(f'Loding config from model {base_config_number}')
+      config = get_model_config(base_config_number)
+      remove_old_values(config)
+
+    if alt_combination == 'single':
+      combinations = list(zip(*test_dict.values()))
+    elif alt_combination == 'combi':
+      combinations = list(itertools.product(*test_dict.values()))
+    elif alt_combination == 'restrict':
+       combinations = configs_with_flops_constarints(test_dict=test_dict, 
+                                                        flop_limit=3e6,
+                                                        config_number=base_config_number) 
+    configs = []
+
+    if subset is not None:
+      combinations = combinations[:subset]
+
+    for combination in combinations:
+      params = dict(zip(test_dict.keys(), combination))
+
+      if params.get('embed_type') == 'linear' and params.get('max_pool') == True:
+          continue
+
+      if params.get('embed_type') == 'cnn':
+
+          if config['transformer']['architecture']['n_ant'] == 5 or params.get('n_ant') == 5:
+              if params.get('d_model') != None:
+                  if params.get('d_model') % 5 == 0:
+                      pass
+                  elif config['transformer']['architecture']['d_model']  % 5 == 0:
+                      pass
+              elif config['transformer']['architecture']['d_model']  % 5 == 0:
+                  pass    
+              else:
+                  assert False, "d_model must be divisible by 5"
+
+          for cnn_config in cnn_configs:
+              params_copy = params.copy()
+              params_copy.update(cnn_config)
+              
+              for (test_key, value) in params_copy.items():
+                  update_nested_dict(config, test_key, value)
+
+
+      elif params.get('embed_type') == 'ViT':
+
+          for vit_config in vit_configs:
+              params_copy = params.copy()
+              params_copy.update(vit_config)
+              params.update(vit_config)
+              for (test_key, value) in params_copy.items():
+                  update_nested_dict(config, test_key, value)
+              config['transformer']['architecture']['max_relative_position'] = config['transformer']['architecture']['max_relative_position'] // params['stride']       
+
+
+      else:
+          for (test_key, value) in params.items():
+              update_nested_dict(config, test_key, value)
+
+      if params.get('max_pool') == True:
+          config['transformer']['architecture']['max_relative_position'] = config['transformer']['architecture']['max_relative_position'] // 2    
+
+      new_config = copy.deepcopy(config)
+      configs.append(new_config)
+
+    return configs
+
+
+def remove_old_values(config):
+    """
+    This function removes the values obtained during training, like parameters and results
+    """
+    for key_1, value_1 in config['transformer']['num of parameters'].items():
+       
+       config['transformer']['num of parameters'][key_1] = 0
+
+    for key_2, value_2 in config['transformer']['results'].items():
+
+      config['transformer']['results'][key_2] = 0   
+        
+
+def configs_with_flops_constarints(test_dict, flop_limit, config_number):
+  """
+    This function returns a list of posible hyperparameters that satisfy the FLOPs constraints.
+
+    Args:
+      test_dict: dictionary, the dictionary containing the keys that can be varied                    
+                 Example: {
+                'd_model':[16,2,128],
+                'h':[4],
+                'd_ff':[8,8,256],
+                'N':[1,2,3,4],
+                }
+      flop_limit: float, the FLOPs limit
+      config_number: int, the base config number, 0 gives the default config
+
+    Returns:
+      hyper_param: list of tuples, the list of hyperparameters that satisfy the FLOPs constraints given the base config
+  """
+  configs = config_production(base_config_number=config_number,
+                               test_dict=test_dict)
+
+ 
+  hyper_param = []
+
+  count = 0
+  for config in configs:
+      remove_old_values(config)
+      model = mm.build_encoder_transformer(config['transformer'])
+      flops = mm.get_FLOPs(model, config)
+      
+      if flop_limit*0.9 < flops < flop_limit*1.1:
+          print(f"Flops: {flops/1e6:>.2f} M, N: {config['transformer']['architecture']['N']}, d_model: {config['transformer']['architecture']['d_model']:>3}, d_ff: {config['transformer']['architecture']['d_ff']:>3}, h: {config['transformer']['architecture']['h']:>3}")
+          hyper_param.append((get_value(config, 'd_model'), get_value(config, 'h'), get_value(config, 'd_ff'), get_value(config, 'N') ))
+          count += 1
+  print(f"Number of models: {count}")
+
+  return hyper_param
    

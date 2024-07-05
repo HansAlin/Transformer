@@ -538,7 +538,7 @@ def veff(models, device, save_path=None, test=False):
     fig.savefig(filename, bbox_inches="tight")
     plt.close()
 
-models = range(604,609)
+models = range(1250,1257)
 
 for model_num in models:
-    veff(models=model_num, device=0, test=False, save_path=None)
+    veff(models=model_num, device=2, test=False, save_path=None)

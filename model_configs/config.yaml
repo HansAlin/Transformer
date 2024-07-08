@@ -1,6 +1,42 @@
 arch: Transformer
+data_locations:
+  detector: gen2
+  # For pre-trig. data
+  # high_low_noise:
+  #   prod: prod_2023.03.24
+  # pre_trig_signal:
+  #   prod: prod_2023.05.16
+
+  # For continuous data
+  unbiased_noise:
+    # LPDA
+    prod: prod_2023.02.09
+    # Phased
+    # prod: prod_2023.05.19
+  noiseless_signal:
+    # LPDA
+    prod: prod_2023.05.30
+    # Phased
+    # prod: prod_2024.05.22
+  veff:
+    # LPDA
+    subfolder: prod_2024.04.22/CDF_0.7
+    # Phased
+    # subfolder: prod_2024.05.14/CDF_1.0
+
+
+  tag_folder_veff: CDF_0.7 # CDF_1.0 for phased, CDF_0.7 for LPDA?
 input_length: 256
 n_ant: 4
+sampling:
+  band: # LPDA high: 0.23 low: 0.08, Phased high: 0.22 low: 0.096
+    high: 0.23
+    low: 0.08
+  filter:
+    order_high: 10       # 10 for LPDA, 7 for phased
+    order_low: 5        # 5 for LPDA, 4 for phased
+    type: butter        # Options: butter for LPDA, cheby1 for phased
+  rate: 0.5
 training:
   batch_size: 1024
   cdf: 0.7
@@ -29,7 +65,7 @@ training:
   test_frac: 0.1
   trigger_time: 200
   upsampling: 2
-  val_frac: 0.1
+  val_frac: 0.1         # Only option for pre-trigger data training Hans script
 transformer:
   architecture:
     GSA: false
@@ -39,18 +75,17 @@ transformer:
     by_pass: false
     d_ff: 64
     d_model: 32                       # Size of the model, needs to be a multiple of h
-    data_type: chunked
-    embed_type: cnn
+    data_type: trigger
+    embed_type: cnn                   # Options: 'cnn', 'ViT', 'linear'
     encoder_type: vanilla             # Options: 'vanilla' which implements the predefined multihead attention, 'normal' which implements everything from scratch
     final_type: d_model_average_linear
     h: 2
     inherit_model: null
     input_embeddings:
-      kernel_size: 4
-      stride: 4
+      kernel_size: 4                  # For embed_type 'cnn' or 'ViT' When using b4 antennas following options, at least works:
+      stride: 4                       # 'cnn' kernel_size: 3, stride: 1,2 'ViT' kernel_size: 2,4, stride: 2,4
     max_pool: false                   # Only option if embed_type is 'cnn' or 'ViT'
     max_relative_position: 32         # Only option if pos_enc_type is 'Relative'
-    n_ant: 4
     normalization: layer
     omega: 10000
     output_size: 1

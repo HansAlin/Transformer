@@ -104,7 +104,7 @@ def main():
     # args.config_number = 0
     args.resume_training_for_model = None
     args.inherit_model = 0
-    args.save_configs = True
+    args.save_configs = False
     alt_combination = 'combi'
     subset = None # None
 

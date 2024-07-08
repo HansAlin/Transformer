@@ -74,8 +74,6 @@ def get_config(num):
         config['data_locations'] = {}
         config['data_locations']['tag_folder_veff'] = 'CDF_0.7'
 
-        config['n_ant'] = config['transformer']['architecture']['n_ant']
-
         # Pre-trigger
         if config['transformer']['architecture']['data_type'] == 'trigger': 
           

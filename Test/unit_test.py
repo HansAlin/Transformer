@@ -461,10 +461,10 @@ if __name__ == '__main__':
     # config = get_model_config(500)
     cnn_configs = [
             {'kernel_size': 3, 'stride': 1},
-           # {'kernel_size': 3, 'stride': 2},
+           {'kernel_size': 3, 'stride': 2},
         ]
     vit_configs = [
-            # {'kernel_size': 2, 'stride': 2},
+            {'kernel_size': 2, 'stride': 2},
             {'kernel_size': 4, 'stride': 4},
         ]
     alt_combination = 'combi' #single = one item from each, combi = all combinations restrict = only combinations that satisfy FLOPs
@@ -475,8 +475,8 @@ if __name__ == '__main__':
             'N': [2], 
             'batch_size': [1024],
             'max_pool': [True],
-            'embed_type': ['ViT'],
-            'max_relative_position': [16],
+            'embed_type': ['ViT', 'cnn'],
+            'max_relative_position': [64],
             'pos_enc_type': ['Sinusoidal'],
     }
     configs = config_production(base_config_number=0,
@@ -493,9 +493,9 @@ if __name__ == '__main__':
         test_string = ''
         for key, value in test_dict.items():
             test_string += f"{key}: {get_value(config, key)}, "
-        if len(cnn_configs) > 1:
+        if len(cnn_configs) >= 1:
             test_string += f"kernel size: {get_value(config, 'kernel_size')} stride: {get_value(config, 'stride')}"
-        if len(vit_configs) > 1:
+        if len(vit_configs) >= 1:
             test_string += f"kernel size: {get_value(config, 'kernel_size')} stride: {get_value(config, 'stride')}"   
 
         # suite.addTest(TestInputEmbeddings('test_input_embeddings', inputs=config))

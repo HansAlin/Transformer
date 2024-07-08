@@ -146,7 +146,7 @@ def training(configs, cuda_device, model_folder='', test=False, retraining=False
 
     model.to(device).to(precision)
 
-    n_ant = config['transformer']['architecture']['n_ant']
+    n_ant = config['n_ant']
    
     
     loss_type = config['training'].get('loss_fn', 'BCE')

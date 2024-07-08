@@ -208,7 +208,7 @@ class InputEmbeddings(nn.Module):
     if embed_type == 'linear':
       self.embedding = nn.Linear(n_ant, d_model)
       self.activation = nn.Identity()
-      self.dropout = nn.Dropout(0)  
+      self.dropout = nn.Dropout(dropout)  
     elif embed_type == 'cnn':
       self.embedding = CnnInputEmbeddings(n_ant, d_model, **kwargs)
       self.activation = nn.ReLU()
@@ -931,11 +931,11 @@ def build_encoder_transformer(config):
 
   if config['transformer']['architecture'].get('encoder_type', 'normal')   == 'bypass':
     by_pass = True
-    num_embeddings = config['transformer']['architecture']['n_ant']  
+    num_embeddings = config['n_ant']  
     channels = 1
   else:
     by_pass = False 
-    channels = config['transformer']['architecture']['n_ant'] 
+    channels = config['n_ant'] 
     num_embeddings = 1  
 
  
@@ -988,7 +988,7 @@ def build_encoder_transformer(config):
   #########################################################
   if config['transformer']['architecture'].get('encoder_type', 'normal')   == 'normal' or config['transformer']['architecture'].get('encoder_type', 'normal')   == 'bypass':
 
-    num_encoders = config['transformer']['architecture']['n_ant']  if by_pass else 1
+    num_encoders = config['n_ant']  if by_pass else 1
 
     encoders = []
     
@@ -1335,7 +1335,7 @@ def get_FLOPs(model, config, verbose=False):
   seq_len = config['input_length']
   d_model = config['transformer']['architecture']['d_model']
   d_ff = config['transformer']['architecture']['d_ff']
-  n_ant = config['transformer']['architecture']['n_ant']
+  n_ant = config['n_ant']
   max_relative_position = config['transformer']['architecture']['max_relative_position']
   max_pool = config['transformer']['architecture'].get('max_pool', False)
   n_heads = config['transformer']['architecture']['h']

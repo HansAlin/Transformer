@@ -1246,9 +1246,14 @@ def config_production(base_config_number,
           for cnn_config in cnn_configs:
               params_copy = params.copy()
               params_copy.update(cnn_config)
-              
+              params.update(cnn_config)
               for (test_key, value) in params_copy.items():
                   update_nested_dict(config, test_key, value)
+              config['transformer']['architecture']['max_relative_position'] = config['transformer']['architecture']['max_relative_position'] // params['stride']    
+              if params.get('max_pool') == True:
+                config['transformer']['architecture']['max_relative_position'] = config['transformer']['architecture']['max_relative_position'] // 2    
+              new_config = copy.deepcopy(config)
+              configs.append(new_config)
 
 
       elif params.get('embed_type') == 'ViT':
@@ -1259,18 +1264,25 @@ def config_production(base_config_number,
               params.update(vit_config)
               for (test_key, value) in params_copy.items():
                   update_nested_dict(config, test_key, value)
-              config['transformer']['architecture']['max_relative_position'] = config['transformer']['architecture']['max_relative_position'] // params['stride']       
+              config['transformer']['architecture']['max_relative_position'] = config['transformer']['architecture']['max_relative_position'] // params['stride']    
+              if params.get('max_pool') == True:
+                config['transformer']['architecture']['max_relative_position'] = config['transformer']['architecture']['max_relative_position'] // 2    
+
+              new_config = copy.deepcopy(config)
+              configs.append(new_config)
+   
 
 
       else:
           for (test_key, value) in params.items():
               update_nested_dict(config, test_key, value)
+              if params.get('max_pool') == True:
+                config['transformer']['architecture']['max_relative_position'] = config['transformer']['architecture']['max_relative_position'] // 2    
 
-      if params.get('max_pool') == True:
-          config['transformer']['architecture']['max_relative_position'] = config['transformer']['architecture']['max_relative_position'] // 2    
+              new_config = copy.deepcopy(config)
+              configs.append(new_config)
 
-      new_config = copy.deepcopy(config)
-      configs.append(new_config)
+
 
     return configs
 

@@ -747,10 +747,11 @@ def noise_rejection(model_number, model_type='final', cuda_device=0, verbose=Fal
   config = get_model_config(model_num=model_number, type_of_file='yaml')
 
   if 'transformer' in config:
+    seq_len = config['input_length']
     config = config['transformer']
-
-
-  seq_len = config['architecture']['seq_len']  
+  else:
+    seq_len = config['architecture']['seq_len']  
+    
   noise = noise[:100000, 250:seq_len+250, :]
 
 

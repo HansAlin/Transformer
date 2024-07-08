@@ -48,8 +48,8 @@ def histogram(y_pred, y, config, bins=100, save_path='', text='', threshold=None
 
     text = text.replace('_', '')
     plt.rcParams['text.usetex'] = True
-    plt.rcParams['font.size'] = 15
-    fig, ax = plt.subplots(figsize=(10, 5))
+    plt.rcParams['font.size'] = 12
+    fig, ax = plt.subplots(figsize=(6, 4))
     signal_mask = y == 1
     y_pred_signal = y_pred[signal_mask]
     y_pred_noise = y_pred[~signal_mask]
@@ -83,7 +83,7 @@ def histogram(y_pred, y, config, bins=100, save_path='', text='', threshold=None
     text_string = f'{(quantile_signal):.2f}' 
     text_string = '90 proc. signal at ' + text_string
     ax.axvline(x=quantile_signal, color='g', linestyle='-.', label=text_string)  
-    ax.legend()
+    ax.legend(loc='upper left')
 
     plt.savefig(save_path)
     plt.clf()

@@ -196,24 +196,16 @@ class InputEmbeddings(nn.Module):
       d_model (int): The dimension of the model.
       dropout (float, optional): The dropout rate. Defaults to 0.1.
       channels (int, optional): The number of channels in the input. Defaults to 1.
-      embed_type (str, optional): The type of the embedding. Defaults to 'lin_relu_drop'.
-      kwargs: Additional arguments for the CnnInputEmbeddings layer, padding, stride, kernel_size.
+      embed_type (str, optional): The type of the embedding. Defaults to 'linear'.
+      kwargs: Additional arguments for the CnnInputEmbeddings and ViTEmbeddings layer, padding, stride, kernel_size.
   
   """
-  def __init__(self, d_model: int, dropout: float = 0.1, n_ant: int = 4, embed_type='lin_relu_drop', **kwargs) -> None:
+  def __init__(self, d_model: int, dropout: float = 0.1, n_ant: int = 4, embed_type='linear', **kwargs) -> None:
     super().__init__()
     self.d_model = d_model
     self.channels = n_ant
 
-    if embed_type == 'lin_relu_drop':
-      self.embedding = nn.Linear(n_ant, d_model)
-      self.activation = nn.ReLU()
-      self.dropout = nn.Dropout(dropout)
-    elif embed_type == 'lin_gelu_drop':
-      self.embedding = nn.Linear(n_ant, d_model)
-      self.activation = nn.GELU()
-      self.dropout = nn.Dropout(dropout)
-    elif embed_type == 'linear':
+    if embed_type == 'linear':
       self.embedding = nn.Linear(n_ant, d_model)
       self.activation = nn.Identity()
       self.dropout = nn.Dropout(0)  
@@ -683,25 +675,30 @@ class FinalBlock(nn.Module):
           seq_len (int): The length of the sequence.
           dropout (float, optional): The dropout rate. Defaults to 0.1.
           out_put_size (int, optional): The size of the output. Defaults to 1.
-          forward_type (str, optional): The type of the forward pass. Defaults to 'basic'.
+          forward_type (str, optional): The type of the forward pass. Defaults to 'd_model_average_linear'.
   """
   def __init__(self, d_model: int, seq_len: int, dropout: float = 0.1,  out_put_size: int = 1, forward_type='double_linear'):
     super().__init__()
+
+    # Two linear layers after each other
     if forward_type == 'double_linear':
       self.linear_1 = nn.Linear(d_model, out_put_size)
       self.dropout = nn.Dropout(dropout)
       self.linear_2 = nn.Linear(seq_len, out_put_size)
       self.forward_type = self.double_linear_forward
 
+    # One linear layer
     elif forward_type == 'single_linear':
       self.linear_1 = nn.Linear(d_model*seq_len, out_put_size)  
       self.forward_type = self.single_linear_forward
 
+    # Average the sequence and apply a linear layer
     elif forward_type == 'seq_average_linear':  
       self.linear = nn.Linear(seq_len, out_put_size) 
       self.forward_type = self.average_forward
       self.dim = 2
 
+    # Average the d_model and apply a linear layer
     elif forward_type == 'd_model_average_linear':
       self.linear = nn.Linear(d_model, out_put_size)
       self.forward_type = self.average_forward
@@ -1059,7 +1056,7 @@ def build_encoder_transformer(config):
   else:
     factor = 1  
   final_block = FinalBlock(d_model=config['transformer']['architecture']['d_model'] *factor,
-                            seq_len=config['transformer']['architecture']['seq_len'] , 
+                            seq_len=config['input_length'] , 
                             dropout=config['training']['dropout'], 
                             out_put_size=config['transformer']['architecture'].get('output_size', 1) , 
                             forward_type=final_type)
@@ -1335,7 +1332,7 @@ def get_FLOPs(model, config, verbose=False):
   """
 
   batch_size = 1
-  seq_len = config['transformer']['architecture']['seq_len']
+  seq_len = config['input_length']
   d_model = config['transformer']['architecture']['d_model']
   d_ff = config['transformer']['architecture']['d_ff']
   n_ant = config['transformer']['architecture']['n_ant']

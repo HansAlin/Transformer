@@ -74,13 +74,7 @@ def get_config(num):
         config['data_locations'] = {}
         config['data_locations']['tag_folder_veff'] = 'CDF_0.7'
 
-        config['input_length'] = config['transformer']['architecture']['seq_len']
         config['n_ant'] = config['transformer']['architecture']['n_ant']
-        # config['training']['batch_size'] = config['transformer']['training']['batch_size']
-        # config['training']['learning_rate'] = config['transformer']['training']['learning_rate']
-        # config['training']['loss_fn'] = config['transformer']['training']['loss_function']
-
-
 
         # Pre-trigger
         if config['transformer']['architecture']['data_type'] == 'trigger': 

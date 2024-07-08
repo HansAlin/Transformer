@@ -104,7 +104,7 @@ def main():
     # args.config_number = 0
     args.resume_training_for_model = None
     args.inherit_model = 0
-    args.save_configs = False
+    args.save_configs = True
     alt_combination = 'combi'
     subset = None # None
 
@@ -143,10 +143,10 @@ def main():
             'h': [4],
             'N': [2], 
             'batch_size': [1024],
-            'max_pool': [True,False],
-            'embed_type': ['ViT', 'cnn', 'linear'],
+            'max_pool': [True],
+            'embed_type': ['ViT'],
             'max_relative_position': [16],
-            'pos_enc_type': ['Sinusoidal', 'Learnable', 'Relative'],
+            'pos_enc_type': ['Relative'],
     }
 
 

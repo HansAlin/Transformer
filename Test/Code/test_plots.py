@@ -29,8 +29,8 @@ def condense_sequence(match):
 ####################################################################
 # Plot histogram                                                   #
 ####################################################################
-model_nums = [507,505]
-alternative_titels = [r'$N = 4$, $d_{model} = 256$, $d_{ff} = 256$, $h = 4$', r'$N = 4$, $d_{model} = 256$, $d_{ff} = 16$, $h = 4$']
+model_nums = [505,507]
+alternative_titels = [r'$N = 4$, $d_{model} = 256$, $d_{ff} = 16$, $h = 4$', r'$N = 4$, $d_{model} = 256$, $d_{ff} = 256$, $h = 4$']
 device = torch.device(f'cuda:{0}')
 config = dd.get_model_config(model_nums[0])
 train_loader, val_loader, test_loader = dd.get_data(config, subset=False)

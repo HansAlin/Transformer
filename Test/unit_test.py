@@ -315,9 +315,7 @@ class TestModel(BaseTest):
         config = self.config   
         batch_size = get_value(config, 'batch_size') 
         n_ant = get_value(config, 'n_ant')
-        seq_len = get_value(config, 'seq_len')
-        max_pool = get_value(config, 'max_pool')
-        d_model = get_value(config, 'd_model')
+        seq_len = get_value(config, 'input_length')
 
         model = build_encoder_transformer(config)
         flops = get_FLOPs(model, config)
@@ -471,15 +469,15 @@ if __name__ == '__main__':
         ]
     alt_combination = 'combi' #single = one item from each, combi = all combinations restrict = only combinations that satisfy FLOPs
     test_dict = {
-            'd_model': [16],
-            'd_ff': [32],
+            'd_model': [8],
+            'd_ff': [12],
             'h': [4],
             'N': [2], 
             'batch_size': [1024],
-            'max_pool': [True,False],
-            'embed_type': ['ViT', 'cnn', 'linear'],
+            'max_pool': [True],
+            'embed_type': ['ViT'],
             'max_relative_position': [16],
-            'pos_enc_type': ['Sinusoidal', 'Learnable', 'Relative'],
+            'pos_enc_type': ['Sinusoidal'],
     }
     configs = config_production(base_config_number=0,
                                 test_dict=test_dict,

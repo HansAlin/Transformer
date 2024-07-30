@@ -186,8 +186,6 @@ class ViTEmbeddings(nn.Module):
     # x = x.transpose(1, 2)  # Swap the "seq_len" and "d_model" dimensions
     return x  
 
-
-
 class InputEmbeddings(nn.Module):
   """This layer maps feature space from the input to the d_model space.
 
@@ -200,27 +198,27 @@ class InputEmbeddings(nn.Module):
       kwargs: Additional arguments for the CnnInputEmbeddings and ViTEmbeddings layer, padding, stride, kernel_size.
   
   """
-  def __init__(self, d_model: int, dropout: float = 0.1, n_ant: int = 4, embed_type='linear', **kwargs) -> None:
+  def __init__(self, d_model: int, dropout: float = 0.1, activation: str = 'relu',n_ant: int = 4, embed_type='linear', **kwargs) -> None:
     super().__init__()
     self.d_model = d_model
     self.channels = n_ant
+    if activation == 'relu':
+      self.activation = nn.ReLU()
+    elif activation == 'gelu':
+      self.activation = nn.GELU()
+    else:
+      self.activation = nn.Identity
 
     if embed_type == 'linear':
       self.embedding = nn.Linear(n_ant, d_model)
-      self.activation = nn.Identity()
-      self.dropout = nn.Dropout(dropout)  
     elif embed_type == 'cnn':
       self.embedding = CnnInputEmbeddings(n_ant, d_model, **kwargs)
-      self.activation = nn.ReLU()
-      self.dropout = nn.Dropout(dropout)
     elif embed_type == 'ViT':
       self.embedding = ViTEmbeddings(n_ant, d_model, **kwargs)
-      self.activation = nn.ReLU()
-      self.dropout = nn.Dropout(dropout)  
-
     else:
       raise ValueError(f"Unsupported embed type: {embed_type}")
-
+    
+    self.dropout = nn.Dropout(dropout)  
   def forward(self, x):
     # (batch_size, seq_len, channels)
 
@@ -398,7 +396,8 @@ class MultiHeadAttentionBlock(nn.Module):
       row = torch.arange(max_seq_len).reshape(-1, 1)
       col = torch.arange(max_seq_len)
       self.sigma = nn.Parameter(torch.ones(1))
-      self.G = torch.exp(-((row - col).float()/ self.sigma)**2)
+      G = torch.exp(-((row - col).float()/ self.sigma)**2)
+      self.register_buffer('G', G)
     else:
       self.G = None  
 
@@ -797,10 +796,6 @@ class VanillaEncoderTransformer(nn.Module):
 
         x = self.forward(x)
         return x
-
-   
-
-    
 
 
 class Encoder(nn.Module):

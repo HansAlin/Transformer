@@ -7,7 +7,8 @@ import evaluate.evaluate as ee
 import dataHandler.datahandler as dd
 
 
-models = range(710,712)
+models = range(335,336)
+save = True
 
 for model_num in models:
     try:
@@ -17,7 +18,7 @@ for model_num in models:
         n_ant = dd.get_value(config, 'n_ant')
 
 
-        model = mm.build_encoder_transformer(config['transformer'])
+        model = mm.build_encoder_transformer(config)
 
 
         flops = mm.get_FLOPs(model, config)
@@ -27,7 +28,7 @@ for model_num in models:
         else:
             in_put = (seq_len, n_ant)
 
-        out = get_model_complexity_info(model, in_put, as_strings=True, print_per_layer_stat=False, verbose=False)
+        #out = get_model_complexity_info(model, in_put, as_strings=True, print_per_layer_stat=False, verbose=False)
 
         if 'FLOPs' in config['transformer']['num of parameters']:
             oldFlops = config['transformer']['num of parameters']['FLOPs']
@@ -44,10 +45,10 @@ for model_num in models:
         
         config['transformer']['num of parameters']['num_param'] = parameters
         config['transformer']['num of parameters']['FLOPs'] = flops
-
-        dd.save_data(config)
+        if save:
+            dd.save_data(config)
     except Exception as e:
-        #print(f"Model number: {model_num}, Error: {e}")
+        print(f"Model number: {model_num}, Error: {e}")
         pass
 
 

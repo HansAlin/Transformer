@@ -169,12 +169,18 @@ notes.md
 
 # Other folders
 Test/MNIST/
-Test/data
+Test/data/
 Test/ModelsResults
 Test/data/rawdata
-Test/presentation
-Test/
+Test/presentation/
+Test/models_test/
+Test/Code
 figures/
-
+trained_models/
+stering/
+.main.py.swp
 training_scheme.txt
 *.png
+phased_data_config.yaml
+trigger_data_config.yaml
+QuickVeffRatio.py

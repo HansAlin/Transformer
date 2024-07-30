@@ -8,7 +8,7 @@ import numpy as np
 CODE_DIR_1  ='/home/halin/Master/Transformer/'
 sys.path.append(CODE_DIR_1)
 # type(sys.path)
-# for path in sys.path:
+# for path in sys.pa
 #    print(path)
 import models.models as mm
 import dataHandler.datahandler as dd
@@ -29,14 +29,17 @@ def condense_sequence(match):
 ####################################################################
 # Plot histogram                                                   #
 ####################################################################
-model_nums = [505,507]
-alternative_titels = [r'$N = 4$, $d_{model} = 256$, $d_{ff} = 16$, $h = 4$', r'$N = 4$, $d_{model} = 256$, $d_{ff} = 256$, $h = 4$']
+model_nums = [256]
+alternative_titels = ['Example']
 device = torch.device(f'cuda:{0}')
 config = dd.get_model_config(model_nums[0])
+
 train_loader, val_loader, test_loader = dd.get_data(config, subset=False)
 del train_loader, val_loader
 for model_num, alternative_title in zip(model_nums, alternative_titels):
     config = dd.get_model_config(model_num)
+    if 'dropout' not in config['training']:
+        config['training']['dropout'] = config['transformer']['training']['dropout']
     best_epoch = config['transformer']['results']['best_epoch']
     model = mm.load_model(config=config, text=f'{best_epoch}')
     y_pred_data, accuracy, efficiency, precision,threshold = ee.test_model(model, test_loader, device=device, config=config, )

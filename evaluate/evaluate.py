@@ -73,8 +73,10 @@ def test_model(model, test_loader, device, config, plot_attention=False, extra_i
       if data_type == 'chunked':
         x_test, y_test = next(iter(test_loader))
         y_test = y_test.max(dim=1)[0]
-        
-      x_test, y_test = test_loader.__getitem__(istep)
+      elif data_type == 'any':
+        x_test, y_test = next(iter(test_loader))   
+      else:
+        x_test, y_test = test_loader.__getitem__(istep)
 
       if plot_attention:
         for i in range(0, len(x_test)):
@@ -908,8 +910,11 @@ def find_best_model(config, device, save_path='', test=True, test_loader=None):
     config['transformer']['results']['TRESH_AT_10KNRF'] = float(threshold)
     pp.plot_results(config['transformer']['basic']['model_num'], config)
 
-
-    x_batch, y_batch = test_loader.__getitem__(0)
+    if data_type != 'any':
+      x_batch, y_batch = test_loader.__getitem__(0)
+    else:
+      x_batch, y_batch = next(iter(test_loader))
+      
     x = x_batch.cpu().detach().numpy()
     y = y_batch.cpu().detach().numpy()
       

@@ -3,6 +3,7 @@ import numpy as np
 import torch 
 from torch import nn
 from torch.utils.data import DataLoader, Dataset, TensorDataset
+from torch.utils.data import random_split
 from matplotlib import pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.ticker import MultipleLocator
@@ -31,6 +32,7 @@ sys.path.append(CODE_DIR_4)
 
 import model_configs as mc
 import models.models as mm
+
 
 from NuRadioReco.utilities import units, fft
 
@@ -430,6 +432,54 @@ def get_test_data(path='/home/halin/Master/Transformer/Test/data/', n_antennas=4
   )
 
   return train_data, val_data, test_data
+
+def get_any_data(config, subset=False):
+   
+  batch_size = config['training']['batch_size']
+  feat = config['n_ant']
+  seq_len = config['input_length']
+  test_frac = config['training']['test_frac']
+  val_frac = config['training']['val_frac']
+
+  # Number of samples per class
+  n_samples = 10000
+
+  # Generate 2D data points for two clusters
+  X1 = torch.randn(n_samples, seq_len, feat) + 0.01  # Cluster 1: centered at (1, 1)
+  X2 = torch.randn(n_samples, seq_len, feat) - 0.01  # Cluster 2: centered at (-1, -1)
+
+  # Concatenate the data points
+  X = torch.cat([X1, X2], dim=0)
+
+  # Generate labels
+  y1 = torch.zeros(n_samples, dtype=torch.long)  # Labels for cluster 1
+  y2 = torch.ones(n_samples, dtype=torch.long)   # Labels for cluster 2
+
+
+
+  # Concatenate the labels
+  y = torch.cat([y1, y2])
+
+  # Create a DataLoader for our data
+  dataset = TensorDataset(X, y)
+
+  train_set = int((1 - test_frac - val_frac) * len(dataset))
+  val_set = int(val_frac * len(dataset))
+  test_set = len(dataset) - train_set - val_set
+
+  train_data, val_data, test_data = random_split(dataset, [train_set, val_set, test_set])
+
+  train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
+  val_loader = DataLoader(val_data, batch_size=batch_size, shuffle=True)
+  test_loader = DataLoader(test_data, batch_size=batch_size, shuffle=True)
+  
+  print(f"Data shape: {train_loader.dataset.dataset.tensors[0][train_loader.dataset.indices].shape}")
+ 
+
+  return train_loader, val_loader, test_loader
+
+
+     
 
 # def plot_examples(background,waveforms,sampling_rate, config, output_plot_dir='/home/halin/Master/Transformer/Test/ModelsResults/test'):
 #   n_events = 3
@@ -877,7 +927,7 @@ def get_model_path(config, text=''):
   if 'transformer' in config:
     config = config['transformer']
   if '/mnt/md0/halin/Models' not in config['basic']['model_path']:  
-    folder = config['basic']['model_path']
+    folder = config['basic']['model_path'] + 'saved_model/'
   else:
     folder = config['basic']['model_path'] + 'saved_model/'
 
@@ -1232,7 +1282,7 @@ def config_production(base_config_number,
 
       if params.get('embed_type') == 'cnn':
 
-          if config['transformer']['architecture']['n_ant'] == 5 or params.get('n_ant') == 5:
+          if config['n_ant'] == 5 or params.get('n_ant') == 5:
               if params.get('d_model') != None:
                   if params.get('d_model') % 5 == 0:
                       pass
@@ -1276,11 +1326,11 @@ def config_production(base_config_number,
       else:
           for (test_key, value) in params.items():
               update_nested_dict(config, test_key, value)
-              if params.get('max_pool') == True:
-                config['transformer']['architecture']['max_relative_position'] = config['transformer']['architecture']['max_relative_position'] // 2    
+          if params.get('max_pool') == True:
+            config['transformer']['architecture']['max_relative_position'] = config['transformer']['architecture']['max_relative_position'] // 2    
 
-              new_config = copy.deepcopy(config)
-              configs.append(new_config)
+          new_config = copy.deepcopy(config)
+          configs.append(new_config)
 
 
 

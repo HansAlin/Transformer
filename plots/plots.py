@@ -84,8 +84,9 @@ def histogram(y_pred, y, config, bins=100, save_path='', text='', threshold=None
     text_string = '90 proc. signal at ' + text_string
     ax.axvline(x=quantile_signal, color='g', linestyle='-.', label=text_string)  
     ax.legend(loc='upper left')
+    plt.tight_layout()
 
-    plt.savefig(save_path)
+    plt.savefig(save_path, dpi=500)
     plt.clf()
     plt.close()
 

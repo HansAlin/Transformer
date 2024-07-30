@@ -103,7 +103,7 @@ def main():
     args.cuda_device = 1
     # args.config_number = 0
     args.resume_training_for_model = None
-    args.inherit_model = 0
+    args.inherit_model = 2
     args.save_configs = False
     alt_combination = 'combi'
     subset = None # None
@@ -113,6 +113,7 @@ def main():
 
 
   models_path = '/mnt/md0/halin/Models/'
+  models_path = '/home/halin/Master/Transformer/trained_models/'
   # 'double_linear', 'single_linear', 'seq_average_linear'
 
   if args.resume_training_for_model != None:
@@ -170,12 +171,6 @@ def main():
           print('Model not exisiting')
 
 
-
-
-  
-    #   args.start_model_num = int(args.start_model_num)
-    
-
     model_num = int(args.start_model_num)
 
     configs = dh.config_production(base_config_number=args.inherit_model,
@@ -198,9 +193,9 @@ def main():
   print(f"Different keys: {diff_keys}")
   for key, val1, val2 in diff_keys:
       print(f'Key: {key}\nDict1 Value: {val1}\nDict2 Value: {val2}\n---')
-  answer = input("Do you want to continue? (y/n): ")
-  if answer == 'n':
-    sys.exit()
+  # answer = input("Do you want to continue? (y/n): ")
+  # if answer == 'n':
+  #   sys.exit()
 
   if args.save_configs:
     save_configs(configs)

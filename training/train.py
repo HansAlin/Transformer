@@ -18,7 +18,7 @@ import subprocess
 
 import tensorboard
 from models.models import build_encoder_transformer, get_FLOPs, count_parameters, load_model, get_state
-from dataHandler.datahandler import save_data, save_model, create_model_folder, get_model_path, get_chunked_data, get_trigger_data, get_value
+from dataHandler.datahandler import save_data, save_model, create_model_folder, get_model_path, get_chunked_data, get_trigger_data, get_value, get_any_data
 from evaluate.evaluate import test_model, validate, get_energy, find_best_model
 import lossFunctions.lossFunctions as ll
 
@@ -38,8 +38,10 @@ def training(configs, cuda_device, model_folder='', test=False, retraining=False
   data_type = configs[0]['transformer']['architecture'].get('data_type', 'chunked')
   if data_type == 'chunked':
     train_loader, val_loader, test_loader = get_chunked_data(config=configs[0], subset=False) # 
-  else:
+  elif data_type == 'trigger':
     train_loader, val_loader, test_loader = get_trigger_data(configs[0], subset=test) # 
+  elif data_type == 'any':
+    train_loader, val_loader, test_loader = get_any_data(configs[0], subset=test)
 
 
   item = next(iter(train_loader))
@@ -165,8 +167,11 @@ def training(configs, cuda_device, model_folder='', test=False, retraining=False
     early_stop_count = 0
     min_val_loss = float('inf')
     total_time = time.time()
+    if config['transformer']['architecture']['data_type'] != 'any':
+      x_batch, y_batch = test_loader.__getitem__(0)
+    else:
+      x_batch, y_batch = next(iter(train_loader))
 
-    x_batch, y_batch = test_loader.__getitem__(0)
     x = x_batch.cpu().detach().numpy()
     y = y_batch.cpu().detach().numpy()
     
@@ -194,8 +199,11 @@ def training(configs, cuda_device, model_folder='', test=False, retraining=False
       for istep in tqdm(range(len(train_loader)), disable=False):
 
         print(f"Epoch {epoch}/{config['training']['num_epochs']} Batch {batch_num}/{num_of_bathes}, GPU: {device} ", end="\r") # config['training']['num_epochs']
-  
-        x_batch, y_batch = train_loader.__getitem__(istep)
+
+        if config['transformer']['architecture']['data_type'] != 'any':
+          x_batch, y_batch = train_loader.__getitem__(istep)
+        else:
+          x_batch, y_batch = next(iter(train_loader))
         if data_type == 'chunked':
            y_batch = y_batch.max(dim=1)[0]
         x_batch, y_batch = x_batch.to(device).to(precision), y_batch.to(device).to(precision)
@@ -227,7 +235,10 @@ def training(configs, cuda_device, model_folder='', test=False, retraining=False
 
         for istep in tqdm(range(len(val_loader))):
 
-          x_batch, y_batch = val_loader.__getitem__(istep)
+          if config['transformer']['architecture']['data_type'] != 'any':
+            x_batch, y_batch = val_loader.__getitem__(istep)
+          else:
+            x_batch, y_batch = next(iter(val_loader))  
           
           if data_type == 'chunked':
             y_batch = y_batch.max(dim=1)[0]

@@ -175,11 +175,15 @@ Test/data/rawdata
 Test/presentation/
 Test/models_test/
 Test/Code
+Test/config
 figures/
 trained_models/
 stering/
 .main.py.swp
+main.py.save
 training_scheme.txt
+Test/transformerAriannaData.py
+dataHandler/load_test_data.py
 *.png
 phased_data_config.yaml
 trigger_data_config.yaml

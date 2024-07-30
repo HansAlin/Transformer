@@ -175,7 +175,7 @@ Test/data/rawdata
 Test/presentation/
 Test/models_test/
 Test/Code
-Test/config
+Test/config/
 figures/
 trained_models/
 stering/

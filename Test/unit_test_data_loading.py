@@ -1,11 +1,13 @@
 import sys
+import os
 import torch
 import unittest
 import numpy as np
 import yaml
 
-CODE_DIR_1  ='/home/halin/Master/Transformer/'
-sys.path.append(CODE_DIR_1)
+current_dir = os.getcwd()
+print(f"Current directory: {current_dir}")
+sys.path.append(current_dir)
 
 import dataHandler.datahandler as dd
 import model_configs.config as mc

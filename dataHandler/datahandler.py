@@ -21,14 +21,14 @@ import copy
 
 
 
-CODE_DIR_1  ='/home/acoleman/software/NuRadioMC/'
-sys.path.append(CODE_DIR_1)
-# CODE_DIR_2 = '/home/acoleman/work/rno-g/'
-# sys.path.append(CODE_DIR_2)
-# CODE_DIR_3 = '/home/halin/Master/nuradio-analysis/'
-# sys.path.append(CODE_DIR_3)
-CODE_DIR_4 = '/home/halin/Master/nuradio-analysis/'
-sys.path.append(CODE_DIR_4)
+# CODE_DIR_1  ='/home/acoleman/software/NuRadioMC/'
+# sys.path.append(CODE_DIR_1)
+# # CODE_DIR_2 = '/home/acoleman/work/rno-g/'
+# # sys.path.append(CODE_DIR_2)
+# # CODE_DIR_3 = '/home/halin/Master/nuradio-analysis/'
+# # sys.path.append(CODE_DIR_3)
+# CODE_DIR_4 = '/home/halin/Master/nuradio-analysis/'
+# sys.path.append(CODE_DIR_4)
 
 import model_configs as mc
 import models.models as mm
@@ -36,11 +36,12 @@ import models.models as mm
 
 from NuRadioReco.utilities import units, fft
 
-from analysis_tools import data_locations
-from analysis_tools.config import GetConfig
-from analysis_tools.data_loaders import DatasetContinuousStreamStitchless, DatasetSnapshot
-from analysis_tools.Filters import GetRMSNoise
-from analysis_tools.model_loaders import ConstructModelFromConfig, LoadModelFromConfig
+# Uncomment this if originla data is used
+# from analysis_tools import data_locations
+# from analysis_tools.config import GetConfig
+# from analysis_tools.data_loaders import DatasetContinuousStreamStitchless, DatasetSnapshot
+# from analysis_tools.Filters import GetRMSNoise
+# from analysis_tools.model_loaders import ConstructModelFromConfig, LoadModelFromConfig
 
 
 

@@ -97,22 +97,23 @@ def main():
   except Exception as e:
     print(e)  
     args = argparse.Namespace()
-    args.start_model_num = None
-    args.epochs = 2
-    args.test = True
-    args.cuda_device = 1
-    # args.config_number = 0
-    args.resume_training_for_model = None
-    args.inherit_model = 2
-    args.save_configs = False
-    alt_combination = 'combi'
+    args.start_model_num = None           # Whcih model number to start from
+    args.epochs = 20                       # Number of epochs
+    args.test = True                      # Test mode
+    args.cuda_device = 1                  # Which cuda device to use
+    args.resume_training_for_model = None # Resume training for a specific model
+    args.inherit_model = 2                # Inherit model number 0, 1, 2 means standard configs were 2 is a basic config specified in model_configs/config.py
+    args.save_configs = False             # Save configs to file in stead of training if True
+    alt_combination = 'combi'             # option to choose between single = one item from each, 
+                                          # combi  = all combinations
+                                          # restrict = only combinations that satisfy FLOPs constraints
     subset = None # None
+  # Uncomment this if you want to compare the configs with a specific model
+  # compare_model = 320
+  # compare_config = dh.get_model_config(compare_model)
 
-  compare_model = 320
-  compare_config = dh.get_model_config(compare_model)
 
-
-  models_path = '/mnt/md0/halin/Models/'
+  #models_path = '/mnt/md0/halin/Models/'
   models_path = '/home/halin/Master/Transformer/trained_models/'
   # 'double_linear', 'single_linear', 'seq_average_linear'
 
@@ -187,12 +188,12 @@ def main():
     print(f"Model number: {model_num}, Batch size: {dh.get_value(config, 'batch_size'):>4}, d_model: {dh.get_value(config, 'd_model'):>3}, d_ff: {dh.get_value(config, 'd_ff'):>3}, h: {dh.get_value(config, 'h'):>2}, N: {dh.get_value(config, 'N'):>2}, Loss function: {dh.get_value(config, 'loss_fn'):>14}, Embedding: {dh.get_value(config, 'embed_type'):>6}, Positional encoding: {dh.get_value(config, 'pos_enc_type'):>12}, Projection: {dh.get_value(config, 'projection_type'):>8}, Antenna type: {dh.get_value(config, 'antenna_type'):>7}, Data type: {dh.get_value(config, 'data_type'):>7}" )
     model_num += 1
 
-
-  exclude_keys = {'basic', 'results', 'num of parameters'}
-  diff_keys = compare_dicts(configs[0], compare_config, exclude_keys)
-  print(f"Different keys: {diff_keys}")
-  for key, val1, val2 in diff_keys:
-      print(f'Key: {key}\nDict1 Value: {val1}\nDict2 Value: {val2}\n---')
+  # Uncomment this if you want to compare the configs with a specific model
+  # exclude_keys = {'basic', 'results', 'num of parameters'}
+  # diff_keys = compare_dicts(configs[0], compare_config, exclude_keys)
+  # print(f"Different keys: {diff_keys}")
+  # for key, val1, val2 in diff_keys:
+  #     print(f'Key: {key}\nDict1 Value: {val1}\nDict2 Value: {val2}\n---')
   # answer = input("Do you want to continue? (y/n): ")
   # if answer == 'n':
   #   sys.exit()

@@ -9,8 +9,12 @@ import numpy as np
 import time
 
 
-CODE_DIR_1  ='/home/halin/Master/Transformer/'
-sys.path.append(CODE_DIR_1)
+
+current_dir = os.getcwd()
+print(f"Current directory: {current_dir}")
+sys.path.append(current_dir)
+
+
 from models.models import LayerNormalization, BatchNormalization, ResidualConnection, MultiHeadAttentionBlock, FeedForwardBlock, EncoderBlock, Encoder, InputEmbeddings, PositionalEncoding, FinalBlock, EncoderTransformer, build_encoder_transformer, get_FLOPs
 from dataHandler.datahandler import prepare_data, get_chunked_data, get_trigger_data, get_model_config, config_production
 from model_configs.config import get_config

@@ -1,13 +1,5 @@
 import yaml
-# History: 
-# Date        model
-# 2024-01-15: 24    'final_type' is 'maxpool' instead of 'slim'
-# 2024-01-16: 24 changed 'num_parms' to 'num_param'
-# 2024-01-16: 24 added 'encoder_type' which makes it possible skip the encoder
-# 2024-01-18: 25 removed 'bypass' that is now incorporated in 'encoder_type'
-# 2024-01-18: 25 changed final_type to avergae_pool
-# 2024-01-18: Changed old values to new values on models
-# 2024-01-18: Changed seq_len to 128
+
 
 config_1 = {
     "data_locations": {

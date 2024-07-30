@@ -16,14 +16,12 @@ import time
 from models.models import ModelWrapper, get_n_params, build_encoder_transformer, load_model, ResidualConnection, MultiHeadAttentionBlock, InputEmbeddings, PositionalEncoding, FinalBlock, FeedForwardBlock, CnnInputEmbeddings, BatchNormalization, LayerNormalization, ViTEmbeddings
 from dataHandler.datahandler import get_model_config, get_chunked_data, save_data, get_model_path, get_data
 import plots.plots as pp
-CODE_DIR_1  ='/home/acoleman/software/NuRadioMC/'
-sys.path.append(CODE_DIR_1)
-CODE_DIR_4 = '/home/halin/Master/nuradio-analysis/'
-sys.path.append(CODE_DIR_4)
 
-from analysis_tools.Filters import GetRMSNoise
 from NuRadioReco.utilities import units
-from analysis_tools import data_locations
+
+### Uncomment the following lines to use the analysis_tools package
+# from analysis_tools.Filters import GetRMSNoise
+# from analysis_tools import data_locations
 
 
    
@@ -914,7 +912,7 @@ def find_best_model(config, device, save_path='', test=True, test_loader=None):
       x_batch, y_batch = test_loader.__getitem__(0)
     else:
       x_batch, y_batch = next(iter(test_loader))
-      
+
     x = x_batch.cpu().detach().numpy()
     y = y_batch.cpu().detach().numpy()
       

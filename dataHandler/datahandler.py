@@ -443,11 +443,13 @@ def get_any_data(config, subset=False):
   val_frac = config['training']['val_frac']
 
   # Number of samples per class
-  n_samples = 10000
+  n_samples = 100000
+  if subset:
+    n_samples = 1000
 
   # Generate 2D data points for two clusters
-  X1 = torch.randn(n_samples, seq_len, feat) + 0.01  # Cluster 1: centered at (1, 1)
-  X2 = torch.randn(n_samples, seq_len, feat) - 0.01  # Cluster 2: centered at (-1, -1)
+  X1 = torch.randn(n_samples, seq_len, feat) + 0.05  # Cluster 1: centered at (1, 1)
+  X2 = torch.randn(n_samples, seq_len, feat) - 0.05  # Cluster 2: centered at (-1, -1)
 
   # Concatenate the data points
   X = torch.cat([X1, X2], dim=0)

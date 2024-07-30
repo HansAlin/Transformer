@@ -99,7 +99,7 @@ def main():
     args = argparse.Namespace()
     args.start_model_num = None           # Whcih model number to start from
     args.epochs = 20                       # Number of epochs
-    args.test = True                      # Test mode
+    args.test = False                      # Test mode
     args.cuda_device = 1                  # Which cuda device to use
     args.resume_training_for_model = None # Resume training for a specific model
     args.inherit_model = 2                # Inherit model number 0, 1, 2 means standard configs were 2 is a basic config specified in model_configs/config.py

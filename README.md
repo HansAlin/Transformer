@@ -1,5 +1,29 @@
 # Transformer model for detecting High Energy Neutrinos
+This is part of my master's thesis in particle physics at Uppsala University 2024
 
+## Abstract
+When Ultra-High-Energy (UHE) ( Energy > 1016 eV) neutrinos interact with ice, they produce
+detectable radio waves. Using ice as a detection medium is advantageous because it is transparent
+to radio waves and is abundantly available in the Arctic and Antarctic regions. Additionally,
+the cold temperature of the ice reduces thermal noise. The large availability of ice is crucial
+since the expected flux of neutrinos at these energies is low, and the interaction cross-section is
+small, requiring a very large detector. Ice’s transparency to radio waves allows for cost-efficient
+instrumentation of vast volumes.
+Even the planned IceCube-Gen2-Radio, with a coverage area of 500 km2, will only detect a
+few neutrinos per year with current triggering systems. Therefore, there is a huge potential to
+increase the scientific output by improved triggers that enhance the neutrino detection rate.
+This thesis investigates the potential of deep learning and transformer models to improve UHE
+neutrino detection. I demonstrate that transformer models, used as second-stage triggers, can
+enhance the detection rate of UHE neutrinos by 50% compared to existing systems. These models
+are trained on data pre-triggered by a simpler system and are exposed to both signal and noise
+events that fulfill the preselection requirements.
+Furthermore, transformer models used as first-stage triggers with continuous data achieve a
+128% increase in detection rate over current systems. Since models trained on continuous data are
+exposed to a continuous stream of data it has to perform more computation than models trained
+on pre-triggered data. This makes the first-stage trigger models more computationally expensive
+than the second-stage trigger models.
+
+## Get started
 In main.py one have to specify model_path, where models are suposed to be stored togheter with plots and so on. 
 The script is mad for specific radio signals from neutrino interactions in ice. However, it is possible to choose other kinds of data, eventhoug the plots might have strange labels. When creating costum made data follow the structure in dataHandler/datahandler.py get_any_data() which currently is just toy data. 
 In order to run originla data one needs to download nuradio-analysis from Alan Colemans Git repository. Further more one needs to uncumment the nuradio-analysis dependensies in: dataHandler/datahandler.py, evaluate/evaluate.py, Test/unit_test_data_loading.py, Test/unit_test_transformer.py, Test/unit_test.py

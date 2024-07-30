@@ -1,3 +1,0 @@
-Model number,Pos. enc. type,Model size,Feed forward,Layers (N),Heads (h) ,Tot. param.,NSE at 10k NRF,  FLOPs   
-119,Sinusoidal,64,512,2,32,166.8 k,0.849,2.7 G
-118,Sinusoidal,64,512,2,16,166.9 k,0.838,2.7 G

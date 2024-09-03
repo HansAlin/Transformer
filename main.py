@@ -98,7 +98,7 @@ def main():
     print(e)  
     args = argparse.Namespace()
     args.start_model_num = None           # Whcih model number to start from
-    args.epochs = 20                       # Number of epochs
+    args.epochs = 100                      # Number of epochs
     args.test = False                      # Test mode
     args.cuda_device = 1                  # Which cuda device to use
     args.resume_training_for_model = None # Resume training for a specific model
@@ -141,14 +141,14 @@ def main():
 
     hyper_param = {
             'd_model': [16],
-            'd_ff': [32],
-            'h': [4],
-            'N': [2], 
-            'batch_size': [1024],
-            'max_pool': [True],
-            'embed_type': ['ViT'],
-            'max_relative_position': [16],
-            'pos_enc_type': ['Relative'],
+            # 'd_ff': [32],
+            # 'h': [4],
+            # 'N': [2], 
+            # 'batch_size': [1024],
+            # 'max_pool': [True],
+            # 'embed_type': ['ViT'],
+            # 'max_relative_position': [16],
+            # 'pos_enc_type': ['Relative'],
     }
 
 

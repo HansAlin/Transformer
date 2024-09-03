@@ -434,37 +434,116 @@ def get_test_data(path='/home/halin/Master/Transformer/Test/data/', n_antennas=4
 
   return train_data, val_data, test_data
 
-def get_any_data(config, subset=False):
+
+# TODO uncomment this before push
+# def get_any_data(config, subset=False):
    
+#   batch_size = config['training']['batch_size']
+#   feat = config['n_ant']
+#   seq_len = config['input_length']
+#   test_frac = config['training']['test_frac']
+#   val_frac = config['training']['val_frac']
+
+#   # Number of samples per class
+#   n_samples = 100000
+#   if subset:
+#     n_samples = 1000
+
+#   # Generate 2D data points for two clusters
+#   X1 = torch.randn(n_samples, seq_len, feat) + 0.05  # Cluster 1: centered at (1, 1)
+#   X2 = torch.randn(n_samples, seq_len, feat) - 0.05  # Cluster 2: centered at (-1, -1)
+
+#   # Concatenate the data points
+#   X = torch.cat([X1, X2], dim=0)
+
+#   # Generate labels
+#   y1 = torch.zeros(n_samples, dtype=torch.long)  # Labels for cluster 1
+#   y2 = torch.ones(n_samples, dtype=torch.long)   # Labels for cluster 2
+
+
+
+#   # Concatenate the labels
+#   y = torch.cat([y1, y2])
+
+#   # Create a DataLoader for our data
+#   dataset = TensorDataset(X, y)
+
+#   train_set = int((1 - test_frac - val_frac) * len(dataset))
+#   val_set = int(val_frac * len(dataset))
+#   test_set = len(dataset) - train_set - val_set
+
+#   train_data, val_data, test_data = random_split(dataset, [train_set, val_set, test_set])
+
+#   train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
+#   val_loader = DataLoader(val_data, batch_size=batch_size, shuffle=True)
+#   test_loader = DataLoader(test_data, batch_size=batch_size, shuffle=True)
+  
+#   print(f"Data shape: {train_loader.dataset.dataset.tensors[0][train_loader.dataset.indices].shape}")
+ 
+
+#   return train_loader, val_loader, test_loader
+
+# TODO comment this out before push
+def augment_data(data, num_copies):
+    # Calculate the mean and standard deviation of each sample in the data
+    mean = data.mean(dim=1, keepdim=True)
+    std = data.std(dim=1, keepdim=True)
+
+    # Repeat each sample in the data and its mean and std num_copies times
+    repeat_sizes = (num_copies,) + (1,) * (data.dim() - 1)
+    data_repeated = data.repeat(*repeat_sizes)
+    mean_repeated = mean.repeat(*repeat_sizes)
+    std_repeated = std.repeat(*repeat_sizes)
+
+    # Generate random noise
+    noise = torch.randn_like(data_repeated) * std_repeated + mean_repeated
+
+    # Add the noise to the repeated data
+    synthetic_data = data_repeated + noise
+
+    return synthetic_data
+
+# TODO comment this out before push
+def get_any_data(config, subset=False):
+
   batch_size = config['training']['batch_size']
   feat = config['n_ant']
   seq_len = config['input_length']
   test_frac = config['training']['test_frac']
   val_frac = config['training']['val_frac']
+   
+  data = np.load('/home/halin/Master/Transformer/Test/data/aurora_data.npz', allow_pickle=True)   
 
-  # Number of samples per class
-  n_samples = 100000
-  if subset:
-    n_samples = 1000
+  aurora_data = torch.tensor(data['aurora']).float()
+  background_data = torch.tensor(data['background']).float()
 
-  # Generate 2D data points for two clusters
-  X1 = torch.randn(n_samples, seq_len, feat) + 0.05  # Cluster 1: centered at (1, 1)
-  X2 = torch.randn(n_samples, seq_len, feat) - 0.05  # Cluster 2: centered at (-1, -1)
+  # Augment the aurora_data
+  nr_original_samples = len(aurora_data)
+  nr_background_samples = len(background_data)
 
-  # Concatenate the data points
-  X = torch.cat([X1, X2], dim=0)
+  num_copies = nr_background_samples // nr_original_samples *10
+  synthetic_aurora_data = augment_data(aurora_data, num_copies)
+  synthetic_background_data = augment_data(background_data, 10)
 
-  # Generate labels
-  y1 = torch.zeros(n_samples, dtype=torch.long)  # Labels for cluster 1
-  y2 = torch.ones(n_samples, dtype=torch.long)   # Labels for cluster 2
+  # Concatenate the original and synthetic data
+  augmented_aurora_data = torch.cat([aurora_data, synthetic_aurora_data], dim=0)
 
+  # Co
+  augmented_background_data = torch.cat([background_data, synthetic_background_data], dim=0)  
 
+  concat_data = torch.cat([augmented_aurora_data, augmented_background_data], dim=0)
+  y_label = torch.ones(len(concat_data))
+  y_label[len(augmented_aurora_data):] = 0
 
-  # Concatenate the labels
-  y = torch.cat([y1, y2])
+  print(f"Number of aurora samples: {len(augmented_aurora_data)}")
+  print(f"Number of background samples: {len(augmented_background_data)}")
 
-  # Create a DataLoader for our data
-  dataset = TensorDataset(X, y)
+  shuffled_indices = torch.randperm(len(concat_data))
+
+  concat_data = concat_data[shuffled_indices]
+  y_label = y_label[shuffled_indices]
+
+  dataset = TensorDataset(concat_data, y_label)
 
   train_set = int((1 - test_frac - val_frac) * len(dataset))
   val_set = int(val_frac * len(dataset))
@@ -475,14 +554,12 @@ def get_any_data(config, subset=False):
   train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
   val_loader = DataLoader(val_data, batch_size=batch_size, shuffle=True)
   test_loader = DataLoader(test_data, batch_size=batch_size, shuffle=True)
-  
-  print(f"Data shape: {train_loader.dataset.dataset.tensors[0][train_loader.dataset.indices].shape}")
- 
 
   return train_loader, val_loader, test_loader
 
 
-     
+
+
 
 # def plot_examples(background,waveforms,sampling_rate, config, output_plot_dir='/home/halin/Master/Transformer/Test/ModelsResults/test'):
 #   n_events = 3

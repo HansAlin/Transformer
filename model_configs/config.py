@@ -104,11 +104,11 @@ config_1 = {
 
 base_config = {
 
-    "input_length": 256,
-    "n_ant": 4,
+    "input_length": 100,
+    "n_ant": 6,
 
     "training": {
-        "batch_size": 1024,
+        "batch_size": 128,
         "learning_rate": 0.001,
         "step_size": 7,
         "dropout": 0,
@@ -128,10 +128,10 @@ base_config = {
           'activation': 'relu',
           'antenna_type': 'LPDA',
           'by_pass': False,
-          'd_ff': 64,
-          'd_model': 32,  # Size of the model, needs to be a multiple of h
+          'd_ff': 32,
+          'd_model': 16,  # Size of the model, needs to be a multiple of h
           'data_type': 'any',
-          'embed_type': 'cnn',  # Options: 'cnn', 'ViT', 'linear'
+          'embed_type': 'linear',  # Options: 'cnn', 'ViT', 'linear'
           'encoder_type': 'vanilla',  # Options: 'vanilla' which implements the predefined multihead attention, 'normal' which implements everything from scratch
           'final_type': 'd_model_average_linear',
           'h': 2,
